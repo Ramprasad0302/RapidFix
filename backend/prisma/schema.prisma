@@ -1,0 +1,884 @@
+// FIXORA — database schema (MySQL 8+, Prisma 7)
+// Conventions:
+//   • Primary keys are UUID strings (CHAR(36)).
+//   • All money is stored as INT paise (₹1 = 100) — never floats.
+//   • Table names are snake_case via @@map; columns stay camelCase.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  TECHNICIAN
+  ADMIN
+  SUPER_ADMIN
+  OPERATIONS
+  SUPPORT
+  FINANCE
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+  BLOCKED
+}
+
+enum BookingStatus {
+  PENDING
+  SEARCHING
+  TECHNICIAN_ASSIGNED
+  TECHNICIAN_ACCEPTED
+  TECHNICIAN_EN_ROUTE
+  TECHNICIAN_ARRIVED
+  SERVICE_STARTED
+  ADDITIONAL_CHARGE_REQUESTED
+  ADDITIONAL_CHARGE_APPROVED
+  SERVICE_COMPLETED
+  PAYMENT_PENDING
+  PAYMENT_COMPLETED
+  CUSTOMER_CANCELLED
+  TECHNICIAN_CANCELLED
+  ADMIN_CANCELLED
+  NO_SHOW
+  DISPUTED
+  REFUNDED
+}
+
+enum ScheduleType {
+  NOW
+  SCHEDULED
+}
+
+enum AssignmentStatus {
+  OFFERED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  REASSIGNED
+}
+
+enum BookingItemType {
+  SERVICE
+  VISIT
+  ADDITIONAL
+  PART
+}
+
+enum AdditionalChargeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  RAZORPAY
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum TransactionType {
+  CHARGE
+  REFUND
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum CommissionScope {
+  GLOBAL
+  CATEGORY
+  SERVICE
+  LOCATION
+  TECHNICIAN
+}
+
+enum WalletTransactionType {
+  EARNING_CREDIT
+  COMMISSION_DEBIT
+  PAYOUT_DEBIT
+  ADJUSTMENT
+}
+
+enum PayoutStatus {
+  REQUESTED
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum AddressLabel {
+  HOME
+  WORK
+  OTHER
+}
+
+enum DocumentType {
+  AADHAAR
+  PAN
+  DRIVING_LICENSE
+  CERTIFICATE
+  PROFILE_PHOTO
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum DevicePlatform {
+  WEB
+  ANDROID
+  IOS
+}
+
+// ─── Identity & auth ─────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid()) @db.Char(36)
+  role         Role
+  phone        String?    @db.VarChar(16)
+  email        String?    @db.VarChar(191)
+  passwordHash String?    @db.VarChar(255)
+  name         String?    @db.VarChar(120)
+  avatarUrl    String?    @db.VarChar(512)
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  customer           Customer?
+  technician         Technician?
+  adminUser          AdminUser?
+  refreshTokens      RefreshToken[]
+  notifications      Notification[]
+  notificationTokens NotificationToken[]
+  messages           Message[]
+  auditLogs          AuditLog[]
+  complaintsRaised   Complaint[]       @relation("ComplaintRaisedBy")
+  complaintsAssigned Complaint[]       @relation("ComplaintAssignedTo")
+  statusChanges      BookingStatusHistory[]
+
+  // A phone can hold one customer account and one technician account.
+  @@unique([phone, role])
+  @@unique([email])
+  @@index([role, status])
+  @@map("users")
+}
+
+model OtpCode {
+  id         String    @id @default(uuid()) @db.Char(36)
+  phone      String    @db.VarChar(16)
+  role       Role
+  codeHash   String    @db.VarChar(255)
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  ip         String?   @db.VarChar(64)
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, role, createdAt])
+  @@map("otp_codes")
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid()) @db.Char(36)
+  userId       String    @db.Char(36)
+  tokenHash    String    @unique @db.VarChar(128)
+  familyId     String    @db.Char(36)
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?   @db.Char(36)
+  userAgent    String?   @db.VarChar(255)
+  ip           String?   @db.VarChar(64)
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model AdminUser {
+  id          String   @id @default(uuid()) @db.Char(36)
+  userId      String   @unique @db.Char(36)
+  department  String?  @db.VarChar(80)
+  lastLoginIp String?  @db.VarChar(64)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_users")
+}
+
+// ─── Customers ───────────────────────────────────────────────────────────
+
+model Customer {
+  id           String   @id @default(uuid()) @db.Char(36)
+  userId       String   @unique @db.Char(36)
+  referralCode String   @unique @db.VarChar(16)
+  referredById String?  @db.Char(36)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses   Address[]
+  bookings    Booking[]
+  reviews     Review[]
+  couponUsage CouponUsage[]
+
+  @@map("customers")
+}
+
+model Address {
+  id          String       @id @default(uuid()) @db.Char(36)
+  customerId  String       @db.Char(36)
+  label       AddressLabel @default(HOME)
+  houseNo     String       @db.VarChar(120)
+  street      String       @default("") @db.VarChar(160)
+  area        String       @db.VarChar(120)
+  villageTown String       @db.VarChar(120)
+  district    String       @db.VarChar(120)
+  state       String       @db.VarChar(80)
+  pincode     String       @db.Char(6)
+  landmark    String       @default("") @db.VarChar(160)
+  latitude    Float?
+  longitude   Float?
+  isDefault   Boolean      @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([customerId, deletedAt])
+  @@map("addresses")
+}
+
+// ─── Service areas ───────────────────────────────────────────────────────
+
+model Location {
+  id        String   @id @default(uuid()) @db.Char(36)
+  name      String   @db.VarChar(120)
+  district  String   @db.VarChar(120)
+  state     String   @db.VarChar(80)
+  latitude  Float
+  longitude Float
+  radiusKm  Int      @default(15)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings    Booking[]
+  coupons     Coupon[]
+  commissions Commission[]
+
+  @@unique([name, district, state])
+  @@index([isActive])
+  @@map("locations")
+}
+
+// ─── Catalogue ───────────────────────────────────────────────────────────
+
+model ServiceCategory {
+  id          String   @id @default(uuid()) @db.Char(36)
+  parentId    String?  @db.Char(36)
+  name        String   @db.VarChar(80)
+  slug        String   @unique @db.VarChar(80)
+  description String?  @db.VarChar(500)
+  iconKey     String   @db.VarChar(40)
+  imageUrl    String?  @db.VarChar(512)
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent      ServiceCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ServiceCategory[] @relation("CategoryTree")
+  services    Service[]
+  skills      TechnicianSkill[]
+  coupons     Coupon[]
+  commissions Commission[]
+
+  @@index([isActive, sortOrder])
+  @@map("service_categories")
+}
+
+model Service {
+  id                 String   @id @default(uuid()) @db.Char(36)
+  categoryId         String   @db.Char(36)
+  name               String   @db.VarChar(120)
+  slug               String   @unique @db.VarChar(120)
+  description        String   @db.Text
+  imageUrl           String?  @db.VarChar(512)
+  basePrice          Int
+  visitCharge        Int      @default(0)
+  durationMinMinutes Int
+  durationMaxMinutes Int
+  inclusions         Json
+  exclusions         Json
+  warrantyDays       Int      @default(0)
+  isPopular          Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  category    ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  bookings    Booking[]
+  coupons     Coupon[]
+  commissions Commission[]
+
+  @@index([categoryId, isActive, sortOrder])
+  @@index([isPopular, isActive])
+  @@fulltext([name, description])
+  @@map("services")
+}
+
+// ─── Technicians ─────────────────────────────────────────────────────────
+
+model Technician {
+  id                 String             @id @default(uuid()) @db.Char(36)
+  userId             String             @unique @db.Char(36)
+  experienceYears    Int                @default(0)
+  bio                String?            @db.VarChar(500)
+  languages          Json
+  addressLine        String             @default("") @db.VarChar(255)
+  villageTown        String             @db.VarChar(120)
+  district           String             @db.VarChar(120)
+  state              String             @db.VarChar(80)
+  pincode            String             @db.Char(6)
+  baseLatitude       Float?
+  baseLongitude      Float?
+  serviceRadiusKm    Int                @default(10)
+  verificationStatus VerificationStatus @default(PENDING)
+  rejectionReason    String?            @db.VarChar(500)
+  verifiedAt         DateTime?
+  isOnline           Boolean            @default(false)
+  lastLatitude       Float?
+  lastLongitude      Float?
+  lastLocationAt     DateTime?
+  activeJobCount     Int                @default(0)
+  completedJobs      Int                @default(0)
+  ratingAvg          Float              @default(0)
+  ratingCount        Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents      TechnicianDocument[]
+  skills         TechnicianSkill[]
+  bookings       Booking[]
+  assignments    BookingAssignment[]
+  additionalReqs BookingAdditionalCharge[]
+  wallet         TechnicianWallet?
+  payouts        Payout[]
+  reviews        Review[]
+  commissions    Commission[]
+
+  @@index([verificationStatus, isOnline])
+  @@index([district, state])
+  @@map("technicians")
+}
+
+model TechnicianDocument {
+  id           String         @id @default(uuid()) @db.Char(36)
+  technicianId String         @db.Char(36)
+  type         DocumentType
+  fileUrl      String         @db.VarChar(512)
+  status       DocumentStatus @default(PENDING)
+  remarks      String?        @db.VarChar(500)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  technician Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@index([technicianId])
+  @@map("technician_documents")
+}
+
+model TechnicianSkill {
+  technicianId String   @db.Char(36)
+  categoryId   String   @db.Char(36)
+  createdAt    DateTime @default(now())
+
+  technician Technician      @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([technicianId, categoryId])
+  @@index([categoryId])
+  @@map("technician_skills")
+}
+
+// ─── Bookings ────────────────────────────────────────────────────────────
+
+model Booking {
+  id           String        @id @default(uuid()) @db.Char(36)
+  seq          Int           @unique @default(autoincrement())
+  code         String?       @unique @db.VarChar(20)
+  customerId   String        @db.Char(36)
+  serviceId    String        @db.Char(36)
+  addressId    String        @db.Char(36)
+  technicianId String?       @db.Char(36)
+  locationId   String?       @db.Char(36)
+  couponId     String?       @db.Char(36)
+  status       BookingStatus @default(PENDING)
+  description  String        @db.Text
+  photos       Json
+  scheduleType ScheduleType  @default(SCHEDULED)
+  scheduledFor DateTime
+  timeSlot     String        @db.VarChar(8)
+  /// Address frozen at booking time so later edits don't rewrite history.
+  addressSnapshot Json
+  latitude        Float?
+  longitude       Float?
+
+  serviceCharge          Int
+  visitCharge            Int           @default(0)
+  additionalChargesTotal Int           @default(0)
+  discountAmount         Int           @default(0)
+  taxAmount              Int           @default(0)
+  totalAmount            Int
+  commissionAmount       Int?
+  technicianEarning      Int?
+  paymentMethod          PaymentMethod @default(CASH)
+  paymentStatus          PaymentStatus @default(PENDING)
+
+  cancellationReason String?   @db.VarChar(500)
+  assignedAt         DateTime?
+  acceptedAt         DateTime?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  /// Optimistic-lock counter; every status change increments it.
+  version            Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  customer          Customer                  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  service           Service                   @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  address           Address                   @relation(fields: [addressId], references: [id], onDelete: Restrict)
+  technician        Technician?               @relation(fields: [technicianId], references: [id], onDelete: SetNull)
+  location          Location?                 @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  coupon            Coupon?                   @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  statusHistory     BookingStatusHistory[]
+  assignments       BookingAssignment[]
+  items             BookingItem[]
+  additionalCharges BookingAdditionalCharge[]
+  payment           Payment?
+  review            Review?
+  messages          Message[]
+  complaints        Complaint[]
+  couponUsage       CouponUsage?
+  walletTxns        WalletTransaction[]
+
+  @@index([customerId, status])
+  @@index([technicianId, status])
+  @@index([status, scheduledFor])
+  @@index([createdAt])
+  @@map("bookings")
+}
+
+model BookingStatusHistory {
+  id          String         @id @default(uuid()) @db.Char(36)
+  bookingId   String         @db.Char(36)
+  fromStatus  BookingStatus?
+  toStatus    BookingStatus
+  changedById String?        @db.Char(36)
+  note        String?        @db.VarChar(500)
+  createdAt   DateTime       @default(now())
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  changedBy User?   @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, createdAt])
+  @@map("booking_status_history")
+}
+
+model BookingAssignment {
+  id           String           @id @default(uuid()) @db.Char(36)
+  bookingId    String           @db.Char(36)
+  technicianId String           @db.Char(36)
+  status       AssignmentStatus @default(OFFERED)
+  distanceKm   Float?
+  score        Float?
+  isManual     Boolean          @default(false)
+  assignedById String?          @db.Char(36)
+  rejectReason String?          @db.VarChar(255)
+  offeredAt    DateTime         @default(now())
+  expiresAt    DateTime
+  respondedAt  DateTime?
+
+  booking    Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  technician Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, status])
+  @@index([technicianId, status])
+  @@index([status, expiresAt])
+  @@map("booking_assignments")
+}
+
+model BookingItem {
+  id        String          @id @default(uuid()) @db.Char(36)
+  bookingId String          @db.Char(36)
+  type      BookingItemType
+  name      String          @db.VarChar(160)
+  quantity  Int             @default(1)
+  unitPrice Int
+  amount    Int
+  createdAt DateTime        @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_items")
+}
+
+model BookingAdditionalCharge {
+  id           String                 @id @default(uuid()) @db.Char(36)
+  bookingId    String                 @db.Char(36)
+  technicianId String                 @db.Char(36)
+  title        String                 @db.VarChar(160)
+  description  String?                @db.VarChar(500)
+  amount       Int
+  status       AdditionalChargeStatus @default(PENDING)
+  requestedAt  DateTime               @default(now())
+  respondedAt  DateTime?
+
+  booking    Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  technician Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, status])
+  @@map("booking_additional_charges")
+}
+
+// ─── Payments & money ────────────────────────────────────────────────────
+
+model Payment {
+  id              String        @id @default(uuid()) @db.Char(36)
+  bookingId       String        @unique @db.Char(36)
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  amount          Int
+  currency        String        @default("INR") @db.Char(3)
+  razorpayOrderId String?       @unique @db.VarChar(64)
+  invoiceNumber   String?       @unique @db.VarChar(32)
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  booking      Booking              @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  transactions PaymentTransaction[]
+
+  @@index([status, createdAt])
+  @@index([method, status])
+  @@map("payments")
+}
+
+model PaymentTransaction {
+  id             String          @id @default(uuid()) @db.Char(36)
+  paymentId      String          @db.Char(36)
+  type           TransactionType
+  status         PaymentStatus
+  amount         Int
+  provider       String          @db.VarChar(20)
+  providerRef    String?         @db.VarChar(64)
+  /// Razorpay event id / payment id — guarantees webhook idempotency.
+  idempotencyKey String          @unique @db.VarChar(128)
+  rawPayload     Json?
+  createdAt      DateTime        @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("payment_transactions")
+}
+
+model Commission {
+  id           String          @id @default(uuid()) @db.Char(36)
+  scope        CommissionScope
+  categoryId   String?         @db.Char(36)
+  serviceId    String?         @db.Char(36)
+  locationId   String?         @db.Char(36)
+  technicianId String?         @db.Char(36)
+  type         DiscountType
+  /// Percentage (0–100) for PERCENTAGE, paise for FIXED.
+  value        Int
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  category   ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  service    Service?         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  location   Location?        @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  technician Technician?      @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@index([scope, isActive])
+  @@map("commissions")
+}
+
+model TechnicianWallet {
+  id           String   @id @default(uuid()) @db.Char(36)
+  technicianId String   @unique @db.Char(36)
+  balance      Int      @default(0)
+  totalEarned  Int      @default(0)
+  totalPaidOut Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  technician   Technician          @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("technician_wallets")
+}
+
+model WalletTransaction {
+  id             String                @id @default(uuid()) @db.Char(36)
+  walletId       String                @db.Char(36)
+  bookingId      String?               @db.Char(36)
+  payoutId       String?               @db.Char(36)
+  type           WalletTransactionType
+  /// Signed: credits positive, debits negative.
+  amount         Int
+  balanceAfter   Int
+  description    String                @db.VarChar(255)
+  idempotencyKey String                @unique @db.VarChar(128)
+  createdAt      DateTime              @default(now())
+
+  wallet  TechnicianWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  booking Booking?         @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  payout  Payout?          @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+  @@map("wallet_transactions")
+}
+
+model Payout {
+  id            String       @id @default(uuid()) @db.Char(36)
+  technicianId  String       @db.Char(36)
+  amount        Int
+  status        PayoutStatus @default(REQUESTED)
+  method        String       @default("BANK_TRANSFER") @db.VarChar(32)
+  reference     String?      @db.VarChar(128)
+  processedById String?      @db.Char(36)
+  processedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  technician Technician          @relation(fields: [technicianId], references: [id], onDelete: Restrict)
+  walletTxns WalletTransaction[]
+
+  @@index([technicianId, status])
+  @@map("payouts")
+}
+
+// ─── Offers ──────────────────────────────────────────────────────────────
+
+model Coupon {
+  id                 String       @id @default(uuid()) @db.Char(36)
+  code               String       @unique @db.VarChar(32)
+  title              String       @db.VarChar(120)
+  description        String?      @db.VarChar(500)
+  terms              Json
+  discountType       DiscountType
+  /// Percentage (0–100) for PERCENTAGE, paise for FIXED.
+  discountValue      Int
+  minOrderAmount     Int          @default(0)
+  maxDiscountAmount  Int?
+  startsAt           DateTime
+  endsAt             DateTime
+  usageLimit         Int?
+  perCustomerLimit   Int          @default(1)
+  usedCount          Int          @default(0)
+  isFirstBookingOnly Boolean      @default(false)
+  categoryId         String?      @db.Char(36)
+  serviceId          String?      @db.Char(36)
+  locationId         String?      @db.Char(36)
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  category ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  service  Service?         @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  location Location?        @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  usage    CouponUsage[]
+  bookings Booking[]
+
+  @@index([isActive, startsAt, endsAt])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id             String   @id @default(uuid()) @db.Char(36)
+  couponId       String   @db.Char(36)
+  customerId     String   @db.Char(36)
+  bookingId      String   @unique @db.Char(36)
+  discountAmount Int
+  createdAt      DateTime @default(now())
+
+  coupon   Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([couponId, customerId])
+  @@map("coupon_usage")
+}
+
+// ─── Feedback & support ──────────────────────────────────────────────────
+
+model Review {
+  id           String   @id @default(uuid()) @db.Char(36)
+  bookingId    String   @unique @db.Char(36)
+  customerId   String   @db.Char(36)
+  technicianId String   @db.Char(36)
+  rating       Int      @db.TinyInt
+  comment      String?  @db.VarChar(1000)
+  isVisible    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  booking    Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  technician Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@index([technicianId, createdAt])
+  @@map("reviews")
+}
+
+model Complaint {
+  id           String          @id @default(uuid()) @db.Char(36)
+  bookingId    String?         @db.Char(36)
+  raisedById   String          @db.Char(36)
+  assignedToId String?         @db.Char(36)
+  category     String          @db.VarChar(60)
+  subject      String          @db.VarChar(160)
+  description  String          @db.Text
+  status       ComplaintStatus @default(OPEN)
+  resolution   String?         @db.Text
+  resolvedAt   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  booking    Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  raisedBy   User     @relation("ComplaintRaisedBy", fields: [raisedById], references: [id], onDelete: Cascade)
+  assignedTo User?    @relation("ComplaintAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("complaints")
+}
+
+// ─── Messaging & notifications ───────────────────────────────────────────
+
+model Message {
+  id        String    @id @default(uuid()) @db.Char(36)
+  bookingId String    @db.Char(36)
+  senderId  String    @db.Char(36)
+  body      String?   @db.Text
+  imageUrl  String?   @db.VarChar(512)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  sender  User    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@map("messages")
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Char(36)
+  userId    String    @db.Char(36)
+  type      String    @db.VarChar(60)
+  title     String    @db.VarChar(160)
+  body      String    @db.VarChar(500)
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+model NotificationToken {
+  id         String         @id @default(uuid()) @db.Char(36)
+  userId     String         @db.Char(36)
+  token      String         @unique @db.VarChar(255)
+  platform   DevicePlatform @default(WEB)
+  lastSeenAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notification_tokens")
+}
+
+// ─── Platform ────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Char(36)
+  actorId   String?  @db.Char(36)
+  actorRole Role?
+  action    String   @db.VarChar(80)
+  entity    String   @db.VarChar(60)
+  entityId  String?  @db.VarChar(64)
+  oldValue  Json?
+  newValue  Json?
+  ip        String?  @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+model Setting {
+  key         String   @id @db.VarChar(80)
+  value       Json
+  description String?  @db.VarChar(255)
+  updatedById String?  @db.Char(36)
+  updatedAt   DateTime @updatedAt
+
+  @@map("settings")
+}

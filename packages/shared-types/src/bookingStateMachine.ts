@@ -1,0 +1,86 @@
+import { BookingStatus } from './enums';
+
+type S = BookingStatus;
+const B = BookingStatus;
+
+/**
+ * The single source of truth for legal booking transitions.
+ * The backend enforces this on every status change; frontends use it
+ * only to decide which buttons to show.
+ */
+export const BOOKING_TRANSITIONS: Readonly<Record<S, readonly S[]>> = {
+  [B.PENDING]: [B.SEARCHING, B.CUSTOMER_CANCELLED, B.ADMIN_CANCELLED],
+  [B.SEARCHING]: [B.TECHNICIAN_ASSIGNED, B.CUSTOMER_CANCELLED, B.ADMIN_CANCELLED],
+  [B.TECHNICIAN_ASSIGNED]: [
+    B.TECHNICIAN_ACCEPTED,
+    B.SEARCHING, // rejected / request expired → find the next technician
+    B.CUSTOMER_CANCELLED,
+    B.ADMIN_CANCELLED,
+  ],
+  [B.TECHNICIAN_ACCEPTED]: [
+    B.TECHNICIAN_EN_ROUTE,
+    B.TECHNICIAN_CANCELLED,
+    B.CUSTOMER_CANCELLED,
+    B.ADMIN_CANCELLED,
+  ],
+  [B.TECHNICIAN_EN_ROUTE]: [
+    B.TECHNICIAN_ARRIVED,
+    B.TECHNICIAN_CANCELLED,
+    B.CUSTOMER_CANCELLED,
+    B.ADMIN_CANCELLED,
+  ],
+  [B.TECHNICIAN_ARRIVED]: [B.SERVICE_STARTED, B.NO_SHOW, B.ADMIN_CANCELLED],
+  [B.SERVICE_STARTED]: [B.ADDITIONAL_CHARGE_REQUESTED, B.SERVICE_COMPLETED, B.DISPUTED],
+  [B.ADDITIONAL_CHARGE_REQUESTED]: [
+    B.ADDITIONAL_CHARGE_APPROVED,
+    B.SERVICE_STARTED, // customer rejected the extra work → continue original scope
+    B.DISPUTED,
+  ],
+  [B.ADDITIONAL_CHARGE_APPROVED]: [
+    B.ADDITIONAL_CHARGE_REQUESTED,
+    B.SERVICE_COMPLETED,
+    B.DISPUTED,
+  ],
+  [B.SERVICE_COMPLETED]: [B.PAYMENT_PENDING, B.DISPUTED],
+  [B.PAYMENT_PENDING]: [B.PAYMENT_COMPLETED, B.DISPUTED],
+  [B.PAYMENT_COMPLETED]: [B.DISPUTED, B.REFUNDED],
+  [B.DISPUTED]: [B.PAYMENT_PENDING, B.PAYMENT_COMPLETED, B.REFUNDED, B.ADMIN_CANCELLED],
+  [B.CUSTOMER_CANCELLED]: [B.REFUNDED],
+  [B.TECHNICIAN_CANCELLED]: [B.SEARCHING, B.ADMIN_CANCELLED],
+  [B.ADMIN_CANCELLED]: [B.REFUNDED],
+  [B.NO_SHOW]: [B.DISPUTED, B.REFUNDED],
+  [B.REFUNDED]: [],
+};
+
+export function canTransition(from: S, to: S): boolean {
+  return BOOKING_TRANSITIONS[from].includes(to);
+}
+
+/** Statuses from which a customer may cancel on their own. */
+export const CUSTOMER_CANCELLABLE: readonly S[] = [
+  B.PENDING,
+  B.SEARCHING,
+  B.TECHNICIAN_ASSIGNED,
+  B.TECHNICIAN_ACCEPTED,
+  B.TECHNICIAN_EN_ROUTE,
+];
+
+export const TERMINAL_STATUSES: readonly S[] = [B.REFUNDED];
+
+/** Customer "Bookings" tab grouping. */
+export const BOOKING_TAB_STATUSES = {
+  upcoming: [B.PENDING, B.SEARCHING, B.TECHNICIAN_ASSIGNED, B.TECHNICIAN_ACCEPTED],
+  active: [
+    B.TECHNICIAN_EN_ROUTE,
+    B.TECHNICIAN_ARRIVED,
+    B.SERVICE_STARTED,
+    B.ADDITIONAL_CHARGE_REQUESTED,
+    B.ADDITIONAL_CHARGE_APPROVED,
+    B.SERVICE_COMPLETED,
+    B.PAYMENT_PENDING,
+    B.DISPUTED,
+  ],
+  completed: [B.PAYMENT_COMPLETED],
+  cancelled: [B.CUSTOMER_CANCELLED, B.TECHNICIAN_CANCELLED, B.ADMIN_CANCELLED, B.NO_SHOW, B.REFUNDED],
+} as const satisfies Record<string, readonly S[]>;
+export type BookingTab = keyof typeof BOOKING_TAB_STATUSES;

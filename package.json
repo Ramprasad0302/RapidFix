@@ -1,0 +1,42 @@
+{
+  "name": "fixora",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "FIXORA — Get it fixed. On-demand local services marketplace by Nirmaan Digital.",
+  "workspaces": [
+    "packages/*",
+    "backend",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @fixora/backend",
+    "dev:customer": "npm run dev -w @fixora/customer",
+    "dev:technician": "npm run dev -w @fixora/technician",
+    "dev:admin": "npm run dev -w @fixora/admin",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "test": "npm run test --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w @fixora/backend",
+    "db:seed": "npm run db:seed -w @fixora/backend",
+    "db:reset": "npm run db:reset -w @fixora/backend"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^16.0.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.0": true,
+    "esbuild@0.27.7": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.0": true
+  }
+}
