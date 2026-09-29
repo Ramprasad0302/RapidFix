@@ -1,5 +1,7 @@
 import {
   BookingStatus as B,
+  SocketEvent,
+  type TechnicianRequestDto,
   TECHNICIAN_TAB_STATUSES,
   type AddressSnapshot,
   type BookingStatus,
@@ -16,7 +18,11 @@ import type { Prisma } from '../generated/prisma/client';
 import { AppError } from '../utils/AppError';
 import { locality } from '../utils/locality';
 import { technicianTitle } from './booking.service';
+import { dispatchBooking } from './assignment.service';
 import { transitionBooking } from './bookingState';
+import { estimateTechnicianEarning } from './commission.service';
+import { emitToUser } from './realtime.service';
+import { logger } from '../config/logger';
 import { buildTimeline } from './bookingTimeline';
 
 const IST_OFFSET_MS = 330 * 60_000;
@@ -216,6 +222,15 @@ export async function performAction(userId: string, id: string, action: Technici
     throw AppError.conflict('This action is not available for the job right now.', 'INVALID_TRANSITION');
   }
   const now = new Date();
+  if (action === 'ACCEPT' || action === 'REJECT') {
+    const offerRow = await prisma.bookingAssignment.findFirst({
+      where: { bookingId: job.id, technicianId: tech.id, status: 'OFFERED' },
+      orderBy: { offeredAt: 'desc' },
+    });
+    if (offerRow && offerRow.expiresAt <= now) {
+      throw AppError.conflict('This request has expired and was offered to another professional.', 'OFFER_EXPIRED');
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     const target = ACTION_TARGET[action];
@@ -259,7 +274,55 @@ export async function performAction(userId: string, id: string, action: Technici
     }
   });
 
-  return action === 'REJECT' ? null : getJob(userId, id);
+  const event = CUSTOMER_EVENT[action];
+  if (event) emitToUser(job.customer.userId, event, { bookingId: job.id });
+  if (action === 'REJECT') {
+    // Straight to the next best technician.
+    await dispatchBooking(job.id).catch((err) => logger.error({ err, bookingId: job.id }, 'redispatch after reject failed'));
+    return null;
+  }
+  return getJob(userId, id);
+}
+
+const CUSTOMER_EVENT: Partial<Record<TechnicianJobAction, SocketEvent>> = {
+  ACCEPT: SocketEvent.BOOKING_ACCEPTED,
+  EN_ROUTE: SocketEvent.TECHNICIAN_LOCATION_UPDATED,
+  ARRIVED: SocketEvent.TECHNICIAN_ARRIVED,
+  START: SocketEvent.SERVICE_STARTED,
+  COMPLETE: SocketEvent.SERVICE_COMPLETED,
+};
+
+/** Live offers waiting for this technician's answer (the "NEW SERVICE REQUEST" card). */
+export async function pendingRequests(userId: string): Promise<TechnicianRequestDto[]> {
+  const tech = await technicianOf(userId);
+  const offers = await prisma.bookingAssignment.findMany({
+    where: { technicianId: tech.id, status: 'OFFERED', expiresAt: { gt: new Date() }, booking: { status: B.TECHNICIAN_ASSIGNED, technicianId: tech.id } },
+    include: { booking: { include: { service: { include: { category: true } } } } },
+    orderBy: { expiresAt: 'asc' },
+  });
+  return Promise.all(
+    offers.map(async (o) => {
+      const b = o.booking;
+      const snap = b.addressSnapshot as unknown as AddressSnapshot;
+      return {
+        assignmentId: o.id,
+        bookingId: b.id,
+        code: b.code ?? '',
+        service: { name: b.service.name, iconKey: b.service.category.iconKey, imageUrl: b.service.imageUrl },
+        locality: locality(snap),
+        area: [snap.area, snap.villageTown].filter(Boolean).join(', '),
+        distanceKm: o.distanceKm,
+        scheduleType: b.scheduleType,
+        scheduledFor: b.scheduledFor.toISOString(),
+        timeSlot: b.timeSlot,
+        description: b.description,
+        estimatedEarning: await estimateTechnicianEarning({ ...b, categoryId: b.service.categoryId, technicianId: tech.id }),
+        offeredAt: o.offeredAt.toISOString(),
+        expiresAt: o.expiresAt.toISOString(),
+        isManual: o.isManual,
+      };
+    }),
+  );
 }
 
 export async function saveNotes(userId: string, id: string, notes: string) {

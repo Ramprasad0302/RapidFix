@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router';
 import { createQueryClient } from '@fixora/web-core';
 import { router } from './app/router';
+import { useRealtime } from './app/useRealtime';
 import { ToastHost } from './components/ToastHost';
 import { authStore } from './store/auth';
 
@@ -15,6 +16,7 @@ authStore.subscribe((state, prev) => {
 });
 
 export function App() {
+  useRealtime(queryClient);
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />

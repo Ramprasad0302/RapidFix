@@ -311,6 +311,84 @@ export interface TechnicianEarningsDto {
   ledger: EarningsLedgerRow[];
 }
 
+export interface TechnicianRequestDto {
+  assignmentId: string;
+  bookingId: string;
+  code: string;
+  service: { name: string; iconKey: string; imageUrl: string | null };
+  locality: string;
+  area: string;
+  distanceKm: number | null;
+  scheduleType: 'NOW' | 'SCHEDULED';
+  scheduledFor: string;
+  timeSlot: string;
+  description: string;
+  /** Technician's share after FIXORA commission (paise). */
+  estimatedEarning: number;
+  offeredAt: string;
+  expiresAt: string;
+  isManual: boolean;
+}
+
+// ─── Dispatch ────────────────────────────────────────────────────────────
+
+export interface AssignmentCandidateDto {
+  technicianId: string;
+  name: string;
+  avatarUrl: string | null;
+  title: string;
+  isOnline: boolean;
+  distanceKm: number | null;
+  ratingAvg: number;
+  activeJobs: number;
+  score: number;
+  eligible: boolean;
+  /** Why an ineligible technician was skipped. */
+  reason: string | null;
+}
+
+// ─── Public trust content ────────────────────────────────────────────────
+
+export interface PublicStatsDto {
+  verifiedProfessionals: number;
+  jobsCompleted: number;
+  averageRating: number;
+  townsServed: number;
+  maxWarrantyDays: number;
+}
+
+export interface FeaturedReviewDto {
+  id: string;
+  /** "Rajesh K." */
+  name: string;
+  town: string;
+  service: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface GeoAddressDto {
+  title: string;
+  formatted: string;
+  houseNo: string;
+  street: string;
+  area: string;
+  villageTown: string;
+  district: string;
+  state: string;
+  pincode: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface GeoPlaceDto {
+  title: string;
+  subtitle: string;
+  latitude: number;
+  longitude: number;
+}
+
 // ─── Admin ───────────────────────────────────────────────────────────────
 
 export interface KpiDto {

@@ -4,6 +4,7 @@ import { ADMIN_ROLES, Permission } from '@fixora/shared-types';
 import { authenticate, authOf, authorize, requirePermission } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import * as admin from '../services/admin.service';
+import * as assignment from '../services/assignment.service';
 import { ok, paginationMeta } from '../utils/response';
 
 export const adminRouter = Router();
@@ -27,6 +28,22 @@ adminRouter.get('/users', requirePermission(Permission.USERS_MANAGE), validate(u
   const { items, total } = await admin.listUsers(q);
   ok(res, items, 200, paginationMeta(q.page, q.pageSize, total));
 });
+
+// ─── Manual dispatch ─────────────────────────────────────────────────────
+
+adminRouter.get('/bookings/:id/candidates', requirePermission(Permission.BOOKINGS_MANAGE), async (req, res) => {
+  ok(res, await assignment.candidatesForAdmin(String(req.params.id)));
+});
+
+adminRouter.post(
+  '/bookings/:id/assign',
+  requirePermission(Permission.BOOKINGS_MANAGE),
+  validate(z.object({ technicianId: z.uuid() })),
+  async (req, res) => {
+    await assignment.assignManually(String(req.params.id), req.body.technicianId, authOf(req), req.ip);
+    ok(res, { assigned: true });
+  },
+);
 
 adminRouter.patch(
   '/users/:id/role',

@@ -13,7 +13,7 @@ export async function transitionBooking(
   tx: Tx,
   booking: { id: string; status: BookingStatus; version: number },
   to: BookingStatus,
-  opts: { actorId?: string | null; note?: string; data?: Prisma.BookingUpdateManyMutationInput } = {},
+  opts: { actorId?: string | null; note?: string; data?: Prisma.BookingUncheckedUpdateManyInput } = {},
 ) {
   if (!canTransition(booking.status, to)) {
     throw AppError.conflict(`This booking can't move from ${booking.status} to ${to}.`, 'INVALID_TRANSITION');

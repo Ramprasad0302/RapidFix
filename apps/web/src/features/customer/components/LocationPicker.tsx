@@ -1,101 +1,147 @@
-import { useMemo, useState } from 'react';
-import { Check, LocateFixed, MapPin, Search } from 'lucide-react';
-import { haversineKm } from '@fixora/shared-utils';
-import { Alert, cx, Spinner } from '@fixora/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
+import { Briefcase, ChevronRight, House, LocateFixed, MapPin, Search } from 'lucide-react';
+import { cx, Spinner } from '@fixora/ui';
 import { Dialog } from '../../../components/Dialog';
-import { ErrorState, Skeleton } from '../../../components/States';
-import { requestCurrentPosition, useLocationStore } from '../../../store/location';
+import { Skeleton } from '../../../components/States';
+import { customerApi, geoApi } from '../../../lib/endpoints';
+import { addressLines } from '../../../lib/format';
+import { useAuth } from '../../../store/auth';
+import { confirmLocationPath, useLocationStore } from '../../../store/location';
 import { useLocations } from '../queries';
 
-/** Pick a service town, or (only on tap) use GPS and snap to the nearest town. */
-export function LocationPicker({ open, onClose }: { open: boolean; onClose(): void }) {
-  const locations = useLocations();
-  const { selected, select } = useLocationStore();
-  const [q, setQ] = useState('');
-  const [locating, setLocating] = useState(false);
-  const [gpsError, setGpsError] = useState<string | null>(null);
+const LABEL_ICON = { HOME: House, WORK: Briefcase, OTHER: MapPin } as const;
 
-  const filtered = useMemo(
-    () => (locations.data ?? []).filter((l) => `${l.name} ${l.district}`.toLowerCase().includes(q.trim().toLowerCase())),
+/**
+ * "Select a location" sheet (Swiggy/Zomato style): current location, search by
+ * area/street, saved addresses, or a town we serve.
+ */
+export function LocationPicker({ open, onClose, from = '/' }: { open: boolean; onClose(): void; from?: string }) {
+  const navigate = useNavigate();
+  const authed = useAuth((s) => s.status === 'authenticated' && s.user?.role === 'CUSTOMER');
+  const { selected, select } = useLocationStore();
+  const locations = useLocations();
+  const saved = useQuery({ queryKey: ['customer', 'addresses'], queryFn: customerApi.addresses, enabled: open && authed });
+  const [q, setQ] = useState('');
+  const [debounced, setDebounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(q.trim()), 400);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const near = selected ? { lat: selected.latitude, lng: selected.longitude } : undefined;
+  const places = useQuery({
+    queryKey: ['geo', 'search', debounced, near?.lat, near?.lng],
+    queryFn: () => geoApi.search(debounced, near),
+    enabled: open && debounced.length >= 3,
+    staleTime: 10 * 60_000,
+  });
+  const towns = useMemo(
+    () => (locations.data ?? []).filter((l) => !q || `${l.name} ${l.district}`.toLowerCase().includes(q.trim().toLowerCase())),
     [locations.data, q],
   );
 
-  async function locateMe() {
-    setGpsError(null);
-    setLocating(true);
-    try {
-      const { latitude, longitude } = await requestCurrentPosition();
-      const nearest = (locations.data ?? [])
-        .map((l) => ({ l, d: haversineKm(latitude, longitude, l.latitude, l.longitude) }))
-        .sort((a, b) => a.d - b.d)[0];
-      select({
-        label: nearest && nearest.d < 25 ? `${nearest.l.name}, ${nearest.l.stateCode}` : 'Current location',
-        latitude,
-        longitude,
-        source: 'gps',
-      });
-      onClose();
-    } catch (e) {
-      setGpsError((e as Error).message);
-    } finally {
-      setLocating(false);
-    }
-  }
+  const go = (path: string) => {
+    onClose();
+    navigate(path);
+  };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Choose your location">
-      <button
-        onClick={() => void locateMe()}
-        disabled={locating}
-        className="flex w-full items-center gap-3 rounded-xl border border-fixora-blue/30 bg-fixora-blue-soft px-4 py-3.5 text-left font-semibold text-fixora-blue"
-      >
-        {locating ? <Spinner className="size-5" /> : <LocateFixed className="size-5" aria-hidden />}
-        Use my current location
-      </button>
-      {gpsError && <Alert className="mt-3">{gpsError}</Alert>}
-
-      <div className="mt-4 flex h-11 items-center gap-2 rounded-xl bg-slate-100 px-3">
-        <Search className="size-4 text-slate-500" aria-hidden />
+    <Dialog open={open} onClose={onClose} title="Select a location">
+      <div className="flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 focus-within:border-fixora-blue">
+        <Search className="size-5 text-fixora-blue" aria-hidden />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search your town"
-          aria-label="Search your town"
+          placeholder="Search for area, street name..."
+          aria-label="Search for area or street"
           className="h-full flex-1 bg-transparent text-[15px] outline-none"
         />
+        {places.isFetching && <Spinner className="size-4 text-slate-400" />}
       </div>
 
-      <p className="mt-4 mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">We serve</p>
-      {locations.isPending && <Skeleton className="h-40" />}
-      {locations.isError && <ErrorState error={locations.error} onRetry={() => void locations.refetch()} />}
-      <ul className="divide-y divide-slate-100">
-        {filtered.map((l) => {
-          const label = `${l.name}, ${l.stateCode}`;
-          const active = selected?.label === label;
-          return (
-            <li key={l.id}>
-              <button
-                onClick={() => {
-                  select({ label, latitude: l.latitude, longitude: l.longitude, source: 'town' });
-                  onClose();
-                }}
-                className="flex w-full items-center gap-3 py-3 text-left"
-              >
-                <MapPin className={cx('size-5', active ? 'text-fixora-blue' : 'text-slate-400')} aria-hidden />
-                <span className="flex-1">
-                  <span className="block font-medium text-slate-900">{l.name}</span>
-                  <span className="block text-xs text-slate-500">
-                    {l.district}, {l.state}
+      <button onClick={() => go(confirmLocationPath({ from, gps: true }))} className="mt-3 flex w-full items-center gap-3 rounded-xl px-1 py-3 text-left">
+        <LocateFixed className="size-5 text-fixora-blue" aria-hidden />
+        <span className="flex-1">
+          <span className="block font-semibold text-fixora-blue">Use current location</span>
+          <span className="block text-xs text-slate-500">Using GPS · we’ll auto-fill your street and area</span>
+        </span>
+        <ChevronRight className="size-5 text-slate-400" aria-hidden />
+      </button>
+
+      {debounced.length >= 3 && (
+        <section className="border-t border-slate-100 pt-2">
+          <p className="py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Search results</p>
+          {places.isError && <p className="py-2 text-sm text-danger">{places.error.message}</p>}
+          {places.isSuccess && places.data.length === 0 && <p className="py-2 text-sm text-slate-500">No places found. Try a nearby landmark or town.</p>}
+          <ul>
+            {places.data?.map((p) => (
+              <li key={`${p.latitude},${p.longitude}`}>
+                <button onClick={() => go(confirmLocationPath({ from, lat: p.latitude, lng: p.longitude }))} className="flex w-full items-start gap-3 py-2.5 text-left">
+                  <MapPin className="mt-0.5 size-5 shrink-0 text-slate-400" aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block font-medium text-slate-900">{p.title}</span>
+                    <span className="line-clamp-2 block text-xs text-slate-500">{p.subtitle}</span>
                   </span>
-                </span>
-                {active && <Check className="size-5 text-fixora-blue" aria-label="Selected" />}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {locations.isSuccess && filtered.length === 0 && (
-        <p className="py-6 text-center text-sm text-slate-500">FIXORA isn’t in “{q}” yet. We’re expanding soon.</p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {authed && !!saved.data?.length && !debounced && (
+        <section className="border-t border-slate-100 pt-2">
+          <p className="py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Saved addresses</p>
+          <ul>
+            {saved.data.map((a) => {
+              const Icon = LABEL_ICON[a.label];
+              const active = selected?.addressId === a.id;
+              return (
+                <li key={a.id}>
+                  <button
+                    onClick={() => {
+                      select({
+                        label: [a.area, a.villageTown].filter(Boolean).join(', '),
+                        latitude: a.latitude ?? selected?.latitude ?? locations.data?.[0]?.latitude ?? 0,
+                        longitude: a.longitude ?? selected?.longitude ?? locations.data?.[0]?.longitude ?? 0,
+                        source: 'saved',
+                        addressId: a.id,
+                        address: a,
+                      });
+                      onClose();
+                    }}
+                    className={cx('flex w-full items-start gap-3 rounded-xl px-1 py-2.5 text-left', active && 'bg-fixora-blue-soft/60')}
+                  >
+                    <Icon className="mt-0.5 size-5 shrink-0 text-fixora-blue" aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block font-medium text-slate-900">{a.label[0] + a.label.slice(1).toLowerCase()}</span>
+                      <span className="line-clamp-2 block text-xs text-slate-500">{addressLines(a).join(', ')}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {!debounced && (
+        <section className="border-t border-slate-100 pt-2">
+          <p className="py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Towns we serve</p>
+          {locations.isPending && <Skeleton className="h-24" />}
+          <ul className="grid grid-cols-2 gap-2">
+            {towns.map((l) => (
+              <li key={l.id}>
+                <button onClick={() => go(confirmLocationPath({ from, lat: l.latitude, lng: l.longitude }))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-left hover:border-fixora-blue">
+                  <span className="block text-sm font-medium text-slate-900">{l.name}</span>
+                  <span className="block truncate text-xs text-slate-500">{l.district}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </Dialog>
   );

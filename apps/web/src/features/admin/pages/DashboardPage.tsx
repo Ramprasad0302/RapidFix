@@ -13,10 +13,11 @@ import {
   HardHat,
   IndianRupee,
   Star,
+  UserPlus,
   UsersRound,
   Wrench,
 } from 'lucide-react';
-import type { AdminDashboardDto, DashboardRange, KpiDto } from '@fixora/shared-types';
+import { hasPermission, Permission, type AdminDashboardDto, type DashboardRange, type KpiDto } from '@fixora/shared-types';
 import { formatINR } from '@fixora/shared-utils';
 import { cx } from '@fixora/ui';
 import { Avatar } from '../../../components/Avatar';
@@ -27,6 +28,7 @@ import { adminApi } from '../../../lib/endpoints';
 import { firstName, formatDate, formatShortDate, formatTime, timeAgo } from '../../../lib/format';
 import { useAuth } from '../../../store/auth';
 import { copyText } from '../../../store/toast';
+import { AssignDialog } from '../components/AssignDialog';
 import { BOOKING_SERIES, Card, CATEGORY_COLORS, OTHERS_COLOR } from '../components/Card';
 
 const RANGES: { value: DashboardRange; label: string; days: number }[] = [
@@ -270,7 +272,12 @@ function Summary({ d }: { d: AdminDashboardDto }) {
   );
 }
 
+const ASSIGNABLE = ['SEARCHING', 'TECHNICIAN_ASSIGNED', 'TECHNICIAN_ACCEPTED', 'TECHNICIAN_EN_ROUTE'];
+
 function RecentBookings({ d }: { d: AdminDashboardDto }) {
+  const role = useAuth((s) => s.user?.role);
+  const canAssign = !!role && hasPermission(role, Permission.BOOKINGS_MANAGE);
+  const [assigning, setAssigning] = useState<{ id: string; code: string; service: string } | null>(null);
   return (
     <Card title="Recent Bookings" className="overflow-hidden">
       <div className="-mx-5 overflow-x-auto">
@@ -310,7 +317,17 @@ function RecentBookings({ d }: { d: AdminDashboardDto }) {
                   <StatusBadge status={b.status} audience="staff" />
                 </td>
                 <td className="px-5 py-3 font-semibold whitespace-nowrap text-slate-900 tabular-nums">{formatINR(b.amount)}</td>
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 whitespace-nowrap">
+                  {canAssign && ASSIGNABLE.includes(b.status) && (
+                    <button
+                      onClick={() => setAssigning({ id: b.id, code: b.code, service: b.service })}
+                      aria-label={`${b.technicianName ? 'Reassign' : 'Assign'} technician for ${b.code}`}
+                      title={b.technicianName ? 'Reassign technician' : 'Assign technician'}
+                      className="rounded-lg p-1.5 text-fixora-blue hover:bg-fixora-blue-soft"
+                    >
+                      <UserPlus className="size-4" />
+                    </button>
+                  )}
                   <button onClick={() => void copyText(b.code, 'Booking ID copied')} aria-label={`Copy booking ID ${b.code}`} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                     <Copy className="size-4" />
                   </button>
@@ -320,6 +337,7 @@ function RecentBookings({ d }: { d: AdminDashboardDto }) {
           </tbody>
         </table>
       </div>
+      <AssignDialog booking={assigning} onClose={() => setAssigning(null)} />
     </Card>
   );
 }

@@ -2,6 +2,7 @@ import { Outlet } from 'react-router';
 import { CalendarDays, House, UserRound, WalletCards } from 'lucide-react';
 import { BottomNav } from '../../components/BottomNav';
 import { MobileShell } from '../customer/CustomerTabsLayout';
+import { NewRequestSheet } from './components/NewRequestSheet';
 
 const TABS = [
   { to: '/technician', label: 'Home', icon: House, end: true },
@@ -17,6 +18,7 @@ export function TechnicianLayout() {
         <Outlet />
       </div>
       <BottomNav items={TABS} />
+      <NewRequestSheet />
     </MobileShell>
   );
 }

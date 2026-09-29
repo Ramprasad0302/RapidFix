@@ -18,7 +18,11 @@ import { AppError } from '../utils/AppError';
 import { locality } from '../utils/locality';
 import { transitionBooking } from './bookingState';
 import { buildTimeline } from './bookingTimeline';
+import { dispatchBooking } from './assignment.service';
+import { geocodeAddress } from './geo.service';
 import { estimatePrice } from './pricing.service';
+import { logger } from '../config/logger';
+import { env } from '../config/env';
 import { isOwnUploadPath } from './storage.service';
 
 const IST_OFFSET_MS = 330 * 60_000;
@@ -206,6 +210,12 @@ export async function createBooking(customerId: string, userId: string, input: C
   });
   if (duplicate) return toCustomerDetail(duplicate);
 
+  // No GPS pin on a typed address? Geocode it so dispatch can measure distance.
+  if (input.address && (input.address.latitude == null || input.address.longitude == null) && env.NODE_ENV !== 'test') {
+    const point = await geocodeAddress(input.address);
+    if (point) input = { ...input, address: { ...input.address, ...point } };
+  }
+
   const { service, breakdown, coupon } = await estimatePrice(input.serviceId, input.couponCode, customerId);
   if (breakdown.coupon && !breakdown.coupon.valid) {
     throw AppError.badRequest(breakdown.coupon.message ?? 'Coupon is not valid', 'COUPON_INVALID');
@@ -328,6 +338,10 @@ export async function createBooking(customerId: string, userId: string, input: C
     return created.id;
   });
 
+  // Start finding a technician right away (tests drive dispatch explicitly).
+  if (env.NODE_ENV !== 'test') {
+    void dispatchBooking(bookingId).catch((err) => logger.error({ err, bookingId }, 'initial dispatch failed'));
+  }
   const full = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId }, include: bookingInclude });
   return toCustomerDetail(full);
 }

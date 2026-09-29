@@ -47,7 +47,6 @@ export function initSockets(httpServer: HttpServer): Server {
   return io;
 }
 
-export function getIo(): Server {
-  if (!io) throw new Error('Socket.IO not initialised');
+export function getIoOrNull(): Server | null {
   return io;
 }

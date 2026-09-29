@@ -1,61 +1,31 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Check, Crosshair, Map, SquarePen } from 'lucide-react';
-import { haversineKm } from '@fixora/shared-utils';
-import { Alert, Button, cx, Spinner } from '@fixora/ui';
+import { Button, cx } from '@fixora/ui';
 import { customerApi } from '../../../lib/endpoints';
 import { addressLines } from '../../../lib/format';
-import { GOOGLE_MAPS_KEY } from '../../../lib/config';
 import { useAuth } from '../../../store/auth';
 import { useBookingDraft } from '../../../store/bookingDraft';
-import { requestCurrentPosition } from '../../../store/location';
-import { toast } from '../../../store/toast';
+import { confirmLocationPath, useLocationStore } from '../../../store/location';
 import { AddressForm } from '../components/AddressForm';
-import { MapPicker } from '../../../components/MapPicker';
-import { useLocations } from '../queries';
 import { BookingShell, StepTitle } from './BookingShell';
 
-type Mode = 'gps' | 'map' | 'manual';
-
-/** Step 3 — a saved address, current location, or manual entry. */
+/**
+ * Step 3 — Service Address. "Current Location" and "Choose on Map" open the
+ * pin screen, which auto-fills street / area / town / district / state /
+ * pincode and brings the customer back here.
+ */
 export function AddressStepPage() {
   const navigate = useNavigate();
   const authed = useAuth((s) => s.status === 'authenticated');
   const { address, addressId, update } = useBookingDraft();
+  const selected = useLocationStore((s) => s.selected);
   const saved = useQuery({ queryKey: ['customer', 'addresses'], queryFn: customerApi.addresses, enabled: authed });
-  const locations = useLocations();
-  const [mode, setMode] = useState<Mode>('manual');
-  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(
-    address?.latitude != null && address.longitude != null ? { latitude: address.latitude, longitude: address.longitude } : null,
-  );
-  const [prefill, setPrefill] = useState(address ?? undefined);
-  const [locating, setLocating] = useState(false);
-  const [gpsError, setGpsError] = useState<string | null>(null);
   const usingSaved = !!addressId && saved.data?.some((a) => a.id === addressId);
-
-  async function captureGps() {
-    setMode('gps');
-    setGpsError(null);
-    setLocating(true);
-    try {
-      const pos = await requestCurrentPosition();
-      setCoords(pos);
-      // Snap to the nearest service town to pre-fill village / district / state.
-      const nearest = (locations.data ?? [])
-        .map((l) => ({ l, d: haversineKm(pos.latitude, pos.longitude, l.latitude, l.longitude) }))
-        .sort((a, b) => a.d - b.d)[0];
-      if (nearest && nearest.d < 25) {
-        setPrefill((p) => ({ ...(p ?? {}), villageTown: nearest.l.name, district: nearest.l.district, state: nearest.l.state }) as typeof p);
-      }
-      toast('Location captured — please add your house details');
-    } catch (e) {
-      setGpsError((e as Error).message);
-      setMode('manual');
-    } finally {
-      setLocating(false);
-    }
-  }
+  // Prefill: what's already in the draft, else the address confirmed on the Home location screen.
+  const prefill = address ?? (selected?.address && !selected.addressId ? selected.address : undefined);
+  const coords =
+    prefill?.latitude != null && prefill.longitude != null ? { latitude: prefill.latitude, longitude: prefill.longitude } : null;
 
   return (
     <BookingShell
@@ -75,8 +45,20 @@ export function AddressStepPage() {
     >
       <StepTitle title="Service Address" subtitle="Where should we provide the service?" />
 
+      <div className="grid grid-cols-3 gap-2.5">
+        <ModeTile onClick={() => navigate(confirmLocationPath({ from: '/book/address', gps: true }))} icon={<Crosshair className="size-6" />} label="Current Location" />
+        <ModeTile
+          onClick={() =>
+            navigate(confirmLocationPath({ from: '/book/address', ...(selected?.latitude ? { lat: selected.latitude, lng: selected.longitude } : {}) }))
+          }
+          icon={<Map className="size-6" />}
+          label="Choose on Map"
+        />
+        <ModeTile active={!usingSaved} onClick={() => update({ addressId: null })} icon={<SquarePen className="size-6" />} label="Enter Manually" />
+      </div>
+
       {!!saved.data?.length && (
-        <section className="mb-5">
+        <section className="mt-5">
           <h2 className="mb-2 text-sm font-semibold text-slate-900">Saved addresses</h2>
           <ul className="flex flex-col gap-2">
             {saved.data.map((a) => {
@@ -100,70 +82,41 @@ export function AddressStepPage() {
               );
             })}
           </ul>
-          {!usingSaved && <p className="mt-3 text-center text-xs font-medium tracking-wide text-slate-400 uppercase">or add a new address</p>}
         </section>
       )}
 
       {!usingSaved && (
-        <>
-          <div className="grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="Address method">
-            <ModeTile active={mode === 'gps'} onClick={() => void captureGps()} icon={locating ? <Spinner className="size-6" /> : <Crosshair className="size-6" />} label="Current Location" />
-            <ModeTile
-              active={mode === 'map'}
-              disabled={!GOOGLE_MAPS_KEY}
-              onClick={() => setMode('map')}
-              icon={<Map className="size-6" />}
-              label="Choose on Map"
-            />
-            <ModeTile active={mode === 'manual'} onClick={() => setMode('manual')} icon={<SquarePen className="size-6" />} label="Enter Manually" />
-          </div>
-          {!GOOGLE_MAPS_KEY && <p className="mt-2 text-xs text-slate-400">Map picking turns on once a Google Maps key is configured.</p>}
-          {gpsError && <Alert className="mt-3">{gpsError}</Alert>}
-          {mode === 'map' && (
-            <MapPicker
-              className="mt-4"
-              initial={coords ?? (locations.data?.[0] ? { latitude: locations.data[0].latitude, longitude: locations.data[0].longitude } : null)}
-              onPick={(p) => {
-                setCoords(p);
-                toast('Location pinned — please add your house details');
-              }}
-            />
-          )}
-          {coords && (mode === 'gps' || mode === 'map') && (
-            <p className="mt-3 flex items-center gap-2 rounded-xl bg-success-soft px-3.5 py-2.5 text-sm text-success">
-              <Check className="size-4" /> Location pinned. Add your house number and street below.
+        <div className="mt-5">
+          {coords && (
+            <p className="mb-4 flex items-center gap-2 rounded-xl bg-success-soft px-3.5 py-2.5 text-sm text-success">
+              <Check className="size-4" /> Location pinned on the map. Check your house number below.
             </p>
           )}
-
-          <div className="mt-5">
-            <AddressForm
-              key={JSON.stringify(prefill ?? {})}
-              id="booking-address"
-              defaultValues={prefill}
-              coords={coords}
-              onSubmit={(value) => {
-                update({ address: value, addressId: null, saveAddress: true });
-                navigate('/book/schedule');
-              }}
-            />
-          </div>
-        </>
+          <AddressForm
+            key={JSON.stringify(prefill ?? {})}
+            id="booking-address"
+            defaultValues={prefill ?? undefined}
+            coords={coords}
+            onSubmit={(value) => {
+              update({ address: value, addressId: null, saveAddress: true });
+              navigate('/book/schedule');
+            }}
+          />
+        </div>
       )}
     </BookingShell>
   );
 }
 
-function ModeTile({ active, onClick, icon, label, disabled }: { active: boolean; onClick(): void; icon: React.ReactNode; label: string; disabled?: boolean }) {
+function ModeTile({ active, onClick, icon, label }: { active?: boolean; onClick(): void; icon: React.ReactNode; label: string }) {
   return (
     <button
       type="button"
-      role="radio"
-      aria-checked={active}
-      disabled={disabled}
       onClick={onClick}
+      aria-pressed={active}
       className={cx(
-        'flex h-[84px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45',
-        active ? 'border-fixora-blue bg-fixora-blue-soft text-fixora-blue' : 'border-slate-200 bg-[#F5F8FC] text-slate-700',
+        'flex h-[84px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1 text-[12px] font-medium transition-colors',
+        active ? 'border-fixora-blue bg-fixora-blue-soft text-fixora-blue' : 'border-slate-200 bg-[#F5F8FC] text-slate-700 hover:border-fixora-blue/40',
       )}
     >
       {icon}

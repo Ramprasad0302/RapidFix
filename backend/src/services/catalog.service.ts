@@ -1,5 +1,7 @@
 import type {
   CategoryDto,
+  FeaturedReviewDto,
+  PublicStatsDto,
   CategoryRef,
   LocationDto,
   NearbyTechnicianDto,
@@ -143,6 +145,49 @@ export async function nearbyTechnicians(lat: number, lng: number, radiusKm: numb
       distanceKm: Math.round(d * 10) / 10,
       categorySlug: t.skills[0]?.category.slug ?? null,
     }));
+}
+
+// ─── Trust content (Home page) ───────────────────────────────────────────
+
+/** Real platform numbers — never marketing guesses. */
+export async function publicStats(): Promise<PublicStatsDto> {
+  const [verifiedProfessionals, jobsCompleted, rating, townsServed, warranty] = await Promise.all([
+    prisma.technician.count({ where: { verificationStatus: 'VERIFIED', user: { status: 'ACTIVE', role: 'TECHNICIAN' } } }),
+    prisma.booking.count({ where: { status: { in: ['SERVICE_COMPLETED', 'PAYMENT_PENDING', 'PAYMENT_COMPLETED'] } } }),
+    prisma.review.aggregate({ where: { isVisible: true }, _avg: { rating: true } }),
+    prisma.location.count({ where: { isActive: true } }),
+    prisma.service.aggregate({ where: { isActive: true }, _max: { warrantyDays: true } }),
+  ]);
+  return {
+    verifiedProfessionals,
+    jobsCompleted,
+    averageRating: Math.round((rating._avg.rating ?? 0) * 10) / 10,
+    townsServed,
+    maxWarrantyDays: warranty._max.warrantyDays ?? 0,
+  };
+}
+
+/** Recent 4–5★ reviews with a comment; names shortened to "First L." for privacy. */
+export async function featuredReviews(limit = 8): Promise<FeaturedReviewDto[]> {
+  const rows = await prisma.review.findMany({
+    where: { isVisible: true, rating: { gte: 4 }, comment: { not: null } },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    include: { customer: { include: { user: { select: { name: true } } } }, booking: { select: { addressSnapshot: true, service: { select: { name: true } } } } },
+  });
+  return rows.map((r) => {
+    const [first = 'Customer', last] = (r.customer.user.name ?? 'Customer').trim().split(/\s+/);
+    const town = (r.booking.addressSnapshot as { villageTown?: string } | null)?.villageTown ?? '';
+    return {
+      id: r.id,
+      name: last ? `${first} ${last[0]}.` : first,
+      town,
+      service: r.booking.service.name,
+      rating: r.rating,
+      comment: r.comment ?? '',
+      createdAt: r.createdAt.toISOString(),
+    };
+  });
 }
 
 // ─── Offers ──────────────────────────────────────────────────────────────

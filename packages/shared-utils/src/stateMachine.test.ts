@@ -35,6 +35,12 @@ describe('booking state machine', () => {
     expect(canTransition(S.TECHNICIAN_ASSIGNED, S.SEARCHING)).toBe(true);
   });
 
+  it('admins can pull an accepted or travelling job back for reassignment, but not once work starts', () => {
+    expect(canTransition(S.TECHNICIAN_ACCEPTED, S.SEARCHING)).toBe(true);
+    expect(canTransition(S.TECHNICIAN_EN_ROUTE, S.SEARCHING)).toBe(true);
+    expect(canTransition(S.SERVICE_STARTED, S.SEARCHING)).toBe(false);
+  });
+
   it('REFUNDED is terminal and every status has an entry', () => {
     expect(BOOKING_TRANSITIONS[S.REFUNDED]).toHaveLength(0);
     for (const s of Object.values(S)) expect(BOOKING_TRANSITIONS[s]).toBeDefined();

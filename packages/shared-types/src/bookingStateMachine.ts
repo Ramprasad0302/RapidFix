@@ -19,12 +19,14 @@ export const BOOKING_TRANSITIONS: Readonly<Record<S, readonly S[]>> = {
   ],
   [B.TECHNICIAN_ACCEPTED]: [
     B.TECHNICIAN_EN_ROUTE,
+    B.SEARCHING, // admin reassignment
     B.TECHNICIAN_CANCELLED,
     B.CUSTOMER_CANCELLED,
     B.ADMIN_CANCELLED,
   ],
   [B.TECHNICIAN_EN_ROUTE]: [
     B.TECHNICIAN_ARRIVED,
+    B.SEARCHING, // admin reassignment
     B.TECHNICIAN_CANCELLED,
     B.CUSTOMER_CANCELLED,
     B.ADMIN_CANCELLED,

@@ -61,6 +61,14 @@ catalogRouter.get('/technicians/nearby', validate(nearbyQuery, 'query'), async (
   ok(res, await catalog.nearbyTechnicians(q.lat, q.lng, q.radiusKm, q.limit));
 });
 
+catalogRouter.get('/stats/public', cachePublic(300), async (_req, res) => {
+  ok(res, await catalog.publicStats());
+});
+
+catalogRouter.get('/reviews/featured', cachePublic(300), async (_req, res) => {
+  ok(res, await catalog.featuredReviews());
+});
+
 catalogRouter.get('/offers', validate(z.object({ category: z.string().max(80).optional() }), 'query'), async (_req, res) => {
   ok(res, await catalog.listOffers((res.locals.query as { category?: string }).category));
 });

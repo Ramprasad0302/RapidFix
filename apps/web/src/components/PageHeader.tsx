@@ -41,11 +41,14 @@ export function PageHeader({
 }
 
 /** Heading + optional link row used between home sections. */
-export function SectionHeader({ title, action, className }: { title: string; action?: ReactNode; className?: string }) {
+export function SectionHeader({ title, subtitle, action, className }: { title: string; subtitle?: string; action?: ReactNode; className?: string }) {
   return (
-    <div className={cx('flex items-center justify-between', className)}>
-      <h2 className="text-[19px] font-bold tracking-tight text-slate-900">{title}</h2>
-      {action}
+    <div className={cx('flex items-end justify-between gap-3', className)}>
+      <div>
+        <h2 className="text-[19px] leading-tight font-bold tracking-tight text-slate-900">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-[13px] text-slate-500">{subtitle}</p>}
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }

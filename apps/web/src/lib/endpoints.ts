@@ -2,6 +2,12 @@ import type {
   AddressDto,
   AdminDashboardDto,
   AdminUserRowDto,
+  AssignmentCandidateDto,
+  FeaturedReviewDto,
+  GeoAddressDto,
+  GeoPlaceDto,
+  PublicStatsDto,
+  TechnicianRequestDto,
   ApiSuccess,
   AuthSession,
   BookingDetailDto,
@@ -54,6 +60,18 @@ export const catalogApi = {
   offer: (code: string) => unwrap<OfferDto>(api.get(`/offers/${encodeURIComponent(code)}`)),
   estimate: (serviceId: string, couponCode?: string) =>
     unwrap<PriceBreakdownDto>(api.post('/bookings/estimate', { serviceId, couponCode: couponCode || undefined })),
+};
+
+export const trustApi = {
+  stats: () => unwrap<PublicStatsDto>(api.get('/stats/public')),
+  reviews: () => unwrap<FeaturedReviewDto[]>(api.get('/reviews/featured')),
+};
+
+// ─── Geocoding (server-side proxy) ───────────────────────────────────────
+export const geoApi = {
+  reverse: (lat: number, lng: number) => unwrap<GeoAddressDto>(api.get('/geo/reverse', { params: { lat, lng } })),
+  search: (q: string, near?: { lat: number; lng: number }) =>
+    unwrap<GeoPlaceDto[]>(api.get('/geo/search', { params: { q, ...(near && { lat: near.lat, lng: near.lng }) } })),
 };
 
 // ─── Customer ────────────────────────────────────────────────────────────
@@ -138,6 +156,7 @@ export const technicianApi = {
       api.get('/technician/jobs', { params: { tab } }),
     ),
   job: (id: string) => unwrap<TechnicianJobDetailDto>(api.get(`/technician/jobs/${id}`)),
+  requests: () => unwrap<TechnicianRequestDto[]>(api.get('/technician/requests')),
   act: (id: string, action: TechnicianJobAction, reason?: string) =>
     unwrap<TechnicianJobDetailDto | null>(api.post(`/technician/jobs/${id}/${ACTION_PATH[action]}`, { reason })),
   saveNotes: (id: string, notes: string) => unwrap<TechnicianJobDetailDto>(api.put(`/technician/jobs/${id}/notes`, { notes })),
@@ -151,5 +170,8 @@ export const adminApi = {
     const res = await api.get<ApiSuccess<AdminUserRowDto[]>>('/admin/users', { params });
     return { items: res.data.data, meta: res.data.meta! };
   },
+  candidates: (bookingId: string) => unwrap<AssignmentCandidateDto[]>(api.get(`/admin/bookings/${bookingId}/candidates`)),
+  assign: (bookingId: string, technicianId: string) =>
+    unwrap<{ assigned: boolean }>(api.post(`/admin/bookings/${bookingId}/assign`, { technicianId })),
   changeRole: (id: string, role: Role) => unwrap<{ id: string; role: Role }>(api.patch(`/admin/users/${id}/role`, { role })),
 };

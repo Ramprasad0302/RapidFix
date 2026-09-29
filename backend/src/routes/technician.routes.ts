@@ -38,6 +38,10 @@ technicianRouter.get('/jobs', validate(jobsQuery, 'query'), async (req, res) => 
   ok(res, await tech.listJobs(authOf(req).userId, (res.locals.query as z.infer<typeof jobsQuery>).tab));
 });
 
+technicianRouter.get('/requests', async (req, res) => {
+  ok(res, await tech.pendingRequests(authOf(req).userId));
+});
+
 technicianRouter.get('/jobs/:id', async (req, res) => {
   ok(res, await tech.getJob(authOf(req).userId, String(req.params.id)));
 });

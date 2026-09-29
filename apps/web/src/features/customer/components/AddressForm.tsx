@@ -8,7 +8,10 @@ type FormIn = z.input<typeof addressSchema>;
 
 const STATES = [
   'Andhra Pradesh', 'Telangana', 'Karnataka', 'Tamil Nadu', 'Kerala', 'Odisha', 'Maharashtra', 'Chhattisgarh',
-  'Madhya Pradesh', 'Uttar Pradesh', 'Bihar', 'West Bengal', 'Gujarat', 'Rajasthan', 'Punjab', 'Haryana', 'Delhi',
+  'Madhya Pradesh', 'Uttar Pradesh', 'Bihar', 'Jharkhand', 'West Bengal', 'Gujarat', 'Rajasthan', 'Punjab',
+  'Haryana', 'Himachal Pradesh', 'Uttarakhand', 'Goa', 'Assam', 'Arunachal Pradesh', 'Manipur', 'Meghalaya',
+  'Mizoram', 'Nagaland', 'Sikkim', 'Tripura', 'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Puducherry', 'Chandigarh',
+  'Andaman and Nicobar Islands', 'Dadra and Nagar Haveli and Daman and Diu', 'Lakshadweep',
 ];
 const LABELS = [
   { value: 'HOME', label: 'Home' },
@@ -85,11 +88,11 @@ export function AddressForm({
       onSubmit={form.handleSubmit((v) => onSubmit(coords ? { ...v, latitude: coords.latitude, longitude: coords.longitude } : v))}
       className="flex flex-col gap-4"
     >
-      <Field label="House / Flat Number" required error={e.houseNo?.message}>
-        <input className={input(e.houseNo)} placeholder="e.g. 12A" autoComplete="address-line1" {...form.register('houseNo')} />
+      <Field label="House / Flat / Floor No." required error={e.houseNo?.message}>
+        <input className={input(e.houseNo)} placeholder="e.g. 12A, 2nd floor" autoComplete="address-line1" {...form.register('houseNo')} />
       </Field>
-      <Field label="Street / Area" required error={e.area?.message}>
-        <input className={input(e.area)} placeholder="e.g. Main Street" autoComplete="address-line2" {...form.register('area')} />
+      <Field label="Street / Road / Area" required error={e.area?.message}>
+        <input className={input(e.area)} placeholder="e.g. Main Street, Sajjapuram" autoComplete="address-line2" {...form.register('area')} />
       </Field>
       <Field label="Village / Town" required error={e.villageTown?.message}>
         <input className={input(e.villageTown)} placeholder="e.g. Tanuku" autoComplete="address-level2" {...form.register('villageTown')} />

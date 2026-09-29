@@ -15,6 +15,17 @@ import { firstName, greeting } from '../../../lib/format';
 import { useAuth } from '../../../store/auth';
 import { useLocationStore } from '../../../store/location';
 import { AppHeader } from '../components/AppHeader';
+import {
+  ActiveBookingStrip,
+  CustomerReviews,
+  FixoraPromise,
+  HomeFooter,
+  HowItWorks,
+  InviteBanner,
+  OffersStrip,
+  TrustNumbers,
+} from '../components/HomeSections';
+import { LocationPrompt } from '../components/LocationPrompt';
 import { LocationPicker } from '../components/LocationPicker';
 import { useCategories } from '../queries';
 
@@ -30,14 +41,23 @@ export function HomePage() {
   return (
     <>
       <AppHeader />
-      <main className="flex flex-col gap-6 px-4">
+      <main className="flex flex-col gap-7 px-4">
         <Hero name={firstName(name)} />
+        <ActiveBookingStrip />
         <Categories />
         <TrustedBanner />
         <PopularServices />
+        <OffersStrip />
         <WhyFixora />
         <NearbyProfessionals />
+        <HowItWorks />
+        <TrustNumbers />
+        <CustomerReviews />
+        <FixoraPromise />
+        <InviteBanner />
+        <HomeFooter />
       </main>
+      <LocationPrompt />
     </>
   );
 }
@@ -101,7 +121,10 @@ function Categories() {
   if (categories.isError) return <ErrorState error={categories.error} onRetry={() => void categories.refetch()} className="py-6" />;
   const items = (categories.data ?? []).slice(0, 9);
   return (
-    <section aria-label="Service categories" className="grid grid-cols-5 gap-x-2 gap-y-4">
+    <section aria-labelledby="cat-heading">
+      <SectionHeader title="What are you looking for?" subtitle="Choose a category to get started" className="mb-3" />
+      <span id="cat-heading" className="sr-only">Service categories</span>
+      <div className="grid grid-cols-5 gap-x-2 gap-y-4">
       {categories.isPending &&
         Array.from({ length: 10 }, (_, i) => (
           <div key={i} className="flex flex-col items-center gap-2">
@@ -113,6 +136,7 @@ function Categories() {
         <CategoryTile key={c.id} to={`/book/c/${c.slug}`} iconKey={c.iconKey} label={c.name} />
       ))}
       {categories.isSuccess && <CategoryTile to="/book" iconKey="more" label="More Services" />}
+      </div>
     </section>
   );
 }
@@ -153,6 +177,7 @@ function PopularServices() {
     <section>
       <SectionHeader
         title="Popular Services"
+        subtitle="Most booked by homes near you"
         action={
           <Link to="/book" className="flex items-center gap-0.5 text-[15px] font-medium text-fixora-blue">
             See All <ChevronRight className="size-4" aria-hidden />
@@ -184,7 +209,7 @@ function PopularServices() {
 function WhyFixora() {
   return (
     <section>
-      <SectionHeader title="Why Choose FIXORA?" />
+      <SectionHeader title="Why Choose FIXORA?" subtitle="Built for towns and villages" />
       <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1">
         {WHY.map(({ icon: Icon, color, title, body }) => (
           <div key={title} className="flex w-[46%] max-w-[200px] shrink-0 gap-2.5 rounded-2xl bg-[#F3F6FB] p-3.5">
@@ -214,6 +239,7 @@ function NearbyProfessionals() {
     <section>
       <SectionHeader
         title="Nearby Professionals"
+        subtitle={selected ? `Verified & online near ${selected.label}` : undefined}
         action={
           nearby.data?.length ? (
             <Link to="/book" className="flex items-center gap-0.5 text-[15px] font-medium text-fixora-blue">
@@ -225,7 +251,7 @@ function NearbyProfessionals() {
       {!selected && (
         <div className="mt-3 flex items-center gap-3 rounded-2xl border border-dashed border-fixora-blue/40 bg-fixora-blue-soft/60 p-4">
           <MapPin className="size-6 shrink-0 text-fixora-blue" aria-hidden />
-          <p className="flex-1 text-sm text-slate-700">Select your location to see verified professionals near you.</p>
+          <p className="flex-1 text-sm text-slate-700">Set your location to see verified professionals near you.</p>
           <Button size="sm" onClick={() => setPicking(true)}>
             Select
           </Button>
