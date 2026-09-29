@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+@import '@fixora/ui/theme.css';
+
+@keyframes splash {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@layer utilities {
+  /* Horizontal carousels: scroll with touch, hide the bar. */
+  .scroll-row {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scroll-row::-webkit-scrollbar { display: none; }
+  .scroll-row > * { scroll-snap-align: start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@layer components {
+  /* Standard text input look for plain <input>/<select> fields. */
+  .field {
+    @apply h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-[15px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-fixora-blue focus:ring-3 focus:ring-fixora-blue/15;
+  }
+}

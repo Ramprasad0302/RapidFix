@@ -1,8 +1,5 @@
 import type { Role, TechnicianVerificationStatus } from './enums';
 
-/** Which app a session belongs to. Each gets its own httpOnly refresh cookie. */
-export type AuthAudience = 'customer' | 'technician' | 'admin';
-
 export interface AuthUser {
   id: string;
   role: Role;
@@ -17,7 +14,10 @@ export interface AuthUser {
   };
 }
 
-/** Returned by verify-otp, admin login and refresh. The refresh token travels only as an httpOnly cookie. */
+/**
+ * Returned by verify-otp, staff email login and refresh. The refresh token
+ * travels only as an httpOnly cookie; the client routes by `user.role`.
+ */
 export interface AuthSession {
   user: AuthUser;
   accessToken: string;

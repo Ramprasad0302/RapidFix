@@ -9,6 +9,7 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { apiRouter } from './routes';
+import { UPLOAD_DIR } from './services/storage.service';
 
 export function createApp() {
   const app = express();
@@ -46,6 +47,17 @@ export function createApp() {
   );
 
   app.use(env.API_PREFIX, apiRouter);
+
+  // User uploads (booking photos, avatars). Filenames are random UUIDs, so they can be cached forever.
+  app.use(
+    '/uploads',
+    (_req, res, next) => {
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.set('X-Content-Type-Options', 'nosniff');
+      next();
+    },
+    express.static(UPLOAD_DIR, { immutable: true, maxAge: '365d', index: false, dotfiles: 'deny' }),
+  );
 
   app.use(notFoundHandler);
   app.use(errorHandler);

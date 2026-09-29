@@ -1,5 +1,5 @@
 import { createStore, useStore } from 'zustand';
-import type { AuthAudience, AuthSession, AuthUser, Role } from '@fixora/shared-types';
+import type { AuthSession, AuthUser, Role } from '@fixora/shared-types';
 import { ApiRequestError, unwrap, type FixoraApiClient } from './apiClient';
 
 export type AuthStatus = 'unknown' | 'authenticated' | 'guest';
@@ -14,7 +14,7 @@ export interface AuthState {
 export interface AuthActions {
   /** Restore the session from the refresh cookie (call once on app start). */
   bootstrap(): Promise<void>;
-  /** Returns false (and clears) when the role is not allowed in this app. */
+  /** Returns false (and clears) when the role is not one this app knows. */
   setSession(session: AuthSession): boolean;
   updateUser(patch: Partial<AuthUser>): void;
   logout(): Promise<void>;
@@ -22,34 +22,33 @@ export interface AuthActions {
 
 export interface AuthStoreOptions {
   api: FixoraApiClient;
-  audience: AuthAudience;
-  /** Roles this app accepts; anything else is treated as an unknown role and cleared. */
-  allowedRoles: readonly Role[];
+  /** Roles the app can route; anything else is an unknown role and is signed out. */
+  knownRoles: readonly Role[];
   /** Called when an authenticated session dies mid-use (refresh failed). */
-  onSessionExpired?: () => void;
+  onSessionExpired?: (lastRole: Role | null) => void;
 }
 
 const GUEST: AuthState = { status: 'guest', user: null, accessToken: null };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function createAuthStore({ api, audience, allowedRoles, onSessionExpired }: AuthStoreOptions) {
+export function createAuthStore({ api, knownRoles, onSessionExpired }: AuthStoreOptions) {
   const store = createStore<AuthState>()(() => ({ status: 'unknown', user: null, accessToken: null }));
 
   function setSession(session: AuthSession): boolean {
-    if (!allowedRoles.includes(session.user.role)) {
+    if (!knownRoles.includes(session.user.role)) {
       store.setState(GUEST);
-      void api.post('/auth/logout', { audience }, { skipAuthRefresh: true }).catch(() => undefined);
+      void api.post('/auth/logout', {}, { skipAuthRefresh: true }).catch(() => undefined);
       return false;
     }
     store.setState({ status: 'authenticated', user: session.user, accessToken: session.accessToken });
     return true;
   }
 
-  /** One network refresh; throws only on network failure (so callers can distinguish offline from logged-out). */
+  /** One network refresh; throws only on network failure (so callers can tell offline from logged-out). */
   async function refreshOnce(): Promise<string | null> {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const session = await unwrap<AuthSession>(api.post('/auth/refresh', { audience }, { skipAuthRefresh: true }));
+        const session = await unwrap<AuthSession>(api.post('/auth/refresh', {}, { skipAuthRefresh: true }));
         return setSession(session) ? session.accessToken : null;
       } catch (err) {
         if (!(err instanceof ApiRequestError)) return null;
@@ -90,7 +89,7 @@ export function createAuthStore({ api, audience, allowedRoles, onSessionExpired 
     },
     async logout() {
       try {
-        await api.post('/auth/logout', { audience }, { skipAuthRefresh: true });
+        await api.post('/auth/logout', {}, { skipAuthRefresh: true });
       } catch {
         // Clearing locally is what matters; the server session expires on its own.
       } finally {
@@ -103,9 +102,10 @@ export function createAuthStore({ api, audience, allowedRoles, onSessionExpired 
     getAccessToken: () => store.getState().accessToken,
     refreshAccessToken: () => refreshAccessToken().catch(() => null),
     onSessionExpired: () => {
-      if (store.getState().status !== 'authenticated') return;
+      const { status, user } = store.getState();
+      if (status !== 'authenticated') return;
       store.setState(GUEST);
-      onSessionExpired?.();
+      onSessionExpired?.(user?.role ?? null);
     },
   });
 

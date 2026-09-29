@@ -194,8 +194,8 @@ model User {
   complaintsAssigned Complaint[]       @relation("ComplaintAssignedTo")
   statusChanges      BookingStatusHistory[]
 
-  // A phone can hold one customer account and one technician account.
-  @@unique([phone, role])
+  // One account per phone; admins change the role, never duplicate the person.
+  @@unique([phone])
   @@unique([email])
   @@index([role, status])
   @@map("users")
@@ -204,7 +204,6 @@ model User {
 model OtpCode {
   id         String    @id @default(uuid()) @db.Char(36)
   phone      String    @db.VarChar(16)
-  role       Role
   codeHash   String    @db.VarChar(255)
   attempts   Int       @default(0)
   expiresAt  DateTime
@@ -212,7 +211,7 @@ model OtpCode {
   ip         String?   @db.VarChar(64)
   createdAt  DateTime  @default(now())
 
-  @@index([phone, role, createdAt])
+  @@index([phone, createdAt])
   @@map("otp_codes")
 }
 
@@ -255,6 +254,10 @@ model Customer {
   userId       String   @unique @db.Char(36)
   referralCode String   @unique @db.VarChar(16)
   referredById String?  @db.Char(36)
+  city                 String?  @db.VarChar(120)
+  language             String   @default("en") @db.VarChar(8)
+  notificationsEnabled Boolean  @default(true)
+  marketingOptIn       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -325,6 +328,10 @@ model ServiceCategory {
   slug        String   @unique @db.VarChar(80)
   description String?  @db.VarChar(500)
   iconKey     String   @db.VarChar(40)
+  /// e.g. "Service, Repair, Installation"
+  tagline     String   @default("") @db.VarChar(120)
+  /// e.g. "AC Technician" — how a skilled technician in this category is titled.
+  professionalTitle String @default("Technician") @db.VarChar(60)
   imageUrl    String?  @db.VarChar(512)
   sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
@@ -347,6 +354,8 @@ model Service {
   categoryId         String   @db.Char(36)
   name               String   @db.VarChar(120)
   slug               String   @unique @db.VarChar(120)
+  /// One-line pitch, e.g. "Get your AC repaired by verified experts"
+  tagline            String   @default("") @db.VarChar(160)
   description        String   @db.Text
   imageUrl           String?  @db.VarChar(512)
   basePrice          Int
@@ -382,10 +391,10 @@ model Technician {
   bio                String?            @db.VarChar(500)
   languages          Json
   addressLine        String             @default("") @db.VarChar(255)
-  villageTown        String             @db.VarChar(120)
-  district           String             @db.VarChar(120)
-  state              String             @db.VarChar(80)
-  pincode            String             @db.Char(6)
+  villageTown        String             @default("") @db.VarChar(120)
+  district           String             @default("") @db.VarChar(120)
+  state              String             @default("") @db.VarChar(80)
+  pincode            String             @default("") @db.VarChar(6)
   baseLatitude       Float?
   baseLongitude      Float?
   serviceRadiusKm    Int                @default(10)
@@ -463,6 +472,8 @@ model Booking {
   status       BookingStatus @default(PENDING)
   description  String        @db.Text
   photos       Json
+  videoUrl     String?       @db.VarChar(512)
+  technicianNotes String?    @db.VarChar(500)
   scheduleType ScheduleType  @default(SCHEDULED)
   scheduledFor DateTime
   timeSlot     String        @db.VarChar(8)
@@ -717,6 +728,8 @@ model Coupon {
   title              String       @db.VarChar(120)
   description        String?      @db.VarChar(500)
   terms              Json
+  /// Bullet points for the offer details screen.
+  highlights         Json?
   discountType       DiscountType
   /// Percentage (0–100) for PERCENTAGE, paise for FIXED.
   discountValue      Int

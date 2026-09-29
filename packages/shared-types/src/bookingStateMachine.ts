@@ -67,6 +67,37 @@ export const CUSTOMER_CANCELLABLE: readonly S[] = [
 
 export const TERMINAL_STATUSES: readonly S[] = [B.REFUNDED];
 
+/** Customer may move the appointment while no work has begun. */
+export const CUSTOMER_RESCHEDULABLE: readonly S[] = [
+  B.PENDING,
+  B.SEARCHING,
+  B.TECHNICIAN_ASSIGNED,
+  B.TECHNICIAN_ACCEPTED,
+];
+
+export const CANCELLED_STATUSES: readonly S[] = [
+  B.CUSTOMER_CANCELLED,
+  B.TECHNICIAN_CANCELLED,
+  B.ADMIN_CANCELLED,
+  B.NO_SHOW,
+  B.REFUNDED,
+];
+
+/** Technician app tabs. */
+export const TECHNICIAN_TAB_STATUSES = {
+  upcoming: [B.TECHNICIAN_ASSIGNED, B.TECHNICIAN_ACCEPTED],
+  inProgress: [
+    B.TECHNICIAN_EN_ROUTE,
+    B.TECHNICIAN_ARRIVED,
+    B.SERVICE_STARTED,
+    B.ADDITIONAL_CHARGE_REQUESTED,
+    B.ADDITIONAL_CHARGE_APPROVED,
+  ],
+  completed: [B.SERVICE_COMPLETED, B.PAYMENT_PENDING, B.PAYMENT_COMPLETED],
+  cancelled: [B.CUSTOMER_CANCELLED, B.TECHNICIAN_CANCELLED, B.ADMIN_CANCELLED, B.NO_SHOW, B.REFUNDED],
+} as const satisfies Record<string, readonly S[]>;
+export type TechnicianTab = keyof typeof TECHNICIAN_TAB_STATUSES;
+
 /** Customer "Bookings" tab grouping. */
 export const BOOKING_TAB_STATUSES = {
   upcoming: [B.PENDING, B.SEARCHING, B.TECHNICIAN_ASSIGNED, B.TECHNICIAN_ACCEPTED],

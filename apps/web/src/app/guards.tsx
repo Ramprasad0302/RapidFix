@@ -1,0 +1,46 @@
+import { useEffect, useState } from 'react';
+import { Navigate, Outlet, useLocation, useParams } from 'react-router';
+import { Role } from '@fixora/shared-types';
+import { SplashScreen } from '../components/SplashScreen';
+import { homeFor, useAuth } from '../store/auth';
+
+/** Guests go to the common login (and come back); signed-in users of another role go to their own area. */
+export function RequireRole({ roles }: { roles: readonly Role[] }) {
+  const status = useAuth((s) => s.status);
+  const role = useAuth((s) => s.user?.role);
+  const location = useLocation();
+
+  if (status === 'unknown') return <SplashScreen />;
+  if (status === 'guest') {
+    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
+  if (!role || !roles.includes(role)) return <Navigate to={homeFor(role)} replace />;
+  return <Outlet />;
+}
+
+/**
+ * The public customer app. Shows the splash while the saved session is
+ * restored — but never more than 2.5 s, so guests on slow networks still get
+ * straight to Home. Technicians and staff are sent to their own area.
+ */
+export function CustomerArea() {
+  const status = useAuth((s) => s.status);
+  const role = useAuth((s) => s.user?.role);
+  const [waitedEnough, setWaitedEnough] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setWaitedEnough(true), 2500);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (status === 'unknown' && !waitedEnough) return <SplashScreen />;
+  if (status === 'authenticated' && role !== Role.CUSTOMER) return <Navigate to={homeFor(role)} replace />;
+  return <Outlet />;
+}
+
+/** `/customer/bookings` → `/bookings` (spec URLs keep working). */
+export function StripCustomerPrefix() {
+  const params = useParams();
+  const location = useLocation();
+  return <Navigate to={`/${params['*'] ?? ''}${location.search}`} replace />;
+}

@@ -13,12 +13,7 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@fixora/shared-types": "*",
-    "@fixora/shared-utils": "*",
-    "@hookform/resolvers": "^5.9.1",
-    "lucide-react": "^1.48.0",
-    "react-hook-form": "^7.89.0",
-    "zod": "^4.6.5"
+    "lucide-react": "^1.48.0"
   },
   "peerDependencies": {
     "react": "^19.0.0"

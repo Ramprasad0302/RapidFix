@@ -43,7 +43,7 @@ function setup(opts: { refreshOk?: boolean; refreshRole?: AuthSession['user']['r
   const api = createApiClient({ baseURL: '' });
   api.defaults.adapter = adapter;
   const onSessionExpired = vi.fn();
-  const auth = createAuthStore({ api, audience: 'customer', allowedRoles: ['CUSTOMER'], onSessionExpired });
+  const auth = createAuthStore({ api, knownRoles: ['CUSTOMER', 'TECHNICIAN'], onSessionExpired });
   return { api, auth, calls, onSessionExpired, rotate: (t: string) => (current = t) };
 }
 
@@ -60,8 +60,8 @@ describe('createAuthStore + api client', () => {
     expect(auth.store.getState().status).toBe('guest');
   });
 
-  it('rejects a session whose role does not belong to this app', async () => {
-    const { auth } = setup({ refreshRole: 'TECHNICIAN' });
+  it('signs out a session whose role the app cannot route', async () => {
+    const { auth } = setup({ refreshRole: 'FINANCE' });
     await auth.actions.bootstrap();
     expect(auth.store.getState()).toMatchObject({ status: 'guest', user: null, accessToken: null });
   });

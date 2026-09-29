@@ -16,6 +16,9 @@ export const Permission = {
   REPORTS_VIEW: 'reports:view',
   SETTINGS_MANAGE: 'settings:manage',
   AUDIT_VIEW: 'audit:view',
+  /** Change CUSTOMER ↔ TECHNICIAN roles. */
+  USERS_MANAGE: 'users:manage',
+  /** Grant or revoke staff (admin) roles. */
   ADMINS_MANAGE: 'admins:manage',
 } as const;
 export type Permission = (typeof Permission)[keyof typeof Permission];

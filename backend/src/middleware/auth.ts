@@ -14,6 +14,22 @@ export function authenticate(): RequestHandler {
   };
 }
 
+/** Attaches `req.auth` when a valid token is present; guests pass through untouched. */
+export function optionalAuthenticate(): RequestHandler {
+  return (req, _res, next) => {
+    const header = req.headers.authorization;
+    if (header?.startsWith('Bearer ')) {
+      try {
+        const { sub, role } = verifyAccessToken(header.slice(7).trim());
+        req.auth = { userId: sub, role };
+      } catch {
+        // An expired token on a public route is treated as a guest.
+      }
+    }
+    next();
+  };
+}
+
 /** Restricts a route to the given roles. Must run after `authenticate()`. */
 export function authorize(...roles: Role[]): RequestHandler {
   return (req, _res, next) => {

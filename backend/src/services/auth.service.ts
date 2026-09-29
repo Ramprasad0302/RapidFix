@@ -1,13 +1,5 @@
 import bcrypt from 'bcryptjs';
-import {
-  ADMIN_ROLES,
-  isAdminRole,
-  Role,
-  type AuthAudience,
-  type AuthSession,
-  type AuthUser,
-  type SendOtpResult,
-} from '@fixora/shared-types';
+import { isAdminRole, Role, type AuthSession, type AuthUser, type SendOtpResult } from '@fixora/shared-types';
 import { toE164India } from '@fixora/shared-utils';
 import { env } from '../config/env';
 import { prisma } from '../config/prisma';
@@ -25,15 +17,19 @@ import {
   type ClientMeta,
 } from './token.service';
 
-type OtpRole = typeof Role.CUSTOMER | typeof Role.TECHNICIAN;
+/**
+ * One login for everyone. A phone number maps to exactly one account; the
+ * account's role (set by admins) decides where the client takes the user.
+ */
 
-/** Bound to phone + role so a customer code can never unlock a technician account. */
-const hashOtp = (phone: string, role: OtpRole, code: string) => hmacSha256(env.JWT_SECRET, `${phone}|${role}|${code}`);
+const hashOtp = (phone: string, code: string) => hmacSha256(env.JWT_SECRET, `${phone}|${code}`);
 
 // Pre-computed so a login for an unknown email costs the same as a wrong password.
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('fixora-timing-equaliser', 12);
 
-const userInclude = { technician: { select: { id: true, verificationStatus: true, isOnline: true } } } as const;
+export const userInclude = {
+  technician: { select: { id: true, verificationStatus: true, isOnline: true } },
+} as const;
 type UserWithTech = Prisma.UserGetPayload<{ include: typeof userInclude }>;
 
 export function toAuthUser(u: UserWithTech): AuthUser {
@@ -48,50 +44,33 @@ export function toAuthUser(u: UserWithTech): AuthUser {
   };
 }
 
-function assertUserActive(user: Pick<User, 'status'>) {
+/** Throws when the account may not sign in (suspended user, suspended/blocked technician). */
+export function assertCanSignIn(user: Pick<User, 'status' | 'role'> & { technician?: { verificationStatus: string } | null }) {
   if (user.status !== 'ACTIVE') {
     throw AppError.forbidden('Your account is suspended. Please contact FIXORA support.', 'ACCOUNT_SUSPENDED');
   }
-}
-
-/** Technicians may sign in while PENDING/REJECTED (to see their status) but not when suspended or blocked. */
-function assertTechnicianCanLogin(user: UserWithTech) {
-  assertUserActive(user);
-  const status = user.technician?.verificationStatus;
-  if (!status) throw AppError.forbidden('Technician profile not found', 'TECHNICIAN_PROFILE_MISSING');
-  if (status === 'SUSPENDED' || status === 'BLOCKED') {
-    throw AppError.forbidden(
-      `Your partner account is ${status.toLowerCase()}. Please contact FIXORA support.`,
-      'TECHNICIAN_' + status,
-    );
+  if (user.role === Role.TECHNICIAN) {
+    const vs = user.technician?.verificationStatus;
+    if (vs === 'SUSPENDED' || vs === 'BLOCKED') {
+      throw AppError.forbidden(
+        `Your partner account is ${vs.toLowerCase()}. Please contact FIXORA support.`,
+        `TECHNICIAN_${vs}`,
+      );
+    }
   }
 }
 
 // ─── OTP ─────────────────────────────────────────────────────────────────
 
-export async function sendOtp(rawPhone: string, role: OtpRole, meta: ClientMeta): Promise<SendOtpResult> {
+export async function sendOtp(rawPhone: string, meta: ClientMeta): Promise<SendOtpResult> {
   const phone = toE164India(rawPhone);
 
-  if (role === Role.TECHNICIAN) {
-    const tech = await prisma.user.findUnique({
-      where: { phone_role: { phone, role } },
-      include: userInclude,
-    });
-    if (!tech) {
-      throw AppError.notFound(
-        'This number is not registered as a FIXORA partner. Please register first.',
-        'TECHNICIAN_NOT_REGISTERED',
-      );
-    }
-    assertTechnicianCanLogin(tech);
-  } else {
-    const existing = await prisma.user.findUnique({ where: { phone_role: { phone, role } } });
-    if (existing) assertUserActive(existing);
-  }
+  const existing = await prisma.user.findUnique({ where: { phone }, include: userInclude });
+  if (existing) assertCanSignIn(existing);
 
   const now = Date.now();
   const recent = await prisma.otpCode.findMany({
-    where: { phone, role, createdAt: { gte: new Date(now - 3_600_000) } },
+    where: { phone, createdAt: { gte: new Date(now - 3_600_000) } },
     orderBy: { createdAt: 'desc' },
     select: { createdAt: true },
   });
@@ -99,8 +78,9 @@ export async function sendOtp(rawPhone: string, role: OtpRole, meta: ClientMeta)
   if (last) {
     const waitMs = last.createdAt.getTime() + env.OTP_RESEND_COOLDOWN_SECONDS * 1000 - now;
     if (waitMs > 0) {
-      throw new AppError(429, 'OTP_COOLDOWN', `Please wait ${Math.ceil(waitMs / 1000)}s before requesting a new OTP.`, {
-        retryAfterSeconds: Math.ceil(waitMs / 1000),
+      const retryAfterSeconds = Math.ceil(waitMs / 1000);
+      throw new AppError(429, 'OTP_COOLDOWN', `Please wait ${retryAfterSeconds}s before requesting a new OTP.`, {
+        retryAfterSeconds,
       });
     }
   }
@@ -111,12 +91,11 @@ export async function sendOtp(rawPhone: string, role: OtpRole, meta: ClientMeta)
   const code = generateOtp();
   await prisma.$transaction([
     // Only the newest code is ever valid.
-    prisma.otpCode.updateMany({ where: { phone, role, consumedAt: null }, data: { consumedAt: new Date() } }),
+    prisma.otpCode.updateMany({ where: { phone, consumedAt: null }, data: { consumedAt: new Date() } }),
     prisma.otpCode.create({
       data: {
         phone,
-        role,
-        codeHash: hashOtp(phone, role, code),
+        codeHash: hashOtp(phone, code),
         expiresAt: new Date(now + env.OTP_TTL_SECONDS * 1000),
         ip: meta.ip?.slice(0, 64),
       },
@@ -132,9 +111,9 @@ export async function sendOtp(rawPhone: string, role: OtpRole, meta: ClientMeta)
   };
 }
 
-async function consumeOtp(phone: string, role: OtpRole, code: string) {
+async function consumeOtp(phone: string, code: string) {
   const otp = await prisma.otpCode.findFirst({
-    where: { phone, role, consumedAt: null },
+    where: { phone, consumedAt: null },
     orderBy: { createdAt: 'desc' },
   });
   if (!otp || otp.expiresAt.getTime() <= Date.now()) {
@@ -143,7 +122,7 @@ async function consumeOtp(phone: string, role: OtpRole, code: string) {
   if (otp.attempts >= env.OTP_MAX_ATTEMPTS) {
     throw AppError.tooMany('Too many incorrect attempts. Please request a new OTP.', 'OTP_LOCKED');
   }
-  if (!safeEqual(hashOtp(phone, role, code), otp.codeHash)) {
+  if (!safeEqual(hashOtp(phone, code), otp.codeHash)) {
     const { attempts } = await prisma.otpCode.update({
       where: { id: otp.id },
       data: { attempts: { increment: 1 } },
@@ -161,6 +140,7 @@ async function consumeOtp(phone: string, role: OtpRole, code: string) {
   if (count === 0) throw AppError.badRequest('This OTP has already been used.', 'OTP_EXPIRED');
 }
 
+/** New numbers become customers; admins can change the role later. */
 async function createCustomerUser(phone: string): Promise<UserWithTech> {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
@@ -169,11 +149,10 @@ async function createCustomerUser(phone: string): Promise<UserWithTech> {
         include: userInclude,
       });
     } catch (err) {
-      const target = err instanceof Prisma.PrismaClientKnownRequestError ? String(err.meta?.target ?? '') : '';
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        if (target.includes('referral')) continue; // referral code collision → retry
-        // Concurrent first login created the user already.
-        const existing = await prisma.user.findUnique({ where: { phone_role: { phone, role: Role.CUSTOMER } }, include: userInclude });
+        if (String(err.meta?.target ?? '').includes('referral')) continue;
+        // A concurrent first login created the account already.
+        const existing = await prisma.user.findUnique({ where: { phone }, include: userInclude });
         if (existing) return existing;
       }
       throw err;
@@ -186,78 +165,57 @@ async function startSession(user: UserWithTech, meta: ClientMeta, isNewUser?: bo
   const { token: accessToken, expiresIn } = signAccessToken(user.id, user.role);
   const refresh = await issueRefreshToken(user.id, meta);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  if (isAdminRole(user.role)) {
+    await prisma.adminUser.updateMany({ where: { userId: user.id }, data: { lastLoginIp: meta.ip?.slice(0, 64) ?? null } });
+    await recordAudit({ actorId: user.id, actorRole: user.role, action: 'ADMIN_LOGIN', entity: 'User', entityId: user.id, ip: meta.ip });
+  }
   const session: AuthSession = { user: toAuthUser(user), accessToken, expiresIn };
   if (isNewUser !== undefined) session.isNewUser = isNewUser;
   return { session, refreshToken: refresh.token };
 }
 
-export async function verifyOtp(rawPhone: string, role: OtpRole, code: string, meta: ClientMeta) {
+export async function verifyOtp(rawPhone: string, code: string, meta: ClientMeta) {
   const phone = toE164India(rawPhone);
-  await consumeOtp(phone, role, code);
+  await consumeOtp(phone, code);
 
-  let user = await prisma.user.findUnique({ where: { phone_role: { phone, role } }, include: userInclude });
+  let user = await prisma.user.findUnique({ where: { phone }, include: userInclude });
   let isNewUser = false;
-
-  if (role === Role.TECHNICIAN) {
-    if (!user) throw AppError.notFound('This number is not registered as a FIXORA partner.', 'TECHNICIAN_NOT_REGISTERED');
-    assertTechnicianCanLogin(user);
-  } else if (!user) {
+  if (!user) {
     user = await createCustomerUser(phone);
     isNewUser = true;
-  } else {
-    assertUserActive(user);
   }
-
-  return startSession(user, meta, role === Role.CUSTOMER ? isNewUser : undefined);
+  assertCanSignIn(user);
+  return startSession(user, meta, isNewUser);
 }
 
-// ─── Admin ───────────────────────────────────────────────────────────────
+// ─── Staff email + password (same login page, alternative method) ────────
 
-export async function adminLogin(email: string, password: string, meta: ClientMeta) {
+export async function passwordLogin(email: string, password: string, meta: ClientMeta) {
   const user = await prisma.user.findUnique({ where: { email }, include: userInclude });
-  const isAdmin = !!user && isAdminRole(user.role);
-  const valid = await bcrypt.compare(password, isAdmin && user.passwordHash ? user.passwordHash : DUMMY_PASSWORD_HASH);
+  const hash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
+  const valid = await bcrypt.compare(password, hash);
 
-  if (!isAdmin || !user.passwordHash || !valid) {
-    if (isAdmin) {
+  if (!user || !user.passwordHash || !valid) {
+    if (user && isAdminRole(user.role)) {
       await recordAudit({ actorId: user.id, actorRole: user.role, action: 'ADMIN_LOGIN_FAILED', entity: 'User', entityId: user.id, ip: meta.ip });
     }
     throw AppError.unauthorized('Incorrect email or password', 'INVALID_CREDENTIALS');
   }
-  assertUserActive(user);
-
-  const result = await startSession(user, meta);
-  await prisma.adminUser.updateMany({ where: { userId: user.id }, data: { lastLoginIp: meta.ip?.slice(0, 64) ?? null } });
-  await recordAudit({ actorId: user.id, actorRole: user.role, action: 'ADMIN_LOGIN', entity: 'User', entityId: user.id, ip: meta.ip });
-  return result;
+  assertCanSignIn(user);
+  return startSession(user, meta);
 }
 
 // ─── Refresh / logout / me ───────────────────────────────────────────────
 
-const AUDIENCE_ROLES: Record<AuthAudience, readonly Role[]> = {
-  customer: [Role.CUSTOMER],
-  technician: [Role.TECHNICIAN],
-  admin: ADMIN_ROLES,
-};
-
-export async function refreshSession(presented: string, audience: AuthAudience, meta: ClientMeta) {
+export async function refreshSession(presented: string, meta: ClientMeta) {
   const { user, refreshToken, familyId } = await rotateRefreshToken(presented, meta);
   const full = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, include: userInclude });
-
-  const revokeAnd = async (err: AppError) => {
+  try {
+    assertCanSignIn(full);
+  } catch (err) {
     await revokeFamily(familyId);
     throw err;
-  };
-  if (!AUDIENCE_ROLES[audience].includes(full.role)) {
-    await revokeAnd(AppError.forbidden('This account cannot use this app', 'WRONG_APP'));
   }
-  try {
-    if (full.role === Role.TECHNICIAN) assertTechnicianCanLogin(full);
-    else assertUserActive(full);
-  } catch (err) {
-    await revokeAnd(err as AppError);
-  }
-
   const { token: accessToken, expiresIn } = signAccessToken(full.id, full.role);
   const session: AuthSession = { user: toAuthUser(full), accessToken, expiresIn };
   return { session, refreshToken };

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "FIXORA — Get it fixed. On-demand local services marketplace by Nirmaan Digital.",
+  "description": "FIXORA \u2014 Get it fixed. On-demand local services marketplace by Nirmaan Digital.",
   "workspaces": [
     "packages/*",
     "backend",
@@ -11,16 +11,14 @@
   ],
   "scripts": {
     "dev:api": "npm run dev -w @fixora/backend",
-    "dev:customer": "npm run dev -w @fixora/customer",
-    "dev:technician": "npm run dev -w @fixora/technician",
-    "dev:admin": "npm run dev -w @fixora/admin",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "npm run test --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w @fixora/backend",
     "db:seed": "npm run db:seed -w @fixora/backend",
-    "db:reset": "npm run db:reset -w @fixora/backend"
+    "db:reset": "npm run db:reset -w @fixora/backend",
+    "dev:web": "npm run dev -w @fixora/web"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
