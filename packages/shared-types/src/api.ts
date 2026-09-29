@@ -29,12 +29,6 @@ export interface AccessTokenPayload {
   role: Role;
 }
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}
-
 /** Socket.IO event names shared by server and clients. */
 export const SocketEvent = {
   BOOKING_CREATED: 'booking_created',

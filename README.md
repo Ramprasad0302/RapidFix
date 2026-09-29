@@ -58,6 +58,27 @@ Admin login credentials are read from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`
 Seeded customer/technician phones are in the `+91 90000 000xx` range; with `OTP_PROVIDER=console`
 the OTP is printed in the API log (never allowed in production).
 
+## Authentication
+
+| App | Login | After logout |
+|---|---|---|
+| Customer | `+91` mobile → 6-digit OTP (account auto-created on first login). Guests browse freely; private routes redirect to `/login?redirect=…` and return afterwards | Home, as guest |
+| Technician | Mobile → OTP; number must already be registered. `SUSPENDED` / `BLOCKED` are refused; `PENDING` / `REJECTED` may sign in to see their status | `/login` |
+| Admin | Email + password (bcrypt). Roles: SUPER_ADMIN, ADMIN, OPERATIONS, SUPPORT, FINANCE | `/login` |
+
+- **Access token**: 15 min HS256 JWT `{ sub, role }` held in memory only; sent as `Authorization: Bearer`.
+- **Refresh token**: opaque random value in an **httpOnly, SameSite=Lax cookie** scoped to `/api/v1/auth`, one per app
+  (`fx_rt_customer` / `fx_rt_technician` / `fx_rt_admin`). Stored server-side as an HMAC hash. Rotated on every use;
+  replaying a rotated token revokes the whole session family.
+- **OTP**: stored as HMAC(phone|role|code); 5 min expiry, single use, 5 wrong attempts lock the code,
+  30 s resend cooldown, max 5 per hour per number, plus per-IP rate limits.
+- **Backend authorization**: `authenticate()` → `authorize(...roles)` → `requirePermission(p)` (admin matrix in
+  `packages/shared-types/src/permissions.ts`). Customer/technician queries are always keyed by the caller's own id.
+- The frontend client (`packages/web-core`) refreshes once on `TOKEN_EXPIRED`, shares that refresh across concurrent
+  requests, retries, and drops to guest/login if the session is gone.
+
+Backend integration tests run against a separate `<db>_test` database (created and migrated automatically).
+
 ## Conventions
 
 - Money is integer **paise** everywhere (DB, API, math). Format only at display time.

@@ -16,10 +16,13 @@ const schema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
 
-  OTP_PROVIDER: z.enum(['console', 'msg91', 'twilio']).default('console'),
+  // Only `console` exists so far; production refuses to boot until an SMS provider is added.
+  OTP_PROVIDER: z.enum(['console']).default('console'),
   OTP_API_KEY: z.string().optional().default(''),
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  OTP_RESEND_COOLDOWN_SECONDS: z.coerce.number().int().nonnegative().default(30),
+  OTP_MAX_PER_HOUR: z.coerce.number().int().positive().default(5),
 
   GOOGLE_MAPS_API_KEY: z.string().optional().default(''),
 

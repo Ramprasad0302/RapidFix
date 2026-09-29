@@ -1,4 +1,4 @@
-import axios, { AxiosError, type AxiosInstance } from 'axios';
+import axios, { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import type { ApiError, ApiSuccess } from '@fixora/shared-types';
 
 /** Normalised error every screen can render without inspecting Axios internals. */
@@ -38,23 +38,72 @@ export function toApiRequestError(err: unknown): ApiRequestError {
   return new ApiRequestError('Something went wrong. Please try again.', 'UNKNOWN', null);
 }
 
+/** Hooks the auth store plugs into the client (avoids a circular import). */
+export interface AuthHandlers {
+  getAccessToken(): string | null;
+  /** Single-flight refresh; resolves to a new access token or null when the session is gone. */
+  refreshAccessToken(): Promise<string | null>;
+  onSessionExpired(): void;
+}
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /** Skip the automatic refresh-and-retry (used by the auth endpoints themselves). */
+    skipAuthRefresh?: boolean;
+  }
+}
+
+type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
+
+export interface FixoraApiClient extends AxiosInstance {
+  setAuthHandlers(handlers: AuthHandlers): void;
+}
+
 export interface ApiClientOptions {
   baseURL: string;
   /** Generous default — rural 2G/3G links are slow. */
   timeoutMs?: number;
 }
 
-/**
- * The one Axios instance per app. Auth + refresh interceptors are attached
- * in Phase 2 via `attachAuth()`; nothing else should call `axios.create`.
- */
-export function createApiClient({ baseURL, timeoutMs = 20_000 }: ApiClientOptions): AxiosInstance {
+/** The one Axios instance per app. Nothing else should call `axios.create`. */
+export function createApiClient({ baseURL, timeoutMs = 20_000 }: ApiClientOptions): FixoraApiClient {
   const client = axios.create({
     baseURL,
     timeout: timeoutMs,
+    // Sends the httpOnly refresh cookie to /auth/*.
+    withCredentials: true,
     headers: { Accept: 'application/json' },
+  }) as FixoraApiClient;
+
+  let auth: AuthHandlers | null = null;
+  client.setAuthHandlers = (h) => {
+    auth = h;
+  };
+
+  client.interceptors.request.use((config) => {
+    const token = auth?.getAccessToken();
+    if (token && !config.headers.has('Authorization')) config.headers.set('Authorization', `Bearer ${token}`);
+    return config;
   });
-  client.interceptors.response.use(undefined, (err) => Promise.reject(toApiRequestError(err)));
+
+  client.interceptors.response.use(undefined, async (err: unknown) => {
+    const apiErr = toApiRequestError(err);
+    const config = err instanceof AxiosError ? (err.config as RetriableConfig | undefined) : undefined;
+
+    if (auth && config && apiErr.status === 401 && !config.skipAuthRefresh) {
+      if (apiErr.code === 'TOKEN_EXPIRED' && !config._retried) {
+        config._retried = true;
+        const token = await auth.refreshAccessToken();
+        if (token) {
+          config.headers.set('Authorization', `Bearer ${token}`);
+          return client.request(config);
+        }
+      }
+      auth.onSessionExpired();
+    }
+    throw apiErr;
+  });
+
   return client;
 }
 

@@ -9,11 +9,19 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fixora/shared-types": "*",
     "@tanstack/react-query": "^5.104.0",
-    "axios": "^1.20.0"
+    "axios": "^1.20.0",
+    "zustand": "^5.0.15"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.2"
   }
 }

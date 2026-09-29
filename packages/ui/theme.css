@@ -4,6 +4,9 @@
  * Utilities generated: bg-fixora-navy, text-fixora-blue, border-fixora-cyan, …
  */
 
+/* Make Tailwind scan the shared components' class names. */
+@source './src';
+
 @theme {
   /* Brand */
   --color-fixora-navy: #0b1f3a;

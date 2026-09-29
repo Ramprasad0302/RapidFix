@@ -1,39 +1,85 @@
 import { useQuery } from '@tanstack/react-query';
-import { unwrap } from '@fixora/web-core';
-import { api } from '../services/api';
+import { useNavigate } from 'react-router';
+import { CalendarCheck, IndianRupee, LogOut, UserCog, Users } from 'lucide-react';
+import { isAdminRole, ROLE_PERMISSIONS } from '@fixora/shared-types';
+import { formatINR } from '@fixora/shared-utils';
+import { Alert, Button, Logo, Spinner } from '@fixora/ui';
+import { getDashboard } from '../services/dashboard.service';
+import { authActions, useAuth } from '../store/authStore';
 
-interface Health {
-  status: string;
-  db: string;
-  dbLatencyMs: number;
-}
-
-/** Phase 1 foundation check — replaced by the real Admin panel screens in the next phases. */
+/**
+ * Temporary signed-in landing (Phase 2): real KPIs from /admin/dashboard.
+ * The full sidebar layout, charts and management screens arrive in Phase 9.
+ */
 export function BootPage() {
-  const health = useQuery({
-    queryKey: ['health'],
-    queryFn: () => unwrap<Health>(api.get('/health')),
-  });
+  const navigate = useNavigate();
+  const user = useAuth((s) => s.user);
+  const dashboard = useQuery({ queryKey: ['admin', 'dashboard'], queryFn: getDashboard });
+  if (!user) return null;
+
+  const k = dashboard.data?.kpis;
+  const cards = [
+    { label: 'Total Customers', value: k?.totalCustomers.toLocaleString('en-IN'), icon: Users },
+    { label: 'Total Technicians', value: k?.totalTechnicians.toLocaleString('en-IN'), icon: UserCog },
+    { label: 'Total Bookings', value: k?.totalBookings.toLocaleString('en-IN'), icon: CalendarCheck },
+    { label: 'Total Revenue', value: k && formatINR(k.totalRevenue), icon: IndianRupee },
+  ];
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-fixora-navy p-6 text-white">
-      <div className="w-full max-w-sm text-center">
-        <p className="font-display text-4xl font-extrabold tracking-tight">
-          FIX<span className="text-fixora-cyan">ORA</span>
-        </p>
-        <p className="mt-1 text-xs font-semibold tracking-[0.3em] text-white/60">GET IT FIXED.</p>
-        <p className="mt-8 text-sm text-white/80">Admin panel</p>
-        <p role="status" className="mt-3 rounded-card bg-white/10 px-4 py-3 text-sm">
-          {health.isPending && 'Connecting to FIXORA API…'}
-          {health.isError && <span className="text-red-300">{health.error.message}</span>}
-          {health.isSuccess && (
-            <span className="text-emerald-300">
-              API {health.data.status} · database {health.data.db} ({health.data.dbLatencyMs} ms)
-            </span>
-          )}
-        </p>
-        <p className="mt-10 text-[11px] text-white/40">by Nirmaan Digital</p>
-      </div>
-    </main>
+    <div className="min-h-dvh bg-slate-50">
+      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+        <Logo size="sm" />
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-sm font-semibold text-slate-900">{user.name}</p>
+            <p className="text-xs text-slate-500">{user.role.replace('_', ' ')}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<LogOut className="size-4" />}
+            onClick={async () => {
+              await authActions.logout();
+              navigate('/login', { replace: true });
+            }}
+          >
+            Logout
+          </Button>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl p-6">
+        <h1 className="font-display text-2xl font-bold text-fixora-navy">Dashboard</h1>
+        {dashboard.isError && <Alert className="mt-4">{dashboard.error.message}</Alert>}
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {cards.map(({ label, value, icon: Icon }) => (
+            <div key={label} className="rounded-card bg-white p-5 shadow-card">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-slate-500">{label}</p>
+                <span className="flex size-9 items-center justify-center rounded-lg bg-fixora-blue-soft text-fixora-blue">
+                  <Icon className="size-4.5" aria-hidden />
+                </span>
+              </div>
+              <p className="mt-3 font-display text-2xl font-bold text-fixora-navy">
+                {dashboard.isPending ? <Spinner className="size-5 text-slate-300" /> : (value ?? '—')}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {isAdminRole(user.role) && (
+          <section className="mt-6 rounded-card bg-white p-5 shadow-card">
+            <h2 className="text-sm font-semibold text-slate-700">Your permissions</h2>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {ROLE_PERMISSIONS[user.role].map((p) => (
+                <li key={p} className="rounded-full bg-slate-100 px-3 py-1 font-mono text-xs text-slate-700">
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </main>
+    </div>
   );
 }
