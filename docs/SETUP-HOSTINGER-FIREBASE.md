@@ -165,6 +165,12 @@ run all the time.
 6. Firebase → Authentication → Settings → **Authorized domains** → add `yourdomain.com`.
 
 ### Option 2 — Hostinger Node.js Web App (Business / Cloud hosting plans)
+**Easiest: upload the ready-made package.** `npm run package:hostinger` creates `~/Desktop/rapidfix-node-app.zip`
+(compiled API + website + `package.json`, no secrets). In hPanel → Add website → **Node.js Apps** → upload the
+zip → Framework **Express**, entry file `start.js`, start command `npm start`, Node 22 → add the environment
+variables (below) → Deploy. Tested: unzipped into an empty folder, `npm install`, `npm start` → website + API work.
+
+Or build on the server from the repository:
 hPanel → **Websites** → **Add website** → **Node.js Apps** → import from GitHub (or upload a zip without
 `node_modules`) → set:
 - **Build command:** `npm ci && npm run build:prod && npm run migrate:prod`

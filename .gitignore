@@ -9,3 +9,4 @@ backend/uploads/
 backend/src/generated/
 backend/uploads-private/
 .env.docker
+build/
