@@ -198,10 +198,12 @@ const port = process.env.PORT || 3000; // a number, or a socket path from the ho
 app.listen(/^\\d+$/.test(String(port)) ? Number(port) : port, () => console.log('RapidFix website listening on ' + port));
 `,
 );
+// Hosts that remember an older "Entry file: start.js" setting still start the website.
+writeFileSync(path.join(webOut, 'start.js'), "// Alias entry point — the website server is server.js.\nrequire('./server.js');\n");
 writeFileSync(
   path.join(webOut, 'README-DEPLOY.txt'),
   `RapidFix website (frontend) — Hostinger Node.js app on rapidfix.in
-Framework: Express · Entry: server.js · Start: npm start · Node 22
+Framework: Express · Entry: server.js (start.js also works) · Start: npm start · Node 22
 No environment variables needed.
 The API address and Firebase settings are in public/config.js (apiUrl = ${apiUrl}).
 The backend (rapidfix-backend.zip) must run at that address with CORS_ORIGINS=https://rapidfix.in,https://www.rapidfix.in
