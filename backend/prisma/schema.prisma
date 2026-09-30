@@ -177,6 +177,7 @@ model User {
   passwordHash String?    @db.VarChar(255)
   name         String?    @db.VarChar(120)
   avatarUrl    String?    @db.VarChar(512)
+  dateOfBirth  DateTime?  @db.Date
   status       UserStatus @default(ACTIVE)
   lastLoginAt  DateTime?
   createdAt    DateTime   @default(now())
@@ -398,6 +399,10 @@ model Technician {
   baseLatitude       Float?
   baseLongitude      Float?
   serviceRadiusKm    Int                @default(10)
+  /// Alternate / emergency contact number (+91…).
+  alternatePhone     String?            @db.VarChar(16)
+  hasOwnTools        Boolean            @default(false)
+  hasVehicle         Boolean            @default(false)
   verificationStatus VerificationStatus @default(PENDING)
   rejectionReason    String?            @db.VarChar(500)
   verifiedAt         DateTime?

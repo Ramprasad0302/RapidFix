@@ -11,6 +11,31 @@ export const otpSchema = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit O
 
 export const pincodeSchema = z.string().trim().regex(/^[1-9]\d{5}$/, 'Enter a valid 6-digit pincode');
 
+/** Whole years between a YYYY-MM-DD birth date and today. */
+export function ageOn(dob: string, today = new Date()): number {
+  const [y = 0, m = 0, d = 0] = dob.split('-').map(Number);
+  let age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
+  return age;
+}
+
+/** Date of birth as YYYY-MM-DD, within an age range. */
+export const dateOfBirthSchema = (minAge: number, maxAge = 100) =>
+  z
+    .string({ error: 'Enter your date of birth' })
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter your date of birth')
+    .refine((v) => !Number.isNaN(Date.parse(v)), 'Enter a valid date')
+    .refine((v) => ageOn(v) >= minAge, `You must be at least ${minAge} years old`)
+    .refine((v) => ageOn(v) <= maxAge, 'Enter a valid date of birth');
+
+/** Customer sign-up details (after the OTP). */
+export const customerOnboardingSchema = z.object({
+  name: z.string().trim().min(2, 'Enter your full name').max(120),
+  email: z.email('Enter a valid email').trim().toLowerCase(),
+  dateOfBirth: dateOfBirthSchema(13),
+});
+
 export const sendOtpSchema = z.object({ phone: indianPhoneSchema });
 export const verifyOtpSchema = z.object({ phone: indianPhoneSchema, otp: otpSchema });
 

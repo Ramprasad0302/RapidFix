@@ -290,7 +290,12 @@ function TechnicianDrawer({ id }: { id: string }) {
         <Facts
           items={[
             ['Email', t.email ?? '—'],
+            ['Date of birth', t.dateOfBirth ? formatDate(t.dateOfBirth) : '—'],
+            ['Alternate contact', t.alternatePhone ?? '—'],
             ['Experience', `${t.experienceYears} years`],
+            ['Own tools', t.hasOwnTools ? 'Yes' : 'No'],
+            ['Own vehicle', t.hasVehicle ? 'Yes' : 'No'],
+            ['About', t.bio || '—'],
             ['Languages', t.languages.join(', ') || '—'],
             ['Radius', `${t.serviceRadiusKm} km`],
             ['Base', [t.addressLine, t.villageTown, t.district, t.state, t.pincode].filter(Boolean).join(', ')],

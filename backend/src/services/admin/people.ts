@@ -120,7 +120,7 @@ export async function setUserStatus(actor: Actor, userId: string, status: 'ACTIV
 // ─── Technicians ─────────────────────────────────────────────────────────
 
 const techInclude = {
-  user: { select: { name: true, phone: true, email: true, status: true } },
+  user: { select: { name: true, phone: true, email: true, status: true, dateOfBirth: true } },
   skills: { include: { category: true }, orderBy: { category: { sortOrder: 'asc' } } },
   wallet: true,
 } as const satisfies Prisma.TechnicianInclude;
@@ -189,6 +189,11 @@ export async function technicianDetail(id: string): Promise<AdminTechnicianDetai
   return {
     ...toTechRow(t),
     email: t.user.email,
+    dateOfBirth: t.user.dateOfBirth ? t.user.dateOfBirth.toISOString().slice(0, 10) : null,
+    alternatePhone: t.alternatePhone,
+    hasOwnTools: t.hasOwnTools,
+    hasVehicle: t.hasVehicle,
+    bio: t.bio,
     experienceYears: t.experienceYears,
     languages: Array.isArray(t.languages) ? (t.languages as string[]) : [],
     serviceRadiusKm: t.serviceRadiusKm,

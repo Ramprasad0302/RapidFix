@@ -165,7 +165,7 @@ function SignedIn() {
           },
         ]}
       />
-      <p className="py-4 text-center text-xs text-slate-400">RapidFix v{APP_VERSION} · by Nirmaan Digital</p>
+      <p className="py-4 text-center text-xs text-slate-400">RapidFix v{APP_VERSION} · by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-fixora-blue hover:underline">Nirmaan Digital</a></p>
     </>
   );
 }

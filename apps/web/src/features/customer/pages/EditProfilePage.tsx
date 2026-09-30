@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, BadgeCheck, Camera, Gift, Languages, MapPin } from 'lucide-react';
 import { z } from 'zod';
-import { formatIndianPhone } from '@fixora/shared-utils';
+import { dateOfBirthSchema, formatIndianPhone } from '@fixora/shared-utils';
 import { Alert, Button, Spinner } from '@fixora/ui';
 import { Avatar } from '../../../components/Avatar';
 import { PageHeader } from '../../../components/PageHeader';
@@ -17,7 +17,8 @@ import { MobileShell } from '../CustomerTabsLayout';
 
 const schema = z.object({
   name: z.string().trim().min(2, 'Enter your name').max(120),
-  email: z.union([z.email('Enter a valid email').trim(), z.literal('')]),
+  email: z.email('Enter a valid email').trim(),
+  dateOfBirth: dateOfBirthSchema(13),
   city: z.string().trim().max(120),
   language: z.enum(['en', 'te', 'hi']),
   notificationsEnabled: z.boolean(),
@@ -36,7 +37,7 @@ export function EditProfilePage() {
   const profile = useQuery({ queryKey: ['customer', 'profile'], queryFn: customerApi.profile });
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', email: '', city: '', language: 'en', notificationsEnabled: true, marketingOptIn: true },
+    defaultValues: { name: '', email: '', dateOfBirth: '', city: '', language: 'en', notificationsEnabled: true, marketingOptIn: true },
   });
   const [notificationsEnabled, marketingOptIn] = useWatch({ control: form.control, name: ['notificationsEnabled', 'marketingOptIn'] });
   const fileRef = useRef<HTMLInputElement>(null);
@@ -48,6 +49,7 @@ export function EditProfilePage() {
       form.reset({
         name: p.name ?? '',
         email: p.email ?? '',
+        dateOfBirth: p.dateOfBirth ?? '',
         city: p.city ?? '',
         language: (['en', 'te', 'hi'] as const).find((l) => l === p.language) ?? 'en',
         notificationsEnabled: p.notificationsEnabled,
@@ -117,6 +119,9 @@ export function EditProfilePage() {
           </Labeled>
           <Labeled label="Email Address" error={form.formState.errors.email?.message}>
             <input className="field" type="email" autoComplete="email" placeholder="you@example.com" {...form.register('email')} />
+          </Labeled>
+          <Labeled label="Date of Birth" error={form.formState.errors.dateOfBirth?.message}>
+            <input className="field" type="date" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} {...form.register('dateOfBirth')} />
           </Labeled>
           <Labeled label="Location">
             <div className="relative">

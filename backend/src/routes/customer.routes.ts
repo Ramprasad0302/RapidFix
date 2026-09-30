@@ -1,7 +1,8 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { Role, TIME_SLOTS, type AddressDto, type CustomerProfileDto } from '@fixora/shared-types';
-import { addressSchema } from '@fixora/shared-utils';
+import { addressSchema, customerOnboardingSchema, dateOfBirthSchema } from '@fixora/shared-utils';
+import { getMe } from '../services/auth.service';
 import { prisma } from '../config/prisma';
 import { authenticate, authOf, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -36,6 +37,7 @@ async function loadProfile(userId: string): Promise<CustomerProfileDto> {
     phone: u.phone ?? '',
     email: u.email,
     avatarUrl: u.avatarUrl,
+    dateOfBirth: u.dateOfBirth ? u.dateOfBirth.toISOString().slice(0, 10) : null,
     city: u.customer?.city ?? null,
     language: u.customer?.language ?? 'en',
     notificationsEnabled: u.customer?.notificationsEnabled ?? true,
@@ -51,10 +53,8 @@ customerRouter.get('/profile', async (req, res) => {
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(2, 'Enter your name').max(120),
-  email: z
-    .union([z.email('Enter a valid email').trim().toLowerCase(), z.literal('')])
-    .optional()
-    .transform((v) => v || null),
+  email: z.email('Enter a valid email').trim().toLowerCase(),
+  dateOfBirth: dateOfBirthSchema(13).optional(),
   city: z.string().trim().max(120).optional().transform((v) => v || null),
   language: z.enum(['en', 'te', 'hi']).optional(),
   notificationsEnabled: z.boolean().optional(),
@@ -69,11 +69,13 @@ const updateProfileSchema = z.object({
 customerRouter.put('/profile', validate(updateProfileSchema), async (req, res) => {
   const { userId } = authOf(req);
   const b = req.body as z.infer<typeof updateProfileSchema>;
+  await assertEmailFree(b.email, userId);
   await prisma.user.update({
     where: { id: userId },
     data: {
       name: b.name,
       email: b.email,
+      ...(b.dateOfBirth && { dateOfBirth: new Date(`${b.dateOfBirth}T00:00:00Z`) }),
       ...(b.avatarUrl !== undefined && { avatarUrl: b.avatarUrl }),
       customer: {
         update: {
@@ -86,6 +88,37 @@ customerRouter.put('/profile', validate(updateProfileSchema), async (req, res) =
     },
   });
   ok(res, await loadProfile(userId));
+});
+
+async function assertEmailFree(email: string, userId: string) {
+  const other = await prisma.user.findFirst({ where: { email, NOT: { id: userId } }, select: { id: true } });
+  if (other) throw AppError.conflict('This email is already used by another account.', 'EMAIL_TAKEN');
+}
+
+/**
+ * Finishing sign-up after the first OTP: name, email, date of birth and the
+ * first service address, saved together. Returns the refreshed signed-in user.
+ */
+const onboardingSchema = customerOnboardingSchema.extend({ address: addressSchema.optional() });
+
+customerRouter.post('/onboarding', validate(onboardingSchema), async (req, res) => {
+  const { userId, customerId } = await customerOf(req);
+  const b = req.body as z.infer<typeof onboardingSchema>;
+  await assertEmailFree(b.email, userId);
+  const hasAddress = (await prisma.address.count({ where: { customerId, deletedAt: null } })) > 0;
+  if (!hasAddress && !b.address) throw AppError.badRequest('Add your address to continue', 'ADDRESS_REQUIRED');
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: { name: b.name, email: b.email, dateOfBirth: new Date(`${b.dateOfBirth}T00:00:00Z`) },
+    });
+    if (b.address) {
+      await tx.address.updateMany({ where: { customerId }, data: { isDefault: false } });
+      await tx.address.create({ data: { ...b.address, customerId, isDefault: true } });
+    }
+    if (b.address?.villageTown) await tx.customer.update({ where: { id: customerId }, data: { city: b.address.villageTown } });
+  });
+  ok(res, await getMe(userId));
 });
 
 // ─── Bookings ────────────────────────────────────────────────────────────

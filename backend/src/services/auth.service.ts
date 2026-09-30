@@ -30,6 +30,7 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync('fixora-timing-equaliser', 12);
 
 export const userInclude = {
   technician: { select: { id: true, verificationStatus: true, isOnline: true } },
+  customer: { select: { _count: { select: { addresses: { where: { deletedAt: null } } } } } },
 } as const;
 type UserWithTech = Prisma.UserGetPayload<{ include: typeof userInclude }>;
 
@@ -42,7 +43,13 @@ export function toAuthUser(u: UserWithTech): AuthUser {
     email: u.email,
     avatarUrl: u.avatarUrl,
     ...(u.technician && { technician: u.technician }),
+    ...(u.role === Role.CUSTOMER && { profileComplete: isCustomerProfileComplete(u) }),
   };
+}
+
+/** Customers finish sign-up with name, email, date of birth and one saved address before using the app. */
+export function isCustomerProfileComplete(u: Pick<UserWithTech, 'name' | 'email' | 'dateOfBirth' | 'customer'>): boolean {
+  return !!(u.name?.trim() && u.email && u.dateOfBirth && (u.customer?._count.addresses ?? 0) > 0);
 }
 
 /** Throws when the account may not sign in (suspended user, suspended/blocked technician). */

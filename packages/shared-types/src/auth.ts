@@ -12,6 +12,8 @@ export interface AuthUser {
     verificationStatus: TechnicianVerificationStatus;
     isOnline: boolean;
   };
+  /** Customers only: false until name, email, date of birth and an address are saved. */
+  profileComplete?: boolean;
 }
 
 /**

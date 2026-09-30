@@ -1,4 +1,5 @@
 import type {
+  AuthUser,
   AdminBookingDetailDto,
   AdminBookingRowDto,
   AdminCategoryDto,
@@ -130,13 +131,17 @@ export const customerApi = {
   profile: () => unwrap<CustomerProfileDto>(api.get('/customer/profile')),
   updateProfile: (body: {
     name: string;
-    email?: string;
+    email: string;
+    dateOfBirth?: string;
     city?: string;
     language?: string;
     notificationsEnabled?: boolean;
     marketingOptIn?: boolean;
     avatarUrl?: string | null;
   }) => unwrap<CustomerProfileDto>(api.put('/customer/profile', body)),
+  /** Finish sign-up: name, email, date of birth and (for new customers) the first address. */
+  onboarding: (body: { name: string; email: string; dateOfBirth: string; address?: AddressInput }) =>
+    unwrap<AuthUser>(api.post('/customer/onboarding', body)),
   stats: () => unwrap<CustomerBookingStatsDto>(api.get('/customer/bookings/stats')),
   bookings: (tab: BookingTabParam) =>
     unwrap<BookingListItemDto[]>(api.get('/customer/bookings', { params: { tab, pageSize: 50 } })),
@@ -197,6 +202,11 @@ export interface PartnerRegistration {
   pincode: string;
   baseLatitude?: number | null;
   baseLongitude?: number | null;
+  /** YYYY-MM-DD */
+  dateOfBirth?: string;
+  alternatePhone?: string | null;
+  hasOwnTools?: boolean;
+  hasVehicle?: boolean;
   skills: string[];
 }
 

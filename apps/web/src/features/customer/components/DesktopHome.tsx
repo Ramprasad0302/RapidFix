@@ -185,7 +185,9 @@ export function DesktopFooter() {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-5 text-sm text-white/50">
           <span>© {new Date().getFullYear()} RapidFix · v{APP_VERSION}</span>
-          <span>Developed by Nirmaan Digital</span>
+          <span>
+            Developed by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-white/80 hover:text-white hover:underline">Nirmaan Digital</a>
+          </span>
         </div>
       </div>
     </footer>

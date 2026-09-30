@@ -62,7 +62,8 @@ export const ROUTES: RouteDoc[] = [
 
   // Customer
   R('get', '/customer/profile', 'Customer', 'My profile', 'customer'),
-  R('put', '/customer/profile', 'Customer', 'Update my profile', 'customer', { body: obj({ name: str, email: str, city: str, language: str, notificationsEnabled: bool, marketingOptIn: bool, avatarUrl: str }, ['name']) }),
+  R('put', '/customer/profile', 'Customer', 'Update my profile', 'customer', { body: obj({ name: str, email: str, dateOfBirth: str, city: str, language: str, notificationsEnabled: bool, marketingOptIn: bool, avatarUrl: str }, ['name', 'email']) }),
+  R('post', '/customer/onboarding', 'Customer', 'Finish sign-up (name, email, date of birth, first address)', 'customer', { body: obj({ name: str, email: str, dateOfBirth: str, address: obj({}) }, ['name', 'email', 'dateOfBirth']) }),
   R('get', '/customer/bookings/stats', 'Customer', 'Counts per tab', 'customer'),
   R('get', '/customer/bookings', 'Customer', 'My bookings', 'customer', { query: ['tab', 'page', 'pageSize'] }),
   R('post', '/customer/bookings', 'Customer', 'Create a booking (price, coupon and schedule re-validated on the server; dispatch starts immediately)', 'customer', {

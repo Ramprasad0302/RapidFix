@@ -77,7 +77,7 @@ export function AboutPage() {
         plumbers, carpenters, painters, cleaners and appliance experts.
       </p>
       <p className="mt-3">Transparent pricing, verified partners and easy booking — so every job simply gets fixed.</p>
-      <p className="mt-6 text-sm text-slate-500">RapidFix is developed by Nirmaan Digital.</p>
+      <p className="mt-6 text-sm text-slate-500">RapidFix is developed by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-fixora-blue hover:underline">Nirmaan Digital</a>.</p>
     </InfoLayout>
   );
 }

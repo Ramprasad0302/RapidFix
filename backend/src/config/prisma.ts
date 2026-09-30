@@ -3,12 +3,18 @@ import { PrismaClient } from '../generated/prisma/client';
 import { env } from './env';
 
 /**
- * Small, long-lived pool: hosted MySQL/MariaDB plans (e.g. Hostinger) cap new
- * connections per hour, so we keep a few connections open and reuse them.
+ * Small, mostly on-demand pool: hosted MySQL/MariaDB plans (e.g. Hostinger)
+ * cap new connections per hour (500). The driver's default opens every slot at
+ * start-up and reopens them each time the server drops idle ones
+ * (wait_timeout = 300 s there), and the host restarts idle apps — that burns
+ * the hourly allowance with no traffic at all. So: keep one connection warm
+ * (0 would never open any — a driver quirk), open more only under load, and
+ * release idle extras before the server would kill them.
  */
 function withPoolSize(url: string) {
   const u = new URL(url);
-  if (!u.searchParams.has('connectionLimit')) u.searchParams.set('connectionLimit', String(env.DB_POOL_SIZE));
+  const defaults = { connectionLimit: env.DB_POOL_SIZE, minimumIdle: 1, idleTimeout: env.DB_IDLE_TIMEOUT };
+  for (const [key, value] of Object.entries(defaults)) if (!u.searchParams.has(key)) u.searchParams.set(key, String(value));
   return u.toString();
 }
 

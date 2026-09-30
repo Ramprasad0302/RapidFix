@@ -74,7 +74,21 @@ export interface ProfileInput {
   pincode: string;
   baseLatitude?: number | null;
   baseLongitude?: number | null;
+  /** YYYY-MM-DD */
+  dateOfBirth?: string;
+  /** +91XXXXXXXXXX, or null to clear */
+  alternatePhone?: string | null;
+  hasOwnTools?: boolean;
+  hasVehicle?: boolean;
 }
+
+/** Optional onboarding fields, applied only when sent. */
+const extraProfile = (p: ProfileInput) => ({
+  ...(p.alternatePhone !== undefined && { alternatePhone: p.alternatePhone }),
+  ...(p.hasOwnTools !== undefined && { hasOwnTools: p.hasOwnTools }),
+  ...(p.hasVehicle !== undefined && { hasVehicle: p.hasVehicle }),
+});
+const dobData = (p: ProfileInput) => (p.dateOfBirth ? { dateOfBirth: new Date(`${p.dateOfBirth}T00:00:00Z`) } : {});
 
 export async function updateProfile(userId: string, p: ProfileInput) {
   if (p.avatarUrl && !isOwnUploadPath(p.avatarUrl)) throw AppError.badRequest('Invalid photo', 'INVALID_ATTACHMENT');
@@ -84,8 +98,10 @@ export async function updateProfile(userId: string, p: ProfileInput) {
       name: p.name,
       ...(p.email !== undefined && { email: p.email || null }),
       ...(p.avatarUrl !== undefined && { avatarUrl: p.avatarUrl }),
+      ...dobData(p),
       technician: {
         update: {
+          ...extraProfile(p),
           experienceYears: p.experienceYears,
           bio: p.bio ?? null,
           languages: p.languages,
@@ -104,10 +120,14 @@ export async function updateProfile(userId: string, p: ProfileInput) {
 }
 
 export async function technicianDetails(userId: string) {
-  const t = await prisma.technician.findUniqueOrThrow({ where: { userId }, include: { user: { select: { email: true } } } });
+  const t = await prisma.technician.findUniqueOrThrow({ where: { userId }, include: { user: { select: { email: true, dateOfBirth: true } } } });
   return {
     ...toProfileSummary(await technicianOf(userId)),
     email: t.user.email,
+    dateOfBirth: t.user.dateOfBirth ? t.user.dateOfBirth.toISOString().slice(0, 10) : null,
+    alternatePhone: t.alternatePhone,
+    hasOwnTools: t.hasOwnTools,
+    hasVehicle: t.hasVehicle,
     bio: t.bio,
     languages: Array.isArray(t.languages) ? (t.languages as string[]) : [],
     serviceRadiusKm: t.serviceRadiusKm,
@@ -243,6 +263,9 @@ export async function registerPartner(userId: string, input: PartnerRegistration
     const active = await prisma.booking.count({ where: { customerId: user.customer.id, status: { notIn: [B.PAYMENT_COMPLETED, B.CUSTOMER_CANCELLED, B.ADMIN_CANCELLED, B.TECHNICIAN_CANCELLED, B.REFUNDED, B.NO_SHOW] } } });
     if (active) throw AppError.conflict('Finish your open bookings before registering as a partner.', 'ACTIVE_BOOKINGS');
   }
+  if (input.email && (await prisma.user.findFirst({ where: { email: input.email, NOT: { id: userId } }, select: { id: true } }))) {
+    throw AppError.conflict('This email is already used by another account.', 'EMAIL_TAKEN');
+  }
   const categories = await prisma.serviceCategory.findMany({ where: { id: { in: input.skills }, isActive: true }, select: { id: true } });
   if (!categories.length) throw AppError.badRequest('Choose at least one service you provide', 'SKILLS_REQUIRED');
 
@@ -260,13 +283,14 @@ export async function registerPartner(userId: string, input: PartnerRegistration
     baseLongitude: input.baseLongitude ?? null,
     lastLatitude: input.baseLatitude ?? null,
     lastLongitude: input.baseLongitude ?? null,
+    ...extraProfile(input),
     verificationStatus: 'PENDING' as const,
     isOnline: false,
   };
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
-      data: { role: Role.TECHNICIAN, name: input.name, ...(input.email && { email: input.email }), ...(input.avatarUrl && { avatarUrl: input.avatarUrl }) },
+      data: { role: Role.TECHNICIAN, name: input.name, ...(input.email && { email: input.email }), ...(input.avatarUrl && { avatarUrl: input.avatarUrl }), ...dobData(input) },
     });
     const tech = user.technician
       ? await tx.technician.update({ where: { id: user.technician.id }, data: profile })

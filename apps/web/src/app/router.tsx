@@ -46,6 +46,7 @@ export const router = createBrowserRouter([
               { path: 'account', ...page(() => customer('AccountPage'), 'AccountPage') },
             ],
           },
+          { path: 'welcome', ...page(() => customer('CompleteProfilePage'), 'CompleteProfilePage') },
           { path: 'search', ...page(() => customer('SearchPage'), 'SearchPage') },
           { path: 'location', ...page(() => customer('ConfirmLocationPage'), 'ConfirmLocationPage') },
           { path: 'services', element: <Navigate to="/book" replace /> },

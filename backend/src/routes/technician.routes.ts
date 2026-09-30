@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { Role, type TechnicianJobAction } from '@fixora/shared-types';
+import { dateOfBirthSchema, indianPhoneSchema, toE164India } from '@fixora/shared-utils';
 import { authenticate, authOf, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import * as tech from '../services/technician.service';
@@ -36,6 +37,13 @@ const profileSchema = z.object({
   pincode: z.string().regex(/^[1-9]\d{5}$/, 'Enter a valid pincode'),
   baseLatitude: z.number().min(-90).max(90).nullable().optional(),
   baseLongitude: z.number().min(-180).max(180).nullable().optional(),
+  dateOfBirth: dateOfBirthSchema(18, 70).optional(),
+  alternatePhone: z
+    .union([indianPhoneSchema.transform((v) => toE164India(v)), z.literal(''), z.null()])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v || null)),
+  hasOwnTools: z.boolean().optional(),
+  hasVehicle: z.boolean().optional(),
 });
 
 technicianRouter.put('/profile', validate(profileSchema), async (req, res) => {

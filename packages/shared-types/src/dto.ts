@@ -226,6 +226,8 @@ export interface CustomerProfileDto {
   phone: string;
   email: string | null;
   avatarUrl: string | null;
+  /** YYYY-MM-DD */
+  dateOfBirth: string | null;
   city: string | null;
   language: string;
   notificationsEnabled: boolean;
@@ -600,6 +602,11 @@ export interface ComplaintDto {
 
 export interface TechnicianDetailsDto extends TechnicianProfileSummary {
   email: string | null;
+  /** YYYY-MM-DD */
+  dateOfBirth: string | null;
+  alternatePhone: string | null;
+  hasOwnTools: boolean;
+  hasVehicle: boolean;
   bio: string | null;
   languages: string[];
   serviceRadiusKm: number;

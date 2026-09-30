@@ -53,6 +53,10 @@ function ProfileForm({ d }: { d: TechnicianDetailsDto }) {
   const defaults: PartnerFormValues = {
     name: d.name,
     email: d.email ?? '',
+    dateOfBirth: d.dateOfBirth ?? '',
+    alternatePhone: d.alternatePhone?.replace(/^\+91/, '') ?? '',
+    hasOwnTools: d.hasOwnTools,
+    hasVehicle: d.hasVehicle,
     experienceYears: d.experienceYears,
     bio: d.bio ?? '',
     languages: d.languages,

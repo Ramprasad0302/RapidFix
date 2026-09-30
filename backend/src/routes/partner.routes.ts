@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { Role } from '@fixora/shared-types';
+import { dateOfBirthSchema, indianPhoneSchema, toE164India } from '@fixora/shared-utils';
 import { setRefreshCookie } from '../controllers/auth.controller';
 import { authenticate, authOf, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -12,13 +13,20 @@ export const partnerRouter = Router();
 
 const schema = z.object({
   name: z.string().trim().min(2).max(120),
-  email: z.union([z.email().trim().toLowerCase(), z.literal('')]).optional(),
+  email: z.email('Enter a valid email').trim().toLowerCase(),
+  dateOfBirth: dateOfBirthSchema(18, 70),
+  alternatePhone: z
+    .union([indianPhoneSchema.transform((v) => toE164India(v)), z.literal(''), z.null()])
+    .optional()
+    .transform((v) => v || null),
+  hasOwnTools: z.boolean().default(false),
+  hasVehicle: z.boolean().default(false),
   avatarUrl: z.string().nullable().optional(),
   experienceYears: z.number().int().min(0).max(60),
   bio: z.string().trim().max(500).nullable().optional(),
   languages: z.array(z.string().trim().min(2).max(30)).min(1).max(10),
   serviceRadiusKm: z.number().int().min(1).max(50),
-  addressLine: z.string().trim().max(255).optional(),
+  addressLine: z.string().trim().min(3, 'Enter your house / street address').max(255),
   villageTown: z.string().trim().min(1).max(120),
   district: z.string().trim().min(1).max(120),
   state: z.string().trim().min(1).max(80),

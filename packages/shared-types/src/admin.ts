@@ -113,6 +113,12 @@ export interface AdminTechnicianRowDto {
 
 export interface AdminTechnicianDetailDto extends AdminTechnicianRowDto {
   email: string | null;
+  /** YYYY-MM-DD */
+  dateOfBirth: string | null;
+  alternatePhone: string | null;
+  hasOwnTools: boolean;
+  hasVehicle: boolean;
+  bio: string | null;
   experienceYears: number;
   languages: string[];
   serviceRadiusKm: number;

@@ -27,6 +27,8 @@ export function RequireRole({ roles }: { roles: readonly Role[] }) {
 export function CustomerArea() {
   const status = useAuth((s) => s.status);
   const role = useAuth((s) => s.user?.role);
+  const profileComplete = useAuth((s) => s.user?.profileComplete);
+  const location = useLocation();
   const [waitedEnough, setWaitedEnough] = useState(false);
 
   useEffect(() => {
@@ -36,8 +38,15 @@ export function CustomerArea() {
 
   if (status === 'unknown' && !waitedEnough) return <SplashScreen />;
   if (status === 'authenticated' && role !== Role.CUSTOMER) return <Navigate to={homeFor(role)} replace />;
+  // New customers finish their profile (name, email, date of birth, address) before anything else.
+  if (status === 'authenticated' && profileComplete === false && !PROFILE_EXEMPT.some((p) => location.pathname.startsWith(p))) {
+    return <Navigate to={`/welcome?redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
   return <AreaFrame area="customer" />;
 }
+
+/** Pages a customer may open before finishing their profile. */
+const PROFILE_EXEMPT = ['/welcome', '/terms', '/privacy', '/help', '/about'];
 
 /** `/customer/bookings` → `/bookings` (spec URLs keep working). */
 export function StripCustomerPrefix() {

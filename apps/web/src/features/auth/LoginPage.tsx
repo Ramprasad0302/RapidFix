@@ -125,7 +125,7 @@ function BrandPanel() {
           ))}
         </ul>
       </div>
-      <p className="relative text-sm text-white/60">RapidFix · Developed by Nirmaan Digital</p>
+      <p className="relative text-sm text-white/60">RapidFix · Developed by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-white/80 hover:text-white hover:underline">Nirmaan Digital</a></p>
     </aside>
   );
 }
@@ -136,24 +136,27 @@ type PhoneIn = z.input<typeof sendOtpSchema>;
 type PhoneOut = z.output<typeof sendOtpSchema>;
 
 /** When the next OTP may be requested (+ the development code, if the server echoes it). */
-interface OtpInfo {
+export interface OtpInfo {
   resendAt: number;
   devCode?: string;
 }
 const secondsFromNow = (seconds: number) => Date.now() + seconds * 1000;
 
-function PhoneStep({
+export function PhoneStep({
   sender,
   heading,
   subheading,
   onSent,
   onUsePassword,
+  embedded = false,
 }: {
   sender: OtpSender;
   heading: string;
   subheading: string;
   onSent(phone: string, info: OtpInfo): void;
-  onUsePassword(): void;
+  onUsePassword?(): void;
+  /** Inside another page (partner sign-up): no logo, no login-only links. */
+  embedded?: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const form = useForm<PhoneIn, unknown, PhoneOut>({ resolver: zodResolver(sendOtpSchema), defaultValues: { phone: '' } });
@@ -177,10 +180,12 @@ function PhoneStep({
   const phoneError = form.formState.errors.phone?.message;
   return (
     <form onSubmit={submit} noValidate className="flex flex-1 flex-col">
-      <div className="mt-2 flex justify-center">
-        <Logo variant="full" size="md" />
-      </div>
-      <h1 className="mt-10 text-center text-[26px] font-bold text-slate-900">{heading}</h1>
+      {!embedded && (
+        <div className="mt-2 flex justify-center">
+          <Logo variant="full" size="md" />
+        </div>
+      )}
+      <h1 className={`${embedded ? 'mt-2' : 'mt-10'} text-center text-[26px] font-bold text-slate-900`}>{heading}</h1>
       <p className="mt-2 text-center text-[15px] text-slate-500">{subheading}</p>
 
       <label htmlFor="phone" className="sr-only">
@@ -199,7 +204,7 @@ function PhoneStep({
           inputMode="numeric"
           autoComplete="tel-national"
           maxLength={14}
-          autoFocus
+          autoFocus={!embedded}
           placeholder="Enter your mobile number"
           aria-invalid={phoneError ? true : undefined}
           className="h-full min-w-0 flex-1 rounded-r-xl bg-transparent px-3 text-base outline-none placeholder:text-slate-400"
@@ -231,20 +236,24 @@ function PhoneStep({
         Continue <ArrowRight className="size-4.5" aria-hidden />
       </Button>
 
-      <p className="mt-6 text-center text-[13px] text-slate-500">New to RapidFix? You’ll be registered automatically</p>
-      <Link to="/partner" className="mt-3 text-center text-[13px] font-medium text-fixora-blue">
-        Are you a technician? Become a RapidFix partner
-      </Link>
-      <button type="button" onClick={onUsePassword} className="mt-auto pt-8 text-center text-[13px] font-medium text-slate-500 hover:text-fixora-blue">
-        RapidFix staff? Sign in with email
-      </button>
+      {!embedded && (
+        <>
+          <p className="mt-6 text-center text-[13px] text-slate-500">New to RapidFix? You’ll be registered automatically</p>
+          <Link to="/partner" className="mt-3 text-center text-[13px] font-medium text-fixora-blue">
+            Are you a technician? Become a RapidFix partner
+          </Link>
+          <button type="button" onClick={onUsePassword} className="mt-auto pt-8 text-center text-[13px] font-medium text-slate-500 hover:text-fixora-blue">
+            RapidFix staff? Sign in with email
+          </button>
+        </>
+      )}
     </form>
   );
 }
 
 // ─── Step 2: OTP ─────────────────────────────────────────────────────────
 
-function OtpStep({
+export function OtpStep({
   sender,
   phone,
   info,

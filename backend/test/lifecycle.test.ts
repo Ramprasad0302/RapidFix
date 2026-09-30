@@ -237,22 +237,36 @@ describe('technician account', () => {
 
   it('a new phone account can register as a partner (pending verification)', async () => {
     const fresh = await otpLogin('9000000050');
-    const res = await request()
-      .post(`${API}/partner/register`)
-      .set(bearer(fresh.token))
-      .send({
-        name: 'New Partner',
-        experienceYears: 3,
-        languages: ['Telugu'],
-        serviceRadiusKm: 10,
-        villageTown: 'Tanuku',
-        district: 'West Godavari',
-        state: 'Andhra Pradesh',
-        pincode: '534211',
-        skills: [categoryId],
-      })
-      .expect(201);
+    const partner = {
+      name: 'New Partner',
+      email: 'new.partner@example.com',
+      dateOfBirth: '1992-04-10',
+      alternatePhone: '9000000051',
+      experienceYears: 3,
+      languages: ['Telugu'],
+      hasOwnTools: true,
+      hasVehicle: false,
+      serviceRadiusKm: 10,
+      addressLine: '4-12, Main Road',
+      villageTown: 'Tanuku',
+      district: 'West Godavari',
+      state: 'Andhra Pradesh',
+      pincode: '534211',
+      skills: [categoryId],
+    };
+    // Onboarding needs the details used for verification.
+    const { dateOfBirth: _dob, ...noDob } = partner;
+    await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send(noDob).expect(400);
+    await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner, dateOfBirth: '2015-01-01' }).expect(400);
+    await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner, email: '' }).expect(400);
+    // The alternate number is optional (the app sends null when it's left blank).
+    const other = await otpLogin('9000000052');
+    await request().post(`${API}/partner/register`).set(bearer(other.token)).send({ ...partner, email: 'other@example.com', alternatePhone: null }).expect(201);
+
+    const res = await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send(partner).expect(201);
     expect(res.body.data.user).toMatchObject({ role: 'TECHNICIAN', technician: { verificationStatus: 'PENDING' } });
+    const details = await request().get(`${API}/technician/profile/details`).set(bearer(res.body.data.accessToken)).expect(200);
+    expect(details.body.data).toMatchObject({ dateOfBirth: '1992-04-10', alternatePhone: '+919000000051', hasOwnTools: true, hasVehicle: false });
     await request().post(`${API}/auth/refresh`).set('Cookie', fresh.cookie).expect(401);
     await request().post(`${API}/technician/online`).set(bearer(res.body.data.accessToken)).send({}).expect(403);
   });
