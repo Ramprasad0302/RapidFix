@@ -27,6 +27,7 @@ import {
 } from '../components/HomeSections';
 import { PermissionsSheet } from '../../../components/PermissionsSheet';
 import { LocationPicker } from '../components/LocationPicker';
+import { DesktopFooter, DesktopHero, DesktopTrustStrip } from '../components/DesktopHome';
 import { useCategories } from '../queries';
 
 const WHY = [
@@ -41,7 +42,9 @@ export function HomePage() {
   return (
     <>
       <AppHeader />
-      <main className="flex flex-col gap-7 px-4 lg:gap-12 lg:px-8 lg:pt-8">
+      <main className="flex flex-col gap-7 px-4 lg:gap-20 lg:px-8">
+        <DesktopHero name={firstName(name)} />
+        <DesktopTrustStrip />
         <Hero name={firstName(name)} />
         <ActiveBookingStrip />
         <Categories />
@@ -56,6 +59,7 @@ export function HomePage() {
         <RapidFixPromise />
         <InviteBanner />
         <HomeFooter />
+        <DesktopFooter />
       </main>
       <PermissionsSheet location="customer" />
     </>
@@ -66,7 +70,7 @@ function Hero({ name }: { name: string }) {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   return (
-    <section className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-fixora-navy via-[#12306a] to-fixora-blue px-5 pt-6 pb-5 text-white lg:rounded-[28px] lg:px-12 lg:pt-12 lg:pb-12">
+    <section className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-fixora-navy via-[#12306a] to-fixora-blue px-5 pt-6 pb-5 text-white lg:hidden">
       <HomeScene className="pointer-events-none absolute -right-10 bottom-14 w-[64%] opacity-90 lg:right-40 lg:bottom-0 lg:w-[34%]" />
       <div className="absolute top-3 right-3 hidden w-[38%] max-w-[160px] flex-col gap-2 rounded-2xl bg-white/95 p-2.5 text-slate-900 shadow-raised min-[340px]:flex lg:top-10 lg:right-10 lg:max-w-[210px] lg:gap-3 lg:p-4">
         {[
@@ -154,9 +158,9 @@ function CategoryTile({ to, iconKey, label }: { to: string; iconKey: string; lab
 
 function TrustedBanner() {
   return (
-    <section className="relative overflow-hidden rounded-[22px] bg-gradient-to-r from-[#EAF2FF] via-[#DCEAFF] to-[#C7DDFF] px-5 py-5 lg:rounded-[28px] lg:px-12 lg:py-10">
-      <HomeScene tone="light" className="pointer-events-none absolute -right-6 -bottom-3 w-[55%] lg:right-24 lg:w-[30%]" />
-      <ShieldBadge className="absolute top-4 right-5 h-11 w-auto drop-shadow lg:top-8 lg:right-10 lg:h-16" />
+    <section className="relative overflow-hidden rounded-[22px] bg-gradient-to-r from-[#EAF2FF] via-[#DCEAFF] to-[#C7DDFF] px-5 py-5 full-bleed lg:px-[max(2rem,calc(50vw-40rem+2rem))] lg:py-16">
+      <HomeScene tone="light" className="pointer-events-none absolute -right-6 -bottom-3 w-[55%] lg:right-[max(6rem,calc(50vw-40rem+6rem))] lg:w-[380px]" />
+      <ShieldBadge className="absolute top-4 right-5 h-11 w-auto drop-shadow lg:top-10 lg:right-[max(2rem,calc(50vw-40rem+2rem))] lg:h-16" />
       <h2 className="relative max-w-[66%] text-[20px] leading-tight font-extrabold text-fixora-navy lg:max-w-[50%] lg:text-3xl">
         Trusted Professionals at Your Doorstep
       </h2>

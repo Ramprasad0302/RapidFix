@@ -21,7 +21,7 @@ export function OffersPage() {
   return (
     <>
       <AppHeader />
-      <main className="flex flex-col gap-5 px-4 lg:gap-7 lg:px-8 lg:pt-8">
+      <main className="flex flex-col gap-5 px-4 lg:gap-8 lg:px-8 lg:py-10">
         <PromoCarousel />
 
         <div role="tablist" aria-label="Offer categories" className="scroll-row -mx-4 gap-2.5 px-4 pb-1">

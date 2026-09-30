@@ -57,7 +57,7 @@ export function ProfilePage() {
   return (
     <>
       <TechHeader />
-      <main className="flex flex-col gap-4 px-4 lg:mx-auto lg:max-w-3xl lg:px-8 lg:pt-8">
+      <main className="flex flex-col gap-4 px-4 lg:mx-auto lg:max-w-5xl lg:px-8 lg:py-10">
         {profile.isPending && <Skeleton className="h-24" />}
         {profile.isError && <ErrorState error={profile.error} onRetry={() => void profile.refetch()} />}
         {p && (

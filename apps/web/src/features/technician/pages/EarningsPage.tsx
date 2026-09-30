@@ -17,7 +17,7 @@ export function EarningsPage() {
   return (
     <>
       <TechHeader />
-      <main className="flex flex-col gap-5 px-4 lg:mx-auto lg:max-w-3xl lg:px-8 lg:pt-8">
+      <main className="flex flex-col gap-5 px-4 lg:mx-auto lg:max-w-5xl lg:px-8 lg:py-10">
         <h1 className="text-[28px] font-bold text-slate-900">Earnings</h1>
         {earnings.isPending && <Skeleton className="h-40" />}
         {earnings.isError && <ErrorState error={earnings.error} onRetry={() => void earnings.refetch()} />}

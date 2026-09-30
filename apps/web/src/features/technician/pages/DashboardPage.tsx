@@ -19,7 +19,7 @@ export function DashboardPage() {
   return (
     <>
       <TechHeader />
-      <main className="flex flex-col gap-5 px-4 lg:mx-auto lg:max-w-5xl lg:gap-7 lg:px-8 lg:pt-8">
+      <main className="flex flex-col gap-5 px-4 lg:mx-auto lg:max-w-7xl lg:gap-8 lg:px-8 lg:py-10">
         {dash.isPending && (
           <>
             <Skeleton className="h-24" />
@@ -94,7 +94,7 @@ function Dashboard({ d }: { d: TechnicianDashboardDto }) {
             </Link>
           }
         />
-        <div className="mt-3 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-4">
+        <div className="mt-3 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
           {d.schedule.length === 0 && (
             <EmptyState
               className="py-6"

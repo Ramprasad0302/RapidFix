@@ -44,3 +44,11 @@
     max-width: none;
   }
 }
+
+/* Desktop: let a section break out of its container to the full window width. */
+@media (min-width: 1024px) {
+  .full-bleed {
+    margin-inline: calc(50% - 50vw);
+    border-radius: 0;
+  }
+}

@@ -49,7 +49,7 @@ export function StripCustomerPrefix() {
 /** Laptop frame for the customer and technician apps: grey page background + top navigation. */
 export function AreaFrame({ area }: { area: 'customer' | 'technician' }) {
   return (
-    <div className="min-h-dvh lg:bg-slate-50">
+    <div className="min-h-dvh overflow-x-clip lg:bg-slate-50">
       <DesktopTopBar area={area} />
       <Outlet />
     </div>

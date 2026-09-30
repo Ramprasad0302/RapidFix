@@ -152,7 +152,7 @@ export function TrustNumbers() {
       ]
     : [];
   return (
-    <section className="relative overflow-hidden rounded-[22px] bg-fixora-navy px-5 py-6 text-white lg:rounded-[28px] lg:px-12 lg:py-10">
+    <section className="relative overflow-hidden rounded-[22px] bg-fixora-navy px-5 py-6 text-white full-bleed lg:px-[max(2rem,calc(50vw-40rem+2rem))] lg:py-20">
       <div aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-fixora-blue/30 blur-2xl" />
       <div aria-hidden className="absolute -bottom-20 -left-10 size-44 rounded-full bg-fixora-cyan/15 blur-2xl" />
       <p className="relative text-xs font-semibold tracking-[0.2em] text-fixora-cyan">RAPIDFIX IN NUMBERS</p>
@@ -216,7 +216,7 @@ export function RapidFixPromise() {
     { icon: Headset, title: 'Local support', body: 'Real people to help, every day' },
   ];
   return (
-    <section className="rounded-[22px] border border-fixora-blue/10 bg-gradient-to-b from-[#F4F8FF] to-white p-5 lg:rounded-[28px] lg:p-8">
+    <section className="rounded-[22px] border border-fixora-blue/10 bg-gradient-to-b from-[#F4F8FF] to-white p-5 full-bleed lg:border-x-0 lg:px-[max(2rem,calc(50vw-40rem+2rem))] lg:py-16">
       <div className="flex items-center gap-3">
         <span className="flex size-11 items-center justify-center rounded-2xl bg-fixora-blue text-white">
           <BadgeCheck className="size-6" aria-hidden />
@@ -265,7 +265,7 @@ export function InviteBanner() {
 export function HomeFooter() {
   const { phone: SUPPORT_PHONE, email: SUPPORT_EMAIL } = useSupportContacts();
   return (
-    <footer className="-mx-4 mt-2 bg-slate-50 px-6 pt-8 pb-6 lg:-mx-8 lg:-mb-12 lg:rounded-t-[28px] lg:px-12 lg:pt-12">
+    <footer className="-mx-4 mt-2 bg-slate-50 px-6 pt-8 pb-6 lg:hidden">
       <Logo size="sm" />
       <p className="mt-3 text-[15px] font-semibold text-slate-800">Trusted home services for every town.</p>
       <p className="mt-1 text-sm text-slate-500">Verified local professionals for repairs, cleaning, installation and more.</p>

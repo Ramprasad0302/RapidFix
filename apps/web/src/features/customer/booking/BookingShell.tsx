@@ -5,6 +5,7 @@ import { cx } from '@fixora/ui';
 import { PageHeader } from '../../../components/PageHeader';
 import { useBookingDraft } from '../../../store/bookingDraft';
 import { MobileShell } from '../CustomerTabsLayout';
+import { BookingSummaryAside } from './BookingSummaryAside';
 
 const STEPS = ['Service', 'Details', 'Address', 'Schedule', 'Summary'];
 
@@ -64,9 +65,17 @@ export function BookingShell({
   }, [coupon, setCoupon]);
 
   if (requireService && !hasService) return <Navigate to="/book" replace />;
+  // Desktop: live "Your booking" summary beside the steps once a service is chosen.
+  const showSummary = hasService && requireService;
   return (
-    <MobileShell>
-      <div className="flex min-h-dvh flex-col lg:min-h-[calc(100dvh-7rem)]">
+    <MobileShell
+      wide
+      className={cx(
+        'lg:bg-transparent lg:px-8 lg:py-8',
+        showSummary ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8' : 'lg:max-w-5xl',
+      )}
+    >
+      <div className="flex min-h-dvh flex-col lg:min-h-[calc(100dvh-9.5rem)] lg:overflow-clip lg:rounded-3xl lg:border lg:border-slate-200/70 lg:bg-white lg:shadow-card">
         <PageHeader title="Book a Service" backTo={backTo} />
         {step && (
           <div className="px-2 pb-2">
@@ -78,6 +87,7 @@ export function BookingShell({
           <div className="sticky bottom-0 z-20 border-t border-slate-100 bg-white/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">{action}</div>
         )}
       </div>
+      {showSummary && <BookingSummaryAside />}
     </MobileShell>
   );
 }

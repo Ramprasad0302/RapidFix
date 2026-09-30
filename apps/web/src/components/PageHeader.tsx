@@ -27,7 +27,7 @@ export function PageHeader({
   return (
     <header
       className={cx(
-        'sticky top-0 z-30 grid grid-cols-[48px_1fr_auto] lg:top-16 items-center bg-white/95 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 backdrop-blur',
+        'sticky top-0 z-30 grid grid-cols-[48px_1fr_auto] lg:top-[72px] items-center bg-white/95 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 backdrop-blur',
         className,
       )}
     >
@@ -45,8 +45,8 @@ export function SectionHeader({ title, subtitle, action, className }: { title: s
   return (
     <div className={cx('flex items-end justify-between gap-3', className)}>
       <div>
-        <h2 className="text-[19px] leading-tight font-bold tracking-tight text-slate-900">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-[13px] text-slate-500">{subtitle}</p>}
+        <h2 className="text-[19px] leading-tight font-bold tracking-tight text-slate-900 lg:text-[30px]">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-[13px] text-slate-500 lg:mt-1.5 lg:text-base">{subtitle}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

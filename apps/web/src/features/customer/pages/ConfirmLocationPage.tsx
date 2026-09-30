@@ -141,7 +141,7 @@ export function ConfirmLocationPage() {
 
   return (
     <MobileShell>
-      <div className="relative flex h-dvh flex-col lg:h-[calc(100dvh-7rem)]">
+      <div className="relative flex h-dvh flex-col lg:h-[calc(100dvh-9.5rem)]">
         {/* Map with a fixed centre pin */}
         <div className="relative flex-1">
           {effectiveCenter ? (

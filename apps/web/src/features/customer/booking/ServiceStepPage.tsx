@@ -42,13 +42,13 @@ export function ServiceStepPage() {
       {service.isPending && <CenteredSpinner />}
       {service.isError && <ErrorState error={service.error} onRetry={() => void service.refetch()} />}
       {s && (
-        <div className="flex flex-col gap-5">
-          <ServiceArt imageUrl={s.imageUrl} iconKey={s.category.iconKey} alt={s.name} className="h-44 w-full rounded-2xl" artClassName="h-3/5 w-auto" />
+        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-x-10 lg:gap-y-6">
+          <ServiceArt imageUrl={s.imageUrl} iconKey={s.category.iconKey} alt={s.name} className="h-44 w-full rounded-2xl lg:row-span-4 lg:h-full lg:min-h-[340px] lg:rounded-3xl" artClassName="h-3/5 w-auto lg:h-2/5" />
           <div>
-            <h1 className="text-[24px] font-bold text-slate-900">{s.name}</h1>
+            <h1 className="text-[24px] font-bold text-slate-900 lg:text-4xl">{s.name}</h1>
             <p className="mt-0.5 text-[15px] text-slate-500">{s.tagline || s.description}</p>
             <div className="mt-3 flex items-center justify-between">
-              <p className="text-[20px] font-bold text-fixora-blue">From {formatINR(s.basePrice)}</p>
+              <p className="text-[20px] font-bold text-fixora-blue lg:text-3xl">From {formatINR(s.basePrice)}</p>
               <p className="flex items-center gap-1.5 text-sm text-slate-700">
                 <Clock className="size-4" aria-hidden /> {durationRange(s.durationMinMinutes, s.durationMaxMinutes)}
               </p>

@@ -51,7 +51,7 @@ export function ChatPage({ backTo }: { backTo: (id: string) => string }) {
   const c = info.data?.counterpart;
   return (
     <MobileShell>
-      <div className="flex h-dvh flex-col lg:h-[calc(100dvh-7rem)]">
+      <div className="flex h-dvh flex-col lg:h-[calc(100dvh-9.5rem)]">
         <PageHeader
           backTo={backTo(id)}
           className="border-b border-slate-100"

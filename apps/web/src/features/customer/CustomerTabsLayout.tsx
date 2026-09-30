@@ -14,12 +14,14 @@ const TABS = [
 /** Mobile app column with the Home / Bookings / Offers / Profile tab bar. */
 export function CustomerTabsLayout() {
   return (
-    <MobileShell wide>
-      <div className="pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] lg:pb-12">
-        <Outlet />
-      </div>
-      <BottomNav items={TABS} />
-    </MobileShell>
+    <div className="lg:bg-white">
+      <MobileShell wide>
+        <div className="pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] lg:pb-0">
+          <Outlet />
+        </div>
+        <BottomNav items={TABS} />
+      </MobileShell>
+    </div>
   );
 }
 
@@ -28,14 +30,15 @@ export function CustomerTabsLayout() {
  * (Home, Bookings, Offers…) use a 1152px layout; other pages sit in a centred
  * 768px card under the top navigation bar.
  */
-export function MobileShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+export function MobileShell({ children, wide = false, className }: { children: ReactNode; wide?: boolean; className?: string }) {
   return (
     <div
       className={cx(
         'mx-auto min-h-dvh w-full max-w-[480px] bg-white shadow-[0_0_40px_rgb(11_31_58/0.06)]',
         wide
-          ? 'lg:max-w-6xl lg:shadow-none'
-          : 'lg:my-6 lg:min-h-[calc(100dvh-7rem)] lg:max-w-3xl lg:overflow-clip lg:rounded-3xl lg:border lg:border-slate-200/70 lg:shadow-card',
+          ? 'lg:max-w-7xl lg:shadow-none'
+          : 'lg:my-8 lg:min-h-[calc(100dvh-9rem)] lg:max-w-5xl lg:overflow-clip lg:rounded-3xl lg:border lg:border-slate-200/70 lg:shadow-card',
+        className,
       )}
     >
       {children}

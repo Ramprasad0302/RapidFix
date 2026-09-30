@@ -31,7 +31,8 @@ export function BookingDetailsPage() {
     queryKey: ['customer', 'booking', id],
     queryFn: () => customerApi.booking(id),
     // Live updates arrive over Socket.IO; this slow poll only covers dropped connections.
-    refetchInterval: (q) => (q.state.data && ['PAYMENT_COMPLETED', 'CUSTOMER_CANCELLED', 'ADMIN_CANCELLED', 'REFUNDED'].includes(q.state.data.status) ? false : 60_000),
+    refetchInterval: (q) =>
+      q.state.data && ['PAYMENT_COMPLETED', 'CUSTOMER_CANCELLED', 'ADMIN_CANCELLED', 'REFUNDED'].includes(q.state.data.status) ? false : 60_000,
   });
 
   return (
@@ -62,125 +63,182 @@ function Details({ b }: { b: BookingDetailDto }) {
   const cancelled = cancelledStatus(b.status);
 
   return (
-    <main className="flex flex-col gap-4 px-4 pb-10">
-      <section className="flex gap-3.5 rounded-2xl border border-slate-100 bg-white p-3.5 shadow-card">
-        <ServiceArt imageUrl={b.service.imageUrl} iconKey={b.service.iconKey} alt={b.service.name} className="size-20 shrink-0 rounded-xl min-[380px]:size-24" artClassName="w-3/5" />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
-            <h2 className="text-lg leading-snug font-semibold text-slate-900">{b.service.name}</h2>
-            <StatusBadge status={b.status} className="shrink-0" />
-          </div>
-          <p className="text-sm text-slate-500">{b.code}</p>
-          <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-slate-700">
-            <CalendarDays className="size-4 text-fixora-blue" aria-hidden />
-            {formatSchedule(b.scheduledFor, b.timeSlot, b.scheduleType)}
-          </p>
-          <p className="mt-1 flex items-center gap-1.5 text-[13px] text-slate-700">
-            <MapPin className="size-4 text-fixora-blue" aria-hidden />
-            {b.locality}
-          </p>
+    <main className="flex flex-col gap-4 px-4 pb-10 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-8 lg:p-8">
+      {/* Phones: one column in the order below. Laptops: details left, people/money/actions in a sticky sidebar. */}
+      <div className="contents lg:flex lg:flex-col lg:gap-6">
+        <div className="order-1 empty:hidden">
+          <section className="flex gap-3.5 rounded-2xl border border-slate-100 bg-white p-3.5 shadow-card">
+            <ServiceArt
+              imageUrl={b.service.imageUrl}
+              iconKey={b.service.iconKey}
+              alt={b.service.name}
+              className="size-20 shrink-0 rounded-xl min-[380px]:size-24"
+              artClassName="w-3/5"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+                <h2 className="text-lg leading-snug font-semibold text-slate-900">{b.service.name}</h2>
+                <StatusBadge status={b.status} className="shrink-0" />
+              </div>
+              <p className="text-sm text-slate-500">{b.code}</p>
+              <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-slate-700">
+                <CalendarDays className="size-4 text-fixora-blue" aria-hidden />
+                {formatSchedule(b.scheduledFor, b.timeSlot, b.scheduleType)}
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 text-[13px] text-slate-700">
+                <MapPin className="size-4 text-fixora-blue" aria-hidden />
+                {b.locality}
+              </p>
+            </div>
+          </section>
         </div>
-      </section>
-
-      {!cancelled && (
-        <section className="px-1 py-2">
-          <ProgressSteps steps={b.timeline} showTimes />
-        </section>
-      )}
-
-      <StatusBanner b={b} />
-
-      {t && (
-        <section className="flex items-center gap-3">
-          <Avatar name={t.name} src={t.avatarUrl} size={64} />
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-lg font-semibold text-slate-900">
-              <span>{t.name}</span>
-              {t.isVerified && <BadgeCheck className="size-5 shrink-0 fill-fixora-blue text-white" aria-label="Verified" />}
+        <div className="order-2 empty:hidden">
+          {!cancelled && (
+            <section className="px-1 py-2">
+              <ProgressSteps steps={b.timeline} showTimes />
+            </section>
+          )}
+        </div>
+        <div className="order-3 empty:hidden">
+          <StatusBanner b={b} />
+        </div>
+        <div className="order-8 empty:hidden">
+          {(enRoute || b.status === 'TECHNICIAN_ARRIVED') && t && b.address.latitude != null && b.address.longitude != null && (
+            <TrackingMap from={t.location} to={{ lat: b.address.latitude, lng: b.address.longitude }} etaMinutes={t.etaMinutes} distanceKm={t.distanceKm} />
+          )}
+        </div>
+        <div className="order-9 empty:hidden">
+          <section>
+            <h3 className="text-lg font-semibold text-slate-900">Service Details</h3>
+            <dl className="mt-3 flex flex-col gap-3 text-[15px]">
+              <Row icon={<Wrench className="size-4.5" />} label="Service">
+                {b.service.name}
+              </Row>
+              <Row icon={<Info className="size-4.5" />} label="Problem">
+                {b.description || '—'}
+              </Row>
+              <Row icon={<MapPin className="size-4.5" />} label="Address">
+                {addressLines(b.address)
+                  .filter(Boolean)
+                  .map((l) => (
+                    <span key={l} className="block">
+                      {l}
+                    </span>
+                  ))}
+              </Row>
+              <Row icon={<CalendarDays className="size-4.5" />} label="Date & Time">
+                {formatSchedule(b.scheduledFor, b.timeSlot, b.scheduleType)}
+              </Row>
+            </dl>
+            {b.photos.length > 0 && (
+              <div className="mt-3 flex gap-2">
+                {b.photos.map((p) => (
+                  <img key={p} src={mediaUrl(p)!} alt="Problem photo" className="size-16 rounded-lg object-cover" loading="lazy" />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+      <div className="contents lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-5 lg:rounded-2xl lg:border lg:border-slate-100 lg:bg-white lg:p-5 lg:shadow-card">
+        <div className="order-4 empty:hidden">
+          {t && (
+            <section className="flex items-center gap-3">
+              <Avatar name={t.name} src={t.avatarUrl} size={64} />
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 text-lg font-semibold text-slate-900">
+                  <span>{t.name}</span>
+                  {t.isVerified && <BadgeCheck className="size-5 shrink-0 fill-fixora-blue text-white" aria-label="Verified" />}
+                </p>
+                <p className="text-sm text-slate-500">{t.title}</p>
+                <p className="mt-0.5 flex items-center gap-1 text-sm text-slate-700">
+                  <Star className="size-4 fill-amber-400 text-amber-400" aria-hidden />
+                  {t.ratingAvg.toFixed(1)} ({t.ratingCount} reviews)
+                </p>
+                {t.experienceYears > 0 && <p className="text-sm text-slate-500">{t.experienceYears}+ years experience</p>}
+              </div>
+              <div className="flex gap-2">
+                <ContactButton href={t.phone ? `tel:${t.phone}` : undefined} icon={<Phone className="size-5 fill-current" />} label="Call" />
+                <ContactButton
+                  icon={<MessageSquareText className="size-5" />}
+                  label="Chat"
+                  onClick={chatOpen ? () => navigate(`/bookings/${b.id}/chat`) : undefined}
+                />
+              </div>
+            </section>
+          )}
+        </div>
+        <div className="order-5 empty:hidden">
+          <AdditionalChargesCard b={b} />
+        </div>
+        <div className="order-6 empty:hidden">
+          <PaymentCard b={b} />
+        </div>
+        <div className="order-7 empty:hidden">
+          <ReviewCard b={b} />
+        </div>
+        <div className="order-10 empty:hidden">
+          <section className="border-t border-slate-100 pt-4">
+            <h3 className="text-lg font-semibold text-slate-900">Price Estimate</h3>
+            <dl className="mt-3 flex flex-col gap-2 text-[15px] text-slate-700">
+              <PriceRow label="Service Charge" value={b.price.serviceCharge} />
+              {b.price.visitCharge > 0 && <PriceRow label="Visit Charge" value={b.price.visitCharge} />}
+              {b.price.additionalCharges > 0 && <PriceRow label="Additional Work" value={b.price.additionalCharges} />}
+              {b.price.discount > 0 && (
+                <PriceRow label={`Discount${b.couponCode ? ` (${b.couponCode})` : ''}`} value={-b.price.discount} className="text-success" />
+              )}
+              <PriceRow label="Taxes (GST)" value={b.price.tax} />
+              <div className="mt-1 flex justify-between border-t border-slate-100 pt-3 text-lg font-bold text-slate-900">
+                <dt>{b.status === 'PAYMENT_COMPLETED' ? 'Total Paid' : 'Estimated Total'}</dt>
+                <dd>{formatINR(b.price.total)}</dd>
+              </div>
+            </dl>
+            <p className="mt-3 flex items-center gap-2 rounded-xl bg-fixora-blue-soft px-3.5 py-3 text-sm text-slate-700">
+              <Info className="size-4.5 shrink-0 fill-fixora-blue text-white" aria-hidden />
+              Final price may vary based on actual work required.
             </p>
-            <p className="text-sm text-slate-500">{t.title}</p>
-            <p className="mt-0.5 flex items-center gap-1 text-sm text-slate-700">
-              <Star className="size-4 fill-amber-400 text-amber-400" aria-hidden />
-              {t.ratingAvg.toFixed(1)} ({t.ratingCount} reviews)
-            </p>
-            {t.experienceYears > 0 && <p className="text-sm text-slate-500">{t.experienceYears}+ years experience</p>}
-          </div>
-          <div className="flex gap-2">
-            <ContactButton href={t.phone ? `tel:${t.phone}` : undefined} icon={<Phone className="size-5 fill-current" />} label="Call" />
-            <ContactButton icon={<MessageSquareText className="size-5" />} label="Chat" onClick={chatOpen ? () => navigate(`/bookings/${b.id}/chat`) : undefined} />
-          </div>
-        </section>
-      )}
-
-      <AdditionalChargesCard b={b} />
-      <PaymentCard b={b} />
-      <ReviewCard b={b} />
-
-      {(enRoute || b.status === 'TECHNICIAN_ARRIVED') && t && b.address.latitude != null && b.address.longitude != null && (
-        <TrackingMap from={t.location} to={{ lat: b.address.latitude, lng: b.address.longitude }} etaMinutes={t.etaMinutes} distanceKm={t.distanceKm} />
-      )}
-
-      <section>
-        <h3 className="text-lg font-semibold text-slate-900">Service Details</h3>
-        <dl className="mt-3 flex flex-col gap-3 text-[15px]">
-          <Row icon={<Wrench className="size-4.5" />} label="Service">
-            {b.service.name}
-          </Row>
-          <Row icon={<Info className="size-4.5" />} label="Problem">
-            {b.description || '—'}
-          </Row>
-          <Row icon={<MapPin className="size-4.5" />} label="Address">
-            {addressLines(b.address).filter(Boolean).map((l) => (
-              <span key={l} className="block">
-                {l}
-              </span>
-            ))}
-          </Row>
-          <Row icon={<CalendarDays className="size-4.5" />} label="Date & Time">
-            {formatSchedule(b.scheduledFor, b.timeSlot, b.scheduleType)}
-          </Row>
-        </dl>
-        {b.photos.length > 0 && (
-          <div className="mt-3 flex gap-2">
-            {b.photos.map((p) => (
-              <img key={p} src={mediaUrl(p)!} alt="Problem photo" className="size-16 rounded-lg object-cover" loading="lazy" />
-            ))}
+          </section>
+        </div>
+        <div className="order-11 empty:hidden">
+          {(b.canReschedule || b.canCancel) && (
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <Button
+                variant="outline"
+                size="lg"
+                disabled={!b.canReschedule}
+                onClick={() => setRescheduleOpen(true)}
+                leftIcon={<CalendarDays className="size-5" />}
+                className="border-slate-200 bg-slate-50"
+              >
+                Reschedule
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                disabled={!b.canCancel}
+                onClick={() => setCancelOpen(true)}
+                leftIcon={<CircleX className="size-5" />}
+                className="border-danger text-danger hover:bg-danger-soft"
+              >
+                Cancel Booking
+              </Button>
+            </div>
+          )}
+        </div>
+        {b.cancellationReason && cancelled && (
+          <div className="order-12">
+            <Alert tone="info">Cancelled: {b.cancellationReason}</Alert>
           </div>
         )}
-      </section>
-
-      <section className="border-t border-slate-100 pt-4">
-        <h3 className="text-lg font-semibold text-slate-900">Price Estimate</h3>
-        <dl className="mt-3 flex flex-col gap-2 text-[15px] text-slate-700">
-          <PriceRow label="Service Charge" value={b.price.serviceCharge} />
-          {b.price.visitCharge > 0 && <PriceRow label="Visit Charge" value={b.price.visitCharge} />}
-          {b.price.additionalCharges > 0 && <PriceRow label="Additional Work" value={b.price.additionalCharges} />}
-          {b.price.discount > 0 && <PriceRow label={`Discount${b.couponCode ? ` (${b.couponCode})` : ''}`} value={-b.price.discount} className="text-success" />}
-          <PriceRow label="Taxes (GST)" value={b.price.tax} />
-          <div className="mt-1 flex justify-between border-t border-slate-100 pt-3 text-lg font-bold text-slate-900">
-            <dt>{b.status === 'PAYMENT_COMPLETED' ? 'Total Paid' : 'Estimated Total'}</dt>
-            <dd>{formatINR(b.price.total)}</dd>
-          </div>
-        </dl>
-        <p className="mt-3 flex items-center gap-2 rounded-xl bg-fixora-blue-soft px-3.5 py-3 text-sm text-slate-700">
-          <Info className="size-4.5 shrink-0 fill-fixora-blue text-white" aria-hidden />
-          Final price may vary based on actual work required.
-        </p>
-      </section>
-
-      {(b.canReschedule || b.canCancel) && (
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <Button variant="outline" size="lg" disabled={!b.canReschedule} onClick={() => setRescheduleOpen(true)} leftIcon={<CalendarDays className="size-5" />} className="border-slate-200 bg-slate-50">
-            Reschedule
-          </Button>
-          <Button variant="outline" size="lg" disabled={!b.canCancel} onClick={() => setCancelOpen(true)} leftIcon={<CircleX className="size-5" />} className="border-danger text-danger hover:bg-danger-soft">
-            Cancel Booking
-          </Button>
+        <div className="order-13 empty:hidden">
+          <InvoiceLink b={b} />
         </div>
-      )}
-      {b.cancellationReason && cancelled && <Alert tone="info">Cancelled: {b.cancellationReason}</Alert>}
-      <InvoiceLink b={b} />
-      {b.status !== 'PENDING' && <ReportIssueButton bookingId={b.id} />}
+        {b.status !== 'PENDING' && (
+          <div className="order-14">
+            <ReportIssueButton bookingId={b.id} />
+          </div>
+        )}
+      </div>
 
       <CancelDialog booking={b} open={cancelOpen} onClose={() => setCancelOpen(false)} />
       <RescheduleDialog booking={b} open={rescheduleOpen} onClose={() => setRescheduleOpen(false)} />
@@ -291,7 +349,13 @@ function CancelDialog({ booking, open, onClose }: { booking: BookingDetailDto; o
       <p className="text-sm text-slate-600">Tell us why — it helps us improve.</p>
       <div className="mt-3 flex flex-col gap-2" role="radiogroup">
         {CANCEL_REASONS.map((r) => (
-          <label key={r} className={cx('flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-[15px]', reason === r ? 'border-fixora-blue bg-fixora-blue-soft' : 'border-slate-200')}>
+          <label
+            key={r}
+            className={cx(
+              'flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-[15px]',
+              reason === r ? 'border-fixora-blue bg-fixora-blue-soft' : 'border-slate-200',
+            )}
+          >
             <input type="radio" name="reason" checked={reason === r} onChange={() => setReason(r)} className="accent-fixora-blue" />
             {r}
           </label>

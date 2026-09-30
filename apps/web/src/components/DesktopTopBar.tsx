@@ -33,8 +33,8 @@ export function DesktopTopBar({ area }: { area: 'customer' | 'technician' }) {
   const home = area === 'customer' ? '/' : '/technician';
 
   return (
-    <header className="sticky top-0 z-40 hidden h-16 border-b border-slate-200/70 bg-white/95 backdrop-blur lg:block">
-      <div className="mx-auto flex h-full max-w-6xl items-center gap-6 px-6">
+    <header className="sticky top-0 z-40 hidden h-[72px] border-b border-slate-200/70 bg-white/90 backdrop-blur-md lg:block">
+      <div className="mx-auto flex h-full max-w-7xl items-center gap-8 px-8">
         <Link to={home} aria-label="RapidFix home" className="shrink-0">
           <Logo size="sm" />
         </Link>
@@ -46,7 +46,7 @@ export function DesktopTopBar({ area }: { area: 'customer' | 'technician' }) {
               end={l.end}
               className={({ isActive }) =>
                 cx(
-                  'rounded-lg px-3 py-2 text-[15px] font-medium transition-colors',
+                  'rounded-lg px-3.5 py-2 text-[15px] font-semibold transition-colors',
                   isActive ? 'bg-fixora-blue-soft text-fixora-blue' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                 )
               }
