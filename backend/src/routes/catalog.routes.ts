@@ -68,7 +68,9 @@ catalogRouter.get('/stats/public', cachePublic(300), async (_req, res) => {
 });
 
 /** Public contact details (admin-editable in Settings). */
-catalogRouter.get('/app-config', cachePublic(300), async (_req, res) => {
+// Not cached: it tells the app which login method to use, which must switch immediately.
+catalogRouter.get('/app-config', async (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
   const [supportPhone, supportEmail] = await Promise.all([getSetting('support.phone', '+91 94919 63366'), getSetting('support.email', 'support@rapidfix.local')]);
   ok(res, { supportPhone, supportEmail, otpProvider: env.OTP_PROVIDER === 'firebase' ? 'firebase' : 'server' });
 });
