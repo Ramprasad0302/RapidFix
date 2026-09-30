@@ -8,11 +8,13 @@ import { Button } from '@fixora/ui';
 import { ServiceArt } from '../../../components/ServiceArt';
 import { technicianApi } from '../../../lib/endpoints';
 import { formatSchedule } from '../../../lib/format';
+import { startRinging, stopRinging } from '../../../lib/ringtone';
 import { toast } from '../../../store/toast';
 
 /**
- * Incoming job offer. Arrives by socket (`booking_request`) with a 10 s poll as
- * fallback for weak networks; disappears when it expires or is answered.
+ * Incoming job offer, shown on every technician screen. Arrives by socket
+ * (`booking_request`) with a 10 s poll as fallback for weak networks; rings until
+ * it is answered or expires (then the booking moves to the next technician).
  */
 export function NewRequestSheet() {
   const requests = useQuery({ queryKey: ['tech', 'requests'], queryFn: technicianApi.requests, refetchInterval: 10_000 });
@@ -39,8 +41,24 @@ function RequestCard({ r }: { r: TechnicianRequestDto }) {
     if (expired) void qc.invalidateQueries({ queryKey: ['tech'] });
   }, [expired, qc]);
 
+  // Ring like an incoming call until the technician answers or the offer runs out.
+  const ringing = !expired;
+  useEffect(() => {
+    if (!ringing) return;
+    startRinging();
+    const title = document.title;
+    document.title = '🔔 New job request — RapidFix';
+    return () => {
+      stopRinging();
+      document.title = title;
+    };
+  }, [ringing]);
+
   const act = useMutation({
-    mutationFn: (action: 'ACCEPT' | 'REJECT') => technicianApi.act(r.bookingId, action),
+    mutationFn: (action: 'ACCEPT' | 'REJECT') => {
+      stopRinging();
+      return technicianApi.act(r.bookingId, action);
+    },
     onSuccess: (_d, action) => {
       void qc.invalidateQueries({ queryKey: ['tech'] });
       if (action === 'ACCEPT') {

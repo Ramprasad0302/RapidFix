@@ -26,7 +26,7 @@ export interface DispatchWeights {
 
 export async function dispatchSettings() {
   const [timeoutSeconds, maxAttempts, radiusKm, weights] = await Promise.all([
-    getSetting('dispatch.requestTimeoutSeconds', 30),
+    getSetting('dispatch.requestTimeoutSeconds', 60),
     getSetting('dispatch.maxAttempts', 5),
     getSetting('dispatch.searchRadiusKm', 15),
     getSetting<DispatchWeights>('dispatch.weights', { skill: 1, distance: 0.5, rating: 0.3, workload: 0.2 }),

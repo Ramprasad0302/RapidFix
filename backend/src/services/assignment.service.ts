@@ -36,13 +36,18 @@ const MANUAL_OFFER_SECONDS = 15 * 60;
 const bookingForDispatch = {
   service: { select: { id: true, name: true, categoryId: true } },
   customer: { select: { userId: true } },
-  assignments: { select: { technicianId: true, status: true, isManual: true } },
+  assignments: { select: { technicianId: true, status: true, isManual: true, expiresAt: true } },
 } as const satisfies Prisma.BookingInclude;
 type DispatchBooking = Prisma.BookingGetPayload<{ include: typeof bookingForDispatch }>;
 
 export interface RankedCandidate extends AssignmentCandidateDto {
   userId: string;
+  /** Missed (didn't answer) this booking earlier — asked again only when nobody new is free. */
+  retry?: boolean;
 }
+
+/** A technician who didn't answer (not one who rejected) may be asked again after this long. */
+const MISSED_RETRY_MS = 2 * 60_000;
 
 /** Pure scoring — exported for tests and so admins can reason about the order. */
 export function scoreCandidate(
@@ -76,8 +81,16 @@ export async function rankCandidates(booking: DispatchBooking, opts: { forAdmin?
   });
   if (techs.length === 0) return [];
 
+  // Rejected or currently offered: never again for this booking. Missed (expired): again after a pause,
+  // so one unanswered ring doesn't leave a booking stuck in a town with few technicians.
+  const now = Date.now();
+  const missedLongAgo = new Set(
+    booking.assignments.filter((a) => a.status === 'EXPIRED' && a.expiresAt.getTime() <= now - MISSED_RETRY_MS).map((a) => a.technicianId),
+  );
   const tried = new Set(
-    booking.assignments.filter((a) => ['OFFERED', 'REJECTED', 'EXPIRED'].includes(a.status)).map((a) => a.technicianId),
+    booking.assignments
+      .filter((a) => a.status === 'OFFERED' || a.status === 'REJECTED' || (a.status === 'EXPIRED' && !missedLongAgo.has(a.technicianId)))
+      .map((a) => a.technicianId),
   );
   const clashes = await prisma.booking.findMany({
     where: {
@@ -128,6 +141,7 @@ export async function rankCandidates(booking: DispatchBooking, opts: { forAdmin?
       distanceKm,
       ratingAvg: Math.round(t.ratingAvg * 10) / 10,
       activeJobs: t.activeJobCount,
+      retry: missedLongAgo.has(t.id),
       score: scoreCandidate(settings.weights, { distanceKm, radiusKm, ratingAvg: t.ratingAvg, activeJobs: t.activeJobCount }),
       eligible: reason === null,
       reason,
@@ -209,7 +223,9 @@ export async function dispatchBooking(bookingId: string): Promise<DispatchOutcom
     await notifyStillSearching(booking);
     return 'max_attempts';
   }
-  const best = (await rankCandidates(booking)).find((c) => c.eligible);
+  const eligible = (await rankCandidates(booking)).filter((c) => c.eligible);
+  // Fresh technicians first; someone who missed the ring earlier only when nobody else is free.
+  const best = eligible.find((c) => !c.retry) ?? eligible[0];
   if (!best) {
     await notifyStillSearching(booking);
     return 'no_candidates';

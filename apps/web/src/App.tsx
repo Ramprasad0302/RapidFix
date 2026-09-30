@@ -5,12 +5,16 @@ import { router } from './app/router';
 import { useRealtime } from './app/useRealtime';
 import { ToastHost } from './components/ToastHost';
 import { enablePush, registerServiceWorker } from './lib/notifications';
+import { unlockAudio } from './lib/ringtone';
 import { authStore } from './store/auth';
 
 export const queryClient = createQueryClient();
 
 // Service worker: installable app, offline page, system notifications; taps route inside the app.
 registerServiceWorker((path) => void router.navigate(path));
+
+// Browsers allow sound only after a tap: unlock it on the first one so a job request can ring.
+window.addEventListener('pointerdown', unlockAudio, { capture: true, passive: true });
 
 // Never let one user's cached data survive into the next session.
 authStore.subscribe((state, prev) => {

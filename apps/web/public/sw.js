@@ -1,6 +1,6 @@
 /* RapidFix service worker: install-to-home-screen, offline fallback,
    system notifications and web push (Firebase Cloud Messaging payloads). */
-const CACHE = 'rapidfix-v2';
+const CACHE = 'rapidfix-v3';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE = [OFFLINE_URL, '/icons/icon-192.png', '/icons/icon-512.png', '/brand/logo-full.webp'];
 
@@ -52,8 +52,11 @@ self.addEventListener('push', (event) => {
       data,
       tag: data.notificationId || data.bookingId || undefined,
       renotify: !!data.bookingId,
+      // A new job stays on screen and vibrates like a call until the technician opens it.
       requireInteraction: urgent,
-      vibrate: urgent ? [300, 100, 300, 100, 300] : [150],
+      vibrate: urgent ? [600, 200, 600, 200, 600, 200, 600, 200, 600] : [150],
+      silent: false,
+      ...(urgent && { actions: [{ action: 'open', title: 'View & accept' }] }),
       });
     }),
   );

@@ -119,6 +119,25 @@ describe('TechnicianAssignmentService', () => {
     expect((await bookingOf(id)).status).toBe('TECHNICIAN_ACCEPTED');
   });
 
+  it('a technician who missed the ring is asked again after a pause — but one who rejected is not', async () => {
+    const only = await tech('+919000000101', { dLat: 0.01 });
+    const id = await newBooking();
+    await dispatchBooking(id);
+
+    // Missed: the offer runs out.
+    await prisma.bookingAssignment.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
+    await expireOffers();
+    expect((await bookingOf(id)).status).toBe('SEARCHING'); // not straight back to the same person
+    // Two minutes later, nobody else is free → ring them again.
+    await prisma.bookingAssignment.updateMany({ data: { expiresAt: new Date(Date.now() - 3 * 60_000) } });
+    expect(await dispatchBooking(id)).toBe('offered');
+    expect(await bookingOf(id)).toMatchObject({ status: 'TECHNICIAN_ASSIGNED', technicianId: only.techId });
+
+    // Rejected: never offered this booking again.
+    await request().post(`${API}/technician/jobs/${id}/reject`).set(bearer(only.token)).send({}).expect(200);
+    expect(await dispatchBooking(id)).toBe('no_candidates');
+  });
+
   it('no candidates → stays SEARCHING and the customer is told once', async () => {
     await tech('+919000000101', { online: false });
     const id = await newBooking();

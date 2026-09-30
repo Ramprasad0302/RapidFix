@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation, useParams } from 'react-router';
 import { Role } from '@fixora/shared-types';
 import { DesktopTopBar } from '../components/DesktopTopBar';
 import { NotificationNudge } from '../components/NotificationNudge';
+import { TechnicianBackground } from '../features/technician/TechnicianBackground';
 import { SplashScreen } from '../components/SplashScreen';
 import { homeFor, useAuth } from '../store/auth';
 
@@ -63,6 +64,7 @@ export function AreaFrame({ area }: { area: 'customer' | 'technician' }) {
       <DesktopTopBar area={area} />
       <NotificationNudge area={area} />
       <Outlet />
+      {area === 'technician' && <TechnicianBackground />}
     </div>
   );
 }

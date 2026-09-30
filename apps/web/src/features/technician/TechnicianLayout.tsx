@@ -3,8 +3,6 @@ import { CalendarDays, House, UserRound, WalletCards } from 'lucide-react';
 import { BottomNav } from '../../components/BottomNav';
 import { PermissionsSheet } from '../../components/PermissionsSheet';
 import { MobileShell } from '../customer/CustomerTabsLayout';
-import { NewRequestSheet } from './components/NewRequestSheet';
-import { useLocationSharing } from './useLocationSharing';
 
 const TABS = [
   { to: '/technician', label: 'Home', icon: House, end: true },
@@ -14,14 +12,12 @@ const TABS = [
 ];
 
 export function TechnicianLayout() {
-  useLocationSharing();
   return (
     <MobileShell wide>
       <div className="pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] lg:pb-12">
         <Outlet />
       </div>
       <BottomNav items={TABS} />
-      <NewRequestSheet />
       <PermissionsSheet location="technician" />
     </MobileShell>
   );

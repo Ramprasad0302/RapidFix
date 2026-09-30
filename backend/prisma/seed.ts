@@ -189,7 +189,7 @@ async function main() {
   // ── Settings & commission ────────────────────────────────────────────
   const settings: Record<string, unknown> = {
     'pricing.taxPercent': TAX,
-    'dispatch.requestTimeoutSeconds': 30,
+    'dispatch.requestTimeoutSeconds': 60,
     'dispatch.maxAttempts': 5,
     'dispatch.searchRadiusKm': 15,
     'dispatch.weights': { skill: 1, distance: 0.5, rating: 0.3, workload: 0.2 },
