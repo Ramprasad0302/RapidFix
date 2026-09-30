@@ -105,3 +105,20 @@ rmSync(zip, { force: true });
 execSync(`zip -qr "${zip}" . -x '*.DS_Store'`, { cwd: out, stdio: 'inherit' });
 console.log(`✔ ${zip}`);
 if (!existsSync(zip)) process.exit(1);
+
+// API-only variant (e.g. api.rapidfix.in, with the website hosted separately): no public/, website serving off.
+const apiOut = path.join(root, 'build', 'hostinger-api');
+const apiZip = process.env.OUT_API_ZIP ?? path.join(homedir(), 'Desktop', 'rapidfix-backend.zip');
+rmSync(apiOut, { recursive: true, force: true });
+cpSync(out, apiOut, { recursive: true, filter: (src) => !src.startsWith(path.join(out, 'public')) });
+writeFileSync(path.join(apiOut, 'start.js'), readFileSync(path.join(out, 'start.js'), 'utf8').replace("SERVE_WEB: 'on',", "SERVE_WEB: 'off',"));
+writeFileSync(
+  path.join(apiOut, 'README-DEPLOY.txt'),
+  readFileSync(path.join(out, 'README-DEPLOY.txt'), 'utf8').replace(
+    'The website is in ./public.',
+    'API only — the website is deployed separately; its config.js apiUrl must point here (https://api.<domain>/api/v1).\nCORS_ORIGINS must list the website address(es).',
+  ),
+);
+rmSync(apiZip, { force: true });
+execSync(`zip -qr "${apiZip}" . -x '*.DS_Store'`, { cwd: apiOut, stdio: 'inherit' });
+console.log(`✔ ${apiZip}`);
