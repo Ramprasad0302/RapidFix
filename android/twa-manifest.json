@@ -1,7 +1,7 @@
 {
   "packageId": "in.rapidfix.app",
   "host": "rapidfix.in",
-  "name": "RapidFix — Get It Fixed",
+  "name": "RapidFix \u2014 Get It Fixed",
   "launcherName": "RapidFix",
   "display": "standalone",
   "orientation": "portrait",
@@ -22,19 +22,33 @@
     "path": "/Users/ramsmac/Desktop/RapidFix-Android/rapidfix-upload.keystore",
     "alias": "rapidfix"
   },
-  "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "appVersionName": "1.0.2",
+  "appVersionCode": 3,
   "shortcuts": [
-    { "name": "Book a service", "shortName": "Book", "url": "/book", "chosenIconUrl": "https://rapidfix.in/icons/icon-192.png" },
-    { "name": "My bookings", "shortName": "Bookings", "url": "/bookings", "chosenIconUrl": "https://rapidfix.in/icons/icon-192.png" }
+    {
+      "name": "Book a service",
+      "shortName": "Book",
+      "url": "/book",
+      "chosenIconUrl": "https://rapidfix.in/icons/icon-192.png"
+    },
+    {
+      "name": "My bookings",
+      "shortName": "Bookings",
+      "url": "/bookings",
+      "chosenIconUrl": "https://rapidfix.in/icons/icon-192.png"
+    }
   ],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://rapidfix.in/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {
-    "locationDelegation": { "enabled": true }
+    "locationDelegation": {
+      "enabled": true
+    }
   },
-  "alphaDependencies": { "enabled": false },
+  "alphaDependencies": {
+    "enabled": false
+  },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
@@ -43,5 +57,5 @@
   "fingerprints": [],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
-  "appVersion": "1.0.0"
+  "appVersion": "1.0.2"
 }
