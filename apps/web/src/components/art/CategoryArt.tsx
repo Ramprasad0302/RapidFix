@@ -247,6 +247,81 @@ function More() {
   );
 }
 
+function Computer({ id }: { id: string }) {
+  return (
+    <>
+      <defs>
+        <linearGradient id={`${id}s`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#60B5FF" />
+          <stop offset="1" stopColor="#2563EB" />
+        </linearGradient>
+        <linearGradient id={`${id}b`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#F1F5F9" />
+          <stop offset="1" stopColor="#CBD5E1" />
+        </linearGradient>
+      </defs>
+      <rect x="11" y="12" width="42" height="29" rx="4" fill="#334155" />
+      <rect x="14" y="15" width="36" height="23" rx="2" fill={`url(#${id}s)`} />
+      <path d="M14 15h20L18 38h-4z" fill="#fff" opacity=".18" />
+      <path d="M5 44h54l-4 7H9z" fill={`url(#${id}b)`} stroke="#B6C2D2" />
+      <rect x="27" y="44" width="10" height="2.4" rx="1.2" fill="#94A3B8" />
+      <path d="m27 22 5 4-5 4M34 31h5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </>
+  );
+}
+
+function Vehicle({ id }: { id: string }) {
+  return (
+    <>
+      <defs>
+        <linearGradient id={`${id}c`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#60B5FF" />
+          <stop offset="1" stopColor="#1D4ED8" />
+        </linearGradient>
+      </defs>
+      <path d="M8 38l4-11c1-3 3-5 7-5h26c4 0 6 2 7 5l4 11v7a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3z" fill={`url(#${id}c)`} />
+      <path d="M16 27c1-2 2-3 4-3h24c2 0 3 1 4 3l2 7H14z" fill="#DBEAFE" />
+      <path d="M32 24v10" stroke="#93C5FD" strokeWidth="1.5" />
+      <circle cx="18" cy="48" r="6" fill="#1E293B" />
+      <circle cx="18" cy="48" r="2.4" fill="#CBD5E1" />
+      <circle cx="46" cy="48" r="6" fill="#1E293B" />
+      <circle cx="46" cy="48" r="2.4" fill="#CBD5E1" />
+      <rect x="9" y="38" width="6" height="3" rx="1.5" fill="#FDE68A" />
+      <rect x="49" y="38" width="6" height="3" rx="1.5" fill="#FDE68A" />
+      <g fill="#7DD3FC">
+        <circle cx="50" cy="12" r="3" />
+        <circle cx="56" cy="17" r="2" />
+        <circle cx="45" cy="17" r="1.6" />
+      </g>
+    </>
+  );
+}
+
+function Salon({ id }: { id: string }) {
+  return (
+    <>
+      <defs>
+        <linearGradient id={`${id}h`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#F9A8D4" />
+          <stop offset="1" stopColor="#DB2777" />
+        </linearGradient>
+        <linearGradient id={`${id}m`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#F1F5F9" />
+          <stop offset="1" stopColor="#94A3B8" />
+        </linearGradient>
+      </defs>
+      <circle cx="18" cy="46" r="7" fill="none" stroke={`url(#${id}h)`} strokeWidth="4" />
+      <circle cx="34" cy="46" r="7" fill="none" stroke={`url(#${id}h)`} strokeWidth="4" />
+      <path d="M22 40 44 8M30 40 12 12" stroke={`url(#${id}m)`} strokeWidth="4.5" strokeLinecap="round" />
+      <circle cx="26" cy="34" r="2.2" fill="#475569" />
+      <g fill="#F9A8D4">
+        <path d="M50 30l1.6 3.4 3.4 1.6-3.4 1.6L50 40l-1.6-3.4L45 35l3.4-1.6z" />
+        <path d="M55 16l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" />
+      </g>
+    </>
+  );
+}
+
 function Wrench() {
   return (
     <path
@@ -267,6 +342,9 @@ const ART: Record<string, (p: { id: string }) => ReactElement> = {
   cctv: Cctv,
   ro: Ro,
   pest: Pest,
+  computer: Computer,
+  vehicle: Vehicle,
+  salon: Salon,
   more: More,
 };
 
@@ -292,4 +370,7 @@ export const CATEGORY_TINT: Record<string, string> = {
   cctv: 'from-slate-50 to-slate-200',
   ro: 'from-sky-50 to-cyan-100',
   pest: 'from-emerald-50 to-green-100',
+  computer: 'from-blue-50 to-indigo-100',
+  vehicle: 'from-sky-50 to-blue-100',
+  salon: 'from-pink-50 to-rose-100',
 };

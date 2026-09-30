@@ -241,6 +241,15 @@ export async function createBooking(customerId: string, userId: string, input: C
     if (point) input = { ...input, address: { ...input.address, ...point } };
   }
 
+  // A saved address typed without GPS: find it on the map once (for dispatch distance and live tracking).
+  if (input.addressId && env.NODE_ENV !== 'test') {
+    const saved = await prisma.address.findFirst({ where: { id: input.addressId, customerId, deletedAt: null } });
+    if (saved && (saved.latitude == null || saved.longitude == null)) {
+      const point = await geocodeAddress(saved);
+      if (point) await prisma.address.update({ where: { id: saved.id }, data: point });
+    }
+  }
+
   const { service, breakdown, coupon } = await estimatePrice(input.serviceId, input.couponCode, customerId);
   if (breakdown.coupon && !breakdown.coupon.valid) {
     throw AppError.badRequest(breakdown.coupon.message ?? 'Coupon is not valid', 'COUPON_INVALID');

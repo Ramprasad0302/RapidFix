@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { Role, TIME_SLOTS, type AddressDto, type CustomerProfileDto } from '@fixora/shared-types';
 import { addressSchema, customerOnboardingSchema, dateOfBirthSchema } from '@fixora/shared-utils';
 import { getMe } from '../services/auth.service';
+import { geocodeAddress } from '../services/geo.service';
+import { env } from '../config/env';
 import { prisma } from '../config/prisma';
 import { authenticate, authOf, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -90,6 +92,13 @@ customerRouter.put('/profile', validate(updateProfileSchema), async (req, res) =
   ok(res, await loadProfile(userId));
 });
 
+/** Typed addresses without a GPS pin get map coordinates (dispatch distance, live tracking). */
+async function withCoordinates<T extends { latitude?: number | null; longitude?: number | null; area: string; villageTown: string; district: string; state: string; pincode: string }>(a: T): Promise<T> {
+  if ((a.latitude != null && a.longitude != null) || env.NODE_ENV === 'test') return a;
+  const point = await geocodeAddress(a).catch(() => null);
+  return point ? { ...a, ...point } : a;
+}
+
 async function assertEmailFree(email: string, userId: string) {
   const other = await prisma.user.findFirst({ where: { email, NOT: { id: userId } }, select: { id: true } });
   if (other) throw AppError.conflict('This email is already used by another account.', 'EMAIL_TAKEN');
@@ -105,6 +114,7 @@ customerRouter.post('/onboarding', validate(onboardingSchema), async (req, res) 
   const { userId, customerId } = await customerOf(req);
   const b = req.body as z.infer<typeof onboardingSchema>;
   await assertEmailFree(b.email, userId);
+  if (b.address) b.address = await withCoordinates(b.address);
   const hasAddress = (await prisma.address.count({ where: { customerId, deletedAt: null } })) > 0;
   if (!hasAddress && !b.address) throw AppError.badRequest('Add your address to continue', 'ADDRESS_REQUIRED');
   await prisma.$transaction(async (tx) => {
@@ -253,9 +263,10 @@ customerRouter.post('/addresses', validate(addressSchema), async (req, res) => {
   const count = await prisma.address.count({ where: { customerId, deletedAt: null } });
   if (count >= 10) throw AppError.badRequest('You can save up to 10 addresses', 'ADDRESS_LIMIT');
   const isDefault = req.body.isDefault || count === 0;
+  const body = await withCoordinates(req.body as z.infer<typeof addressSchema>);
   const row = await prisma.$transaction(async (tx) => {
     if (isDefault) await tx.address.updateMany({ where: { customerId }, data: { isDefault: false } });
-    return tx.address.create({ data: { ...req.body, customerId, isDefault } });
+    return tx.address.create({ data: { ...body, customerId, isDefault } });
   });
   ok(res, toAddress(row), 201);
 });
@@ -263,11 +274,12 @@ customerRouter.post('/addresses', validate(addressSchema), async (req, res) => {
 customerRouter.put('/addresses/:id', validate(addressSchema), async (req, res) => {
   const { customerId } = await customerOf(req);
   const id = String(req.params.id);
+  const body = await withCoordinates(req.body as z.infer<typeof addressSchema>);
   const row = await prisma.$transaction(async (tx) => {
     const existing = await tx.address.findFirst({ where: { id, customerId, deletedAt: null } });
     if (!existing) throw AppError.notFound('Address not found', 'ADDRESS_NOT_FOUND');
-    if (req.body.isDefault) await tx.address.updateMany({ where: { customerId }, data: { isDefault: false } });
-    return tx.address.update({ where: { id }, data: req.body });
+    if (body.isDefault) await tx.address.updateMany({ where: { customerId }, data: { isDefault: false } });
+    return tx.address.update({ where: { id }, data: body });
   });
   ok(res, toAddress(row));
 });

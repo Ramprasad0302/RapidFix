@@ -16,6 +16,7 @@ import { mediaUrl } from '../../../lib/api';
 import { technicianApi } from '../../../lib/endpoints';
 import { addressLines, formatSchedule } from '../../../lib/format';
 import { useBookingRoom } from '../../../lib/socket';
+import { useScreenWakeLock } from '../../../lib/wakeLock';
 import { toast } from '../../../store/toast';
 import { MobileShell } from '../../customer/CustomerTabsLayout';
 import { CollectPaymentCard, ExtraWorkSection } from '../components/JobExtras';
@@ -48,6 +49,9 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
   const navigate = useNavigate();
   const [notes, setNotes] = useState(j.technicianNotes ?? '');
   const [confirmReject, setConfirmReject] = useState(false);
+  // Travelling: keep the screen on so GPS keeps flowing to the customer's live map.
+  const travelling = j.status === 'TECHNICIAN_EN_ROUTE';
+  useScreenWakeLock(travelling);
 
   const act = useMutation({
     mutationFn: (action: TechnicianJobAction) => technicianApi.act(j.id, action),
@@ -100,6 +104,16 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
           </div>
         </div>
       </section>
+
+      {travelling && (
+        <p role="status" className="flex items-center gap-2 rounded-xl bg-fixora-blue-soft px-3.5 py-2.5 text-sm text-fixora-blue">
+          <span className="relative flex size-2.5 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fixora-blue opacity-60" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-fixora-blue" />
+          </span>
+          Live location on — the customer is tracking you. Keep RapidFix open while you travel.
+        </p>
+      )}
 
       <section className="py-1">
         <ProgressSteps steps={j.timeline} showTimes />

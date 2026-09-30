@@ -1,13 +1,19 @@
 /**
- * Incoming-job ringtone for technicians: a phone-style double ring made with
- * Web Audio (no audio file to download), plus repeating vibration.
+ * Incoming-job alert for technicians: a warm marimba/bell phrase
+ * (/sounds/job-alert.wav, 3 s) looped with Web Audio, plus repeating vibration.
+ * The Play Store app uses the same tone for its closed-app notification.
  *
  * Browsers only allow sound after the user has touched the page once, so
- * `unlockAudio()` runs on the first tap anywhere in the app.
+ * `unlockAudio()` runs on taps anywhere in the app.
  */
 
+const SOUND_URL = '/sounds/job-alert.wav';
+
 let ctx: AudioContext | null = null;
-let timer: ReturnType<typeof setInterval> | null = null;
+let buffer: Promise<AudioBuffer | null> | null = null;
+let source: AudioBufferSourceNode | null = null;
+let vibrateTimer: ReturnType<typeof setInterval> | null = null;
+let wanted = false;
 
 function context(): AudioContext | null {
   if (ctx) return ctx;
@@ -17,49 +23,57 @@ function context(): AudioContext | null {
   return ctx;
 }
 
-/** Call once from a user gesture (we register it on the first pointerdown). */
+function loadBuffer(c: AudioContext) {
+  buffer ??= fetch(SOUND_URL)
+    .then((r) => r.arrayBuffer())
+    .then((data) => c.decodeAudioData(data))
+    .catch(() => {
+      buffer = null; // try again next time
+      return null;
+    });
+  return buffer;
+}
+
+/** Call from a user gesture (registered on pointerdown). Also preloads the tone. */
 export function unlockAudio() {
   const c = context();
-  if (c && c.state === 'suspended') void c.resume().catch(() => undefined);
+  if (!c) return;
+  if (c.state === 'suspended') void c.resume().catch(() => undefined);
+  void loadBuffer(c);
 }
 
-/** One "ring-ring": two short bursts of a dual-tone bell. */
-function ringOnce() {
-  const c = context();
-  if (!c || c.state !== 'running') return;
-  const t0 = c.currentTime;
-  for (const start of [0, 0.5]) {
-    for (const freq of [880, 1320]) {
-      const osc = c.createOscillator();
-      const gain = c.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      // Quick attack, short hold, fade — a bell rather than a beep.
-      gain.gain.setValueAtTime(0.0001, t0 + start);
-      gain.gain.exponentialRampToValueAtTime(0.35, t0 + start + 0.02);
-      gain.gain.setValueAtTime(0.35, t0 + start + 0.3);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + start + 0.42);
-      osc.connect(gain).connect(c.destination);
-      osc.start(t0 + start);
-      osc.stop(t0 + start + 0.45);
-    }
-  }
-}
-
-/** Ring (and vibrate) every 2 s until `stopRinging()`. Safe to call repeatedly. */
+/** Loop the alert (and vibrate) until `stopRinging()`. Safe to call repeatedly. */
 export function startRinging() {
-  if (timer) return;
-  unlockAudio();
-  const tick = () => {
-    ringOnce();
-    navigator.vibrate?.([400, 150, 400]);
-  };
-  tick();
-  timer = setInterval(tick, 2000);
+  if (wanted) return;
+  wanted = true;
+  const c = context();
+  if (c) {
+    if (c.state === 'suspended') void c.resume().catch(() => undefined);
+    void loadBuffer(c).then((buf) => {
+      if (!buf || !wanted || source) return;
+      const gain = c.createGain();
+      gain.gain.value = 0.9;
+      source = c.createBufferSource();
+      source.buffer = buf;
+      source.loop = true;
+      source.connect(gain).connect(c.destination);
+      source.start();
+    });
+  }
+  const buzz = () => navigator.vibrate?.([500, 200, 500]);
+  buzz();
+  vibrateTimer = setInterval(buzz, 3000);
 }
 
 export function stopRinging() {
-  if (timer) clearInterval(timer);
-  timer = null;
+  wanted = false;
+  try {
+    source?.stop();
+  } catch {
+    /* already stopped */
+  }
+  source = null;
+  if (vibrateTimer) clearInterval(vibrateTimer);
+  vibrateTimer = null;
   navigator.vibrate?.(0);
 }

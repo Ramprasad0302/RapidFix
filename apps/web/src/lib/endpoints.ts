@@ -268,7 +268,7 @@ export const technicianApi = {
   details: () => unwrap<TechnicianDetailsDto>(api.get('/technician/profile/details')),
   updateProfile: (body: Omit<PartnerRegistration, 'skills'> & { avatarUrl?: string | null }) =>
     unwrap<TechnicianDetailsDto>(api.put('/technician/profile', body)),
-  pingLocation: (lat: number, lng: number) => unwrap<{ accepted: boolean }>(api.post('/technician/location', { lat, lng })),
+  pingLocation: (lat: number, lng: number) => unwrap<{ accepted: boolean; travelling: boolean }>(api.post('/technician/location', { lat, lng })),
   payoutDetails: () => unwrap<PayoutDetailsDto>(api.get('/technician/payout-details')),
   savePayoutDetails: (body: { payoutUpiId?: string; bankAccountHolder?: string; bankIfsc?: string; bankAccountNumber?: string }) =>
     unwrap<PayoutDetailsDto>(api.put('/technician/payout-details', body)),

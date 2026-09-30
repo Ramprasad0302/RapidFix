@@ -11,6 +11,7 @@ import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { formatBookingCode } from '@fixora/shared-utils';
 import { PrismaClient, type BookingStatus, type Role } from '../src/generated/prisma/client';
 import { postWalletTxn } from '../src/services/wallet.service';
+import { syncCatalog, type Cat } from './catalog';
 
 const prisma = new PrismaClient({ adapter: new PrismaMariaDb(process.env.DATABASE_URL!) });
 
@@ -39,98 +40,6 @@ function at(dayOffset: number, hh: number, mm = 0): Date {
 }
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000);
 const SLOT_HOUR: Record<string, number> = { '09-11': 9, '11-13': 11, '14-16': 14, '16-18': 16, '18-20': 18 };
-
-// ─── Catalogue ───────────────────────────────────────────────────────────
-
-const CATEGORIES = [
-  { slug: 'ac-cooling', name: 'AC & Cooling', iconKey: 'ac', tagline: 'Service, Repair, Installation', professionalTitle: 'AC Technician' },
-  { slug: 'electrical', name: 'Electrical', iconKey: 'electrical', tagline: 'Wiring, Switches, Fan, Lighting', professionalTitle: 'Electrician' },
-  { slug: 'plumbing', name: 'Plumbing', iconKey: 'plumbing', tagline: 'Tap, Pipe, Bathroom, Tank', professionalTitle: 'Plumber' },
-  { slug: 'carpentry', name: 'Carpentry', iconKey: 'carpentry', tagline: 'Furniture, Door, Shelf, Repairs', professionalTitle: 'Carpenter' },
-  { slug: 'painting', name: 'Painting', iconKey: 'painting', tagline: 'Interior, Exterior, Wall Painting', professionalTitle: 'Painter' },
-  { slug: 'appliance-repair', name: 'Appliance Repair', iconKey: 'appliance', tagline: 'Washing Machine, Fridge, TV', professionalTitle: 'Appliance Technician' },
-  { slug: 'cleaning', name: 'Cleaning', iconKey: 'cleaning', tagline: 'Home, Office, Deep Cleaning', professionalTitle: 'Cleaning Expert' },
-  { slug: 'cctv', name: 'CCTV Installation', iconKey: 'cctv', tagline: 'Cameras, DVR, Mobile View', professionalTitle: 'CCTV Technician' },
-  { slug: 'ro-service', name: 'RO Service', iconKey: 'ro', tagline: 'Purifier Service, Filters, Repair', professionalTitle: 'RO Technician' },
-  { slug: 'pest-control', name: 'Pest Control', iconKey: 'pest', tagline: 'Cockroach, Termite, Mosquito', professionalTitle: 'Pest Control Expert' },
-] as const;
-type Cat = (typeof CATEGORIES)[number]['slug'];
-
-interface Svc {
-  cat: Cat;
-  slug: string;
-  name: string;
-  tagline: string;
-  price: number;
-  visit: number;
-  min: number;
-  max: number;
-  warranty: number;
-  popular?: boolean;
-  description: string;
-  inc: string[];
-  exc: string[];
-}
-
-const SERVICES: Svc[] = [
-  { cat: 'ac-cooling', slug: 'ac-general-service', name: 'AC Service', tagline: 'Deep cleaning for better cooling and lower bills', price: 499, visit: 0, min: 45, max: 90, warranty: 15, popular: true,
-    description: 'Jet-pump cleaning of filters, coils and drain line for split and window ACs.',
-    inc: ['Filter & coil jet cleaning', 'Drain line flush', 'Gas pressure check', 'Cooling performance check'], exc: ['Gas filling (if required)', 'Spare parts'] },
-  { cat: 'ac-cooling', slug: 'ac-repair', name: 'AC Repair', tagline: 'Get your AC repaired by verified experts', price: 299, visit: 100, min: 30, max: 60, warranty: 30, popular: true,
-    description: 'Diagnosis and repair of split and window AC units — cooling issues, noise, water leakage and electrical faults.',
-    inc: ['Diagnosis and fault finding', 'Cooling issue repair', 'Basic cleaning', 'Performance check'], exc: ['Major parts replacement', 'Gas filling (if required)'] },
-  { cat: 'ac-cooling', slug: 'ac-installation', name: 'AC Installation', tagline: 'Neat, leak-tested installation', price: 1199, visit: 0, min: 90, max: 180, warranty: 90,
-    description: 'Professional installation of split or window AC including bracket fitting and vacuum test.',
-    inc: ['Indoor & outdoor unit mounting', 'Up to 3 ft copper piping', 'Vacuum & leak test'], exc: ['Extra copper pipe', 'Stand / bracket', 'Wall core cutting'] },
-  { cat: 'electrical', slug: 'fan-installation', name: 'Fan Installation', tagline: 'Ceiling or wall fan fitted safely', price: 299, visit: 0, min: 30, max: 60, warranty: 30, popular: true,
-    description: 'Ceiling or wall fan installation with regulator fitting and safety check.',
-    inc: ['Fan mounting', 'Regulator connection', 'Safety check'], exc: ['Fan hook / down-rod', 'New wiring'] },
-  { cat: 'electrical', slug: 'electrical-repair', name: 'Electrical Repair', tagline: 'Switches, sockets, wiring and MCB faults', price: 349, visit: 0, min: 30, max: 90, warranty: 30,
-    description: 'Switches, sockets, wiring faults, MCB trips, light and fan points.',
-    inc: ['Fault diagnosis', 'Up to 60 min of labour'], exc: ['Wires, switches & parts'] },
-  { cat: 'plumbing', slug: 'tap-repair', name: 'Tap Repair', tagline: 'Stop leaks and drips fast', price: 199, visit: 0, min: 30, max: 45, warranty: 30, popular: true,
-    description: 'Leaking or broken taps, mixers and valves repaired or replaced.',
-    inc: ['Leak diagnosis', 'Washer / cartridge fix', 'Tap replacement labour'], exc: ['New tap or parts'] },
-  { cat: 'plumbing', slug: 'plumber-visit', name: 'Plumber Visit', tagline: 'Pipes, drains, bathroom fittings', price: 149, visit: 0, min: 30, max: 60, warranty: 15,
-    description: 'Blocked drains, pipe leaks, bathroom and kitchen fittings.',
-    inc: ['Diagnosis', 'Up to 30 min of labour'], exc: ['Pipes, taps & fittings'] },
-  { cat: 'plumbing', slug: 'water-tank-cleaning', name: 'Water Tank Cleaning', tagline: 'Clean, disinfected water storage', price: 699, visit: 0, min: 90, max: 150, warranty: 0,
-    description: 'Mechanised cleaning and disinfection of overhead or underground tanks up to 1000 L.',
-    inc: ['Sludge removal', 'Anti-bacterial treatment'], exc: ['Tanks above 1000 L'] },
-  { cat: 'carpentry', slug: 'furniture-repair', name: 'Furniture Repair', tagline: 'Beds, chairs, tables and cupboards', price: 349, visit: 0, min: 45, max: 120, warranty: 30, popular: true,
-    description: 'Loose joints, broken hinges, drawer channels and furniture fixes.',
-    inc: ['Inspection', 'Repair labour up to 60 min'], exc: ['Wood, hardware & locks'] },
-  { cat: 'carpentry', slug: 'door-repair', name: 'Door & Lock Repair', tagline: 'Doors that close and lock properly', price: 249, visit: 0, min: 30, max: 60, warranty: 30,
-    description: 'Door alignment, hinges, handles, locks and latches.',
-    inc: ['Alignment & hinge fix', 'Lock fitting labour'], exc: ['New locks & hardware'] },
-  { cat: 'painting', slug: 'room-painting', name: 'Room Painting', tagline: 'Fresh walls in a day', price: 2499, visit: 0, min: 360, max: 720, warranty: 180,
-    description: 'Interior painting for one room up to 120 sq ft floor area with two coats.',
-    inc: ['Surface preparation', 'Two coats of paint', 'Post-work cleanup'], exc: ['Paint material', 'Wall putty & waterproofing'] },
-  { cat: 'appliance-repair', slug: 'washing-machine-repair', name: 'Washing Machine Service', tagline: 'Top-load, front-load, semi-automatic', price: 349, visit: 99, min: 60, max: 120, warranty: 30, popular: true,
-    description: 'Servicing and repair for all washing machine types.',
-    inc: ['Diagnosis', 'Drum & filter cleaning', 'Repair labour'], exc: ['Spare parts', 'Motor / PCB replacement'] },
-  { cat: 'appliance-repair', slug: 'refrigerator-repair', name: 'Refrigerator Repair', tagline: 'Cooling, noise and leakage fixed', price: 249, visit: 99, min: 60, max: 120, warranty: 30,
-    description: 'Cooling problems, noise, water leakage and thermostat faults for all fridge types.',
-    inc: ['Diagnosis', 'Repair labour'], exc: ['Gas filling', 'Compressor & spare parts'] },
-  { cat: 'appliance-repair', slug: 'tv-repair', name: 'TV Repair', tagline: 'LED, LCD and Smart TVs', price: 299, visit: 99, min: 60, max: 120, warranty: 30,
-    description: 'Display, sound, power and board issues on LED / LCD / Smart TVs.',
-    inc: ['Diagnosis', 'Repair labour'], exc: ['Panel & spare parts'] },
-  { cat: 'cleaning', slug: 'home-deep-cleaning', name: 'Home Deep Cleaning', tagline: 'Every room, top to bottom', price: 2999, visit: 0, min: 300, max: 480, warranty: 0,
-    description: 'Room-by-room deep cleaning for a 2BHK home including kitchen and bathrooms.',
-    inc: ['All rooms, kitchen & 2 bathrooms', 'Fan & window cleaning'], exc: ['Sofa / carpet shampooing'] },
-  { cat: 'cleaning', slug: 'bathroom-cleaning', name: 'Bathroom Deep Cleaning', tagline: 'Hard stains gone', price: 399, visit: 0, min: 60, max: 90, warranty: 0,
-    description: 'Hard-stain removal on tiles, fittings, mirrors and floor with safe chemicals.',
-    inc: ['Tiles & floor scrubbing', 'Fixture descaling'], exc: ['Wall seepage repair'] },
-  { cat: 'cctv', slug: 'cctv-installation', name: 'CCTV Installation', tagline: 'Up to 4 cameras with mobile view', price: 999, visit: 0, min: 120, max: 240, warranty: 90,
-    description: 'Installation of up to 4 cameras with DVR/NVR setup and mobile viewing.',
-    inc: ['Mounting of 4 cameras', 'DVR setup', 'Mobile app configuration'], exc: ['Cameras, DVR & cabling'] },
-  { cat: 'ro-service', slug: 'ro-service', name: 'RO Purifier Service', tagline: 'Safe drinking water, checked', price: 349, visit: 0, min: 45, max: 90, warranty: 30,
-    description: 'Complete RO servicing including filter check, tank cleaning and TDS test.',
-    inc: ['Tank cleaning', 'TDS check', 'Leak check'], exc: ['Filter & membrane replacement'] },
-  { cat: 'pest-control', slug: 'cockroach-control', name: 'Cockroach & Ant Control', tagline: 'Odourless, child-safe gel treatment', price: 799, visit: 0, min: 60, max: 90, warranty: 60,
-    description: 'Odourless gel treatment for kitchen and bathrooms, safe for children and pets.',
-    inc: ['Gel treatment', 'Kitchen & 2 bathrooms'], exc: ['Termite treatment'] },
-];
 
 const LOCATIONS = [
   { name: 'Tanuku', district: 'West Godavari', state: 'Andhra Pradesh', latitude: 16.7547, longitude: 81.6818 },
@@ -211,35 +120,8 @@ async function main() {
     });
   }
 
-  const catId = new Map<string, string>();
-  for (const [i, c] of CATEGORIES.entries()) {
-    const row = await prisma.serviceCategory.upsert({ where: { slug: c.slug }, update: { ...c, sortOrder: i }, create: { ...c, sortOrder: i } });
-    catId.set(c.slug, row.id);
-  }
-  // Retire services from earlier seeds that are no longer in the catalogue.
-  await prisma.service.updateMany({ where: { slug: { notIn: SERVICES.map((s) => s.slug) } }, data: { isActive: false, isPopular: false } });
-
-  const svc = new Map<string, { id: string; price: number; visit: number; name: string; cat: Cat }>();
-  for (const [i, s] of SERVICES.entries()) {
-    const data = {
-      categoryId: catId.get(s.cat)!,
-      name: s.name,
-      tagline: s.tagline,
-      description: s.description,
-      basePrice: rs(s.price),
-      visitCharge: rs(s.visit),
-      durationMinMinutes: s.min,
-      durationMaxMinutes: s.max,
-      inclusions: s.inc,
-      exclusions: s.exc,
-      warrantyDays: s.warranty,
-      isPopular: s.popular ?? false,
-      isActive: true,
-      sortOrder: i,
-    };
-    const row = await prisma.service.upsert({ where: { slug: s.slug }, update: data, create: { slug: s.slug, ...data } });
-    svc.set(s.slug, { id: row.id, price: row.basePrice, visit: row.visitCharge, name: row.name, cat: s.cat });
-  }
+  // Catalogue (prisma/catalog.ts). The dev seed overwrites edits and retires services no longer listed.
+  const { catId, svc } = await syncCatalog(prisma, { overwrite: true, retireUnlisted: true });
 
   // ── Staff (phone OTP or email + password) ────────────────────────────
   const passwordHash = await bcrypt.hash(adminPassword, 12);

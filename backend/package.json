@@ -14,7 +14,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:catalog": "tsx prisma/sync-catalog.ts"
   },
   "dependencies": {
     "@fixora/shared-types": "*",

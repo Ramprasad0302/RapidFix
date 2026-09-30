@@ -21,7 +21,8 @@ import { issueRefreshToken, revokeAllForUser, signAccessToken, type ClientMeta }
 
 const TOWN_SPEED_KMPH = 20;
 /** Ignore location pings closer together than this (battery / network friendly). */
-const MIN_PING_MS = 8000;
+/** Pings closer than this are ignored (the app sends every 5 s while travelling, 30 s otherwise). */
+const MIN_PING_MS = 4000;
 const lastPing = new Map<string, number>();
 
 // ─── Live location ───────────────────────────────────────────────────────
@@ -32,7 +33,7 @@ const lastPing = new Map<string, number>();
  */
 export async function updateLocation(userId: string, lat: number, lng: number) {
   const now = Date.now();
-  if (now - (lastPing.get(userId) ?? 0) < MIN_PING_MS) return { accepted: false };
+  if (now - (lastPing.get(userId) ?? 0) < MIN_PING_MS) return { accepted: false, travelling: false };
   lastPing.set(userId, now);
 
   const tech = await prisma.technician.update({
@@ -54,7 +55,8 @@ export async function updateLocation(userId: string, lat: number, lng: number) {
     });
   }
   emitToStaff(SocketEvent.TECHNICIAN_LOCATION_UPDATED, { technicianId: tech.id, name: tech.user.name, lat, lng, isOnline: tech.isOnline });
-  return { accepted: true };
+  // The app pings faster while a customer is watching the technician travel.
+  return { accepted: true, travelling: travelling.length > 0 };
 }
 
 // ─── Profile & service area ──────────────────────────────────────────────
