@@ -7,9 +7,12 @@ import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import { env } from './config/env';
 import { logger } from './config/logger';
+import { docsEnabled, docsRouter } from './docs/docs.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { apiRouter } from './routes';
+import { handleRazorpayWebhook } from './services/payment.service';
 import { UPLOAD_DIR } from './services/storage.service';
+import { ok } from './utils/response';
 
 export function createApp() {
   const app = express();
@@ -25,6 +28,16 @@ export function createApp() {
     }),
   );
   app.use(compression());
+
+  // Razorpay webhook needs the exact raw bytes for its signature — mounted before the JSON parser.
+  app.post(`${env.API_PREFIX}/payments/razorpay/webhook`, express.raw({ type: '*/*', limit: '1mb' }), async (req, res, next) => {
+    try {
+      ok(res, await handleRazorpayWebhook(req.body as Buffer, req.get('x-razorpay-signature')));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
   app.use(cookieParser());
@@ -47,6 +60,7 @@ export function createApp() {
   );
 
   app.use(env.API_PREFIX, apiRouter);
+  if (docsEnabled()) app.use('/api/docs', docsRouter);
 
   // User uploads (booking photos, avatars). Filenames are random UUIDs, so they can be cached forever.
   app.use(

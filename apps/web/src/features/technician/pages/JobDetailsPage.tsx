@@ -15,8 +15,10 @@ import { StatusBadge } from '../../../components/StatusBadge';
 import { mediaUrl } from '../../../lib/api';
 import { technicianApi } from '../../../lib/endpoints';
 import { addressLines, formatSchedule } from '../../../lib/format';
+import { useBookingRoom } from '../../../lib/socket';
 import { toast } from '../../../store/toast';
 import { MobileShell } from '../../customer/CustomerTabsLayout';
+import { CollectPaymentCard, ExtraWorkSection } from '../components/JobExtras';
 
 const ACTION_LABEL: Record<TechnicianJobAction, string> = {
   ACCEPT: 'Accept Job',
@@ -29,6 +31,7 @@ const ACTION_LABEL: Record<TechnicianJobAction, string> = {
 
 export function JobDetailsPage() {
   const { id = '' } = useParams();
+  useBookingRoom(id);
   const job = useQuery({ queryKey: ['tech', 'job', id], queryFn: () => technicianApi.job(id) });
   return (
     <MobileShell>
@@ -70,6 +73,7 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
   });
 
   const primary = j.actions.find((a) => a !== 'REJECT');
+  const chatOpen = !!j.customerPhone && !['PAYMENT_COMPLETED', 'REFUNDED', 'CUSTOMER_CANCELLED', 'ADMIN_CANCELLED', 'TECHNICIAN_CANCELLED'].includes(j.status);
   const directions =
     j.latitude != null && j.longitude != null
       ? `https://www.google.com/maps/dir/?api=1&destination=${j.latitude},${j.longitude}`
@@ -105,10 +109,10 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
         <Avatar name={j.customerName} size={52} />
         <div className="min-w-0 flex-1">
           <p className="text-[17px] leading-snug font-semibold text-slate-900">{j.customerName}</p>
-          <p className="text-sm whitespace-nowrap text-slate-500">{j.customerPhone ? formatIndianPhone(j.customerPhone) : 'Shown after you accept'}</p>
+          <p className="text-sm whitespace-nowrap text-slate-500">{j.customerPhone ? formatIndianPhone(j.customerPhone) : j.actions.includes('ACCEPT') ? 'Shown after you accept' : 'Hidden after the job closes'}</p>
         </div>
         <IconAction href={j.customerPhone ? `tel:${j.customerPhone}` : undefined} label="Call customer" icon={<Phone className="size-5 fill-current" />} />
-        <IconAction label="Chat" icon={<MessageSquareText className="size-5" />} onClick={() => toast('In-app chat is coming soon.')} />
+        <IconAction label="Chat" icon={<MessageSquareText className="size-5" />} onClick={chatOpen ? () => navigate(`/technician/jobs/${j.id}/chat`) : undefined} />
       </section>
 
       <section className="flex items-start gap-3 rounded-2xl border border-slate-100 p-3.5 shadow-card">
@@ -149,6 +153,9 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
           </div>
         )}
       </section>
+
+      <ExtraWorkSection j={j} />
+      <CollectPaymentCard j={j} />
 
       <section>
         <label htmlFor="notes" className="flex items-center gap-2 text-lg font-semibold text-slate-900">

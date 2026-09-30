@@ -14,6 +14,9 @@ const customer = (m: string) => import(`../features/customer/pages/${m}.tsx`);
 const booking = (m: string) => import(`../features/customer/booking/${m}.tsx`);
 const tech = (m: string) => import(`../features/technician/pages/${m}.tsx`);
 const admin = (m: string) => import(`../features/admin/pages/${m}.tsx`);
+const chat = () => import('../features/chat/ChatPage');
+const invoice = () => import('../features/invoice/InvoicePage');
+const techAccount = () => import('../features/technician/pages/AccountPages');
 
 export const router = createBrowserRouter([
   {
@@ -28,6 +31,7 @@ export const router = createBrowserRouter([
     hydrateFallbackElement: <CenteredSpinner />,
     children: [
       { path: '/login', ...page(() => import('../features/auth/LoginPage'), 'LoginPage') },
+      { path: '/partner', ...page(() => import('../features/partner/PartnerRegisterPage'), 'PartnerRegisterPage') },
 
       // ── Customer (guest-first) ───────────────────────────────────────
       {
@@ -71,6 +75,8 @@ export const router = createBrowserRouter([
             children: [
               { path: 'book/confirmed/:id', ...page(() => booking('BookingConfirmedPage'), 'BookingConfirmedPage') },
               { path: 'bookings/:id', ...page(() => customer('BookingDetailsPage'), 'BookingDetailsPage') },
+              { path: 'bookings/:id/chat', ...page(chat, 'CustomerChatPage') },
+              { path: 'bookings/:id/invoice', ...page(invoice, 'CustomerInvoicePage') },
               { path: 'account/edit', ...page(() => customer('EditProfilePage'), 'EditProfilePage') },
               { path: 'account/addresses', ...page(() => customer('AddressesPage'), 'AddressesPage') },
               { path: 'account/addresses/:id', ...page(() => customer('AddressEditPage'), 'AddressEditPage') },
@@ -98,6 +104,13 @@ export const router = createBrowserRouter([
             ],
           },
           { path: 'jobs/:id', ...page(() => tech('JobDetailsPage'), 'JobDetailsPage') },
+          { path: 'jobs/:id/chat', ...page(chat, 'TechnicianChatPage') },
+          { path: 'jobs/:id/invoice', ...page(invoice, 'TechnicianInvoicePage') },
+          { path: 'profile/edit', ...page(techAccount, 'ProfileDetailsPage') },
+          { path: 'payout-details', ...page(techAccount, 'PayoutDetailsPage') },
+          { path: 'documents', ...page(techAccount, 'DocumentsPage') },
+          { path: 'reviews', ...page(techAccount, 'ReviewsPage') },
+          { path: 'performance', ...page(techAccount, 'PerformancePage') },
           { path: 'notifications', ...page(() => customer('NotificationsPage'), 'NotificationsPage') },
           { path: 'help', ...page(() => customer('InfoPages'), 'HelpPage') },
         ],
@@ -113,7 +126,22 @@ export const router = createBrowserRouter([
             children: [
               { index: true, ...page(() => admin('DashboardPage'), 'DashboardPage') },
               { path: 'users', ...page(() => admin('UsersRolesPage'), 'UsersRolesPage') },
-              { path: ':section', ...page(() => admin('ComingSoonPage'), 'ComingSoonPage') },
+              { path: 'bookings', ...page(() => admin('BookingsPage'), 'BookingsPage') },
+              { path: 'customers', ...page(() => admin('CustomersPage'), 'CustomersPage') },
+              { path: 'technicians', ...page(() => admin('TechniciansPage'), 'TechniciansPage') },
+              { path: 'services', ...page(() => admin('CatalogPages'), 'ServicesPage') },
+              { path: 'categories', ...page(() => admin('CatalogPages'), 'CategoriesPage') },
+              { path: 'offers', ...page(() => admin('CatalogPages'), 'OffersPage') },
+              { path: 'payments', ...page(() => admin('FinancePages'), 'PaymentsPage') },
+              { path: 'payouts', ...page(() => admin('FinancePages'), 'PayoutsPage') },
+              { path: 'reviews', ...page(() => admin('PlatformPages'), 'ReviewsPage') },
+              { path: 'complaints', ...page(() => admin('PlatformPages'), 'ComplaintsPage') },
+              { path: 'notifications', ...page(() => admin('PlatformPages'), 'NotificationsPage') },
+              { path: 'reports', ...page(() => admin('PlatformPages'), 'ReportsPage') },
+              { path: 'settings', ...page(() => admin('PlatformPages'), 'SettingsPage') },
+              { path: 'audit-logs', ...page(() => admin('PlatformPages'), 'AuditLogsPage') },
+              { path: 'system-settings', ...page(() => admin('PlatformPages'), 'SystemSettingsPage') },
+              { path: '*', element: <Navigate to="/admin" replace /> },
             ],
           },
         ],

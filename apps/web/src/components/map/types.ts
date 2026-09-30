@@ -5,6 +5,8 @@ export interface LatLng {
 
 export interface MapMarker extends LatLng {
   kind: 'home' | 'tech';
+  /** Tooltip (e.g. technician name on the operations map). */
+  title?: string;
 }
 
 export interface FixoraMapProps {
@@ -13,6 +15,8 @@ export interface FixoraMapProps {
   markers?: MapMarker[];
   /** Draw a line between the first two markers and fit both in view. */
   route?: boolean;
+  /** Fit every marker in view (live fleet map). */
+  fit?: boolean;
   /** Fires after the user pans (for the fixed-centre-pin picker). */
   onMoveEnd?(center: LatLng): void;
   className?: string;

@@ -24,8 +24,10 @@ uploadRouter.post('/', authenticate(), (req, res, next) => {
     }
     if (err) return next(err);
     if (!req.file) return next(AppError.badRequest('Choose a file to upload', 'NO_FILE'));
-    const allowed = req.query.kind === 'image' ? 'image' : 'any';
-    saveUpload(req.file.buffer, allowed)
+    // ?private=1 → KYC document (image or PDF), stored outside the public folder.
+    const isPrivate = req.query.private === '1';
+    const allowed = isPrivate ? 'document' : req.query.kind === 'image' ? 'image' : 'any';
+    saveUpload(req.file.buffer, allowed, { private: isPrivate })
       .then((result) => ok(res, result, 201))
       .catch(next);
   });

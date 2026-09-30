@@ -7,3 +7,5 @@ coverage/
 .DS_Store
 backend/uploads/
 backend/src/generated/
+backend/uploads-private/
+.env.docker

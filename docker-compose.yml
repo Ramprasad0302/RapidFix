@@ -1,0 +1,49 @@
+# Local production-like stack:  cp .env.docker.example .env.docker  (fill the secrets), then
+#   docker compose --env-file .env.docker up -d --build
+#   docker compose exec api npx prisma db seed      # optional demo data
+# App: http://localhost:8080   API docs (when API_DOCS=on): http://localhost:8080/api/docs/
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: fixora
+      MYSQL_USER: fixora
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env.docker}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env.docker}
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+    volumes: [db-data:/var/lib/mysql]
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-u', 'root', '-p${MYSQL_ROOT_PASSWORD}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    env_file: .env.docker
+    environment:
+      DATABASE_URL: mysql://fixora:${MYSQL_PASSWORD}@db:3306/fixora
+      CORS_ORIGINS: ${PUBLIC_URL:-http://localhost:8080}
+      WEB_APP_URL: ${PUBLIC_URL:-http://localhost:8080}
+    volumes:
+      - uploads:/app/backend/uploads
+      - uploads-private:/app/backend/uploads-private
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+        VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY:-}
+    restart: unless-stopped
+    depends_on: [api]
+    ports: ['8080:80']
+
+volumes:
+  db-data:
+  uploads:
+  uploads-private:

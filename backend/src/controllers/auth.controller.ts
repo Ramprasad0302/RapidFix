@@ -19,7 +19,7 @@ const cookieOptions = (): CookieOptions => ({
   path: `${env.API_PREFIX}/auth`,
 });
 
-const setRefreshCookie = (res: Response, token: string) =>
+export const setRefreshCookie = (res: Response, token: string) =>
   res.cookie(REFRESH_COOKIE, token, { ...cookieOptions(), maxAge: refreshTtlMs() });
 const clearRefreshCookie = (res: Response) => res.clearCookie(REFRESH_COOKIE, cookieOptions());
 

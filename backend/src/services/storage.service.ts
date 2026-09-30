@@ -1,14 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { UploadResultDto } from '@fixora/shared-types';
 import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
 
-/** backend/uploads — served at /uploads. An S3 driver can replace `save()` later. */
-export const UPLOAD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads');
+/**
+ * Public uploads, served at /uploads. Resolved from the working directory (the
+ * backend folder in dev, tests and Docker) so the bundled dist/ build uses the
+ * same place. An S3 driver can replace `save()` later.
+ */
+export const UPLOAD_DIR = path.resolve(env.UPLOAD_DIR);
 export const UPLOAD_URL_PREFIX = '/uploads/';
+/** KYC documents: never served statically — only via the authenticated files route. */
+export const PRIVATE_UPLOAD_DIR = path.resolve(env.PRIVATE_UPLOAD_DIR);
+export const PRIVATE_URL_PREFIX = '/private/';
 
 export const VIDEO_MAX_BYTES = 25 * 1024 * 1024;
 
@@ -26,11 +32,11 @@ function sniff(buf: Buffer): { ext: string; kind: 'image' | 'video' } | null {
   return null;
 }
 
-export async function saveUpload(buf: Buffer, allowed: 'image' | 'any' = 'any'): Promise<UploadResultDto> {
-  const type = sniff(buf);
-  if (!type || (allowed === 'image' && type.kind !== 'image')) {
+export async function saveUpload(buf: Buffer, allowed: 'image' | 'any' | 'document' = 'any', opts: { private?: boolean } = {}): Promise<UploadResultDto> {
+  const type = sniff(buf) ?? (allowed === 'document' && buf.subarray(0, 5).toString('ascii') === '%PDF-' ? { ext: 'pdf', kind: 'image' as const } : null);
+  if (!type || ((allowed === 'image' || allowed === 'document') && type.kind !== 'image')) {
     throw AppError.badRequest(
-      allowed === 'image' ? 'Please upload a JPG, PNG or WebP image.' : 'Please upload a JPG, PNG, WebP image or an MP4/WebM video.',
+      allowed === 'image' ? 'Please upload a JPG, PNG or WebP image.' : allowed === 'document' ? 'Please upload a JPG, PNG, WebP or PDF file.' : 'Please upload a JPG, PNG, WebP image or an MP4/WebM video.',
       'UNSUPPORTED_FILE',
     );
   }
@@ -41,11 +47,16 @@ export async function saveUpload(buf: Buffer, allowed: 'image' | 'any' = 'any'):
 
   const now = new Date();
   const rel = path.posix.join(String(now.getFullYear()), String(now.getMonth() + 1).padStart(2, '0'), `${randomUUID()}.${type.ext}`);
-  const abs = path.join(UPLOAD_DIR, rel);
+  const abs = path.join(opts.private ? PRIVATE_UPLOAD_DIR : UPLOAD_DIR, rel);
   await mkdir(path.dirname(abs), { recursive: true });
   await writeFile(abs, buf, { flag: 'wx' });
-  return { path: UPLOAD_URL_PREFIX + rel, kind: type.kind, size: buf.length };
+  return { path: (opts.private ? PRIVATE_URL_PREFIX : UPLOAD_URL_PREFIX) + rel, kind: type.kind, size: buf.length };
 }
+
+export const isOwnPrivatePath = (p: string) => /^\/private\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp|pdf)$/.test(p);
+
+/** Absolute file for a validated private path (callers must authorise first). */
+export const privateFilePath = (p: string) => path.join(PRIVATE_UPLOAD_DIR, p.slice(PRIVATE_URL_PREFIX.length));
 
 /** Only paths produced by `saveUpload` may be attached to records. */
 export const isOwnUploadPath = (p: string) => /^\/uploads\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp|mp4|mov|webm)$/.test(p);

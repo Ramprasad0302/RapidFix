@@ -6,6 +6,8 @@ import { prisma } from '../config/prisma';
 import { authenticate, authOf, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import * as bookings from '../services/booking.service';
+import * as payments from '../services/payment.service';
+import * as work from '../services/work.service';
 import { isOwnUploadPath } from '../services/storage.service';
 import { AppError } from '../utils/AppError';
 import { ok, paginationMeta } from '../utils/response';
@@ -151,6 +153,40 @@ customerRouter.post('/bookings/:id/reschedule', validate(scheduleSchema), async 
   const { customerId, userId } = await customerOf(req);
   ok(res, await bookings.rescheduleCustomerBooking(customerId, userId, String(req.params.id), req.body));
 });
+
+// ─── Payment, extra work, review ─────────────────────────────────────────
+
+customerRouter.post('/bookings/:id/payment/razorpay-order', async (req, res) => {
+  ok(res, await payments.createRazorpayOrder((await customerOf(req)).customerId, String(req.params.id)));
+});
+
+customerRouter.post(
+  '/bookings/:id/payment/razorpay-verify',
+  validate(z.object({ razorpay_order_id: z.string().min(5).max(64), razorpay_payment_id: z.string().min(5).max(64), razorpay_signature: z.string().min(10).max(256) })),
+  async (req, res) => {
+    const { customerId } = await customerOf(req);
+    await payments.verifyRazorpayCheckout(customerId, String(req.params.id), req.body);
+    ok(res, await bookings.getCustomerBooking(customerId, String(req.params.id)));
+  },
+);
+
+customerRouter.post('/bookings/:id/additional-charges/:chargeId/:decision', async (req, res) => {
+  const decision = String(req.params.decision);
+  if (decision !== 'approve' && decision !== 'reject') throw AppError.notFound();
+  const { customerId, userId } = await customerOf(req);
+  await work.respondAdditionalCharge(customerId, userId, String(req.params.id), String(req.params.chargeId), decision === 'approve');
+  ok(res, await bookings.getCustomerBooking(customerId, String(req.params.id)));
+});
+
+customerRouter.post(
+  '/bookings/:id/review',
+  validate(z.object({ rating: z.number().int().min(1).max(5), comment: z.string().trim().max(1000).optional() })),
+  async (req, res) => {
+    const { customerId } = await customerOf(req);
+    await work.submitReview(customerId, String(req.params.id), req.body);
+    ok(res, await bookings.getCustomerBooking(customerId, String(req.params.id)), 201);
+  },
+);
 
 // ─── Addresses ───────────────────────────────────────────────────────────
 

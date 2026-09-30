@@ -185,6 +185,9 @@ function PhoneStep({
       </Button>
 
       <p className="mt-6 text-center text-[13px] text-slate-500">New to FIXORA? You’ll be registered automatically</p>
+      <Link to="/partner" className="mt-3 text-center text-[13px] font-medium text-fixora-blue">
+        Are you a technician? Become a FIXORA partner
+      </Link>
       <button type="button" onClick={onUsePassword} className="mt-auto pt-8 text-center text-[13px] font-medium text-slate-500 hover:text-fixora-blue">
         FIXORA staff? Sign in with email
       </button>

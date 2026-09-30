@@ -7,6 +7,7 @@ import { technicianApi } from '../../../lib/endpoints';
 import { formatDate, formatMonth } from '../../../lib/format';
 import { TechHeader } from '../components/TechHeader';
 import { EarningsCard, monthOptions } from '../components/EarningsCard';
+import { WalletSection } from '../components/WalletSection';
 
 export function EarningsPage() {
   const [month, setMonth] = useState(monthOptions()[0]!.value);
@@ -35,6 +36,8 @@ export function EarningsPage() {
                 </div>
               ))}
             </section>
+
+            <WalletSection />
 
             <section>
               <h2 className="text-lg font-bold text-slate-900">Earnings ledger · {formatMonth(`${month}-15T12:00:00+05:30`)}</h2>

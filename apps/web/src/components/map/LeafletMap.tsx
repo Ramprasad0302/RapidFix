@@ -12,7 +12,7 @@ const markerIcon = (kind: 'home' | 'tech') =>
     html: `<div style="width:36px;height:36px;border-radius:9999px;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 4px 12px rgb(11 31 58/.3);background:${kind === 'tech' ? '#2563EB' : '#E34948'};color:#fff;font:600 14px Inter,sans-serif">${kind === 'tech' ? '🛠' : '⌂'}</div>`,
   });
 
-export default function LeafletMap({ center, zoom = 16, markers = [], route, onMoveEnd, className, label }: FixoraMapProps) {
+export default function LeafletMap({ center, zoom = 16, markers = [], route, fit, onMoveEnd, className, label }: FixoraMapProps) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
@@ -59,13 +59,23 @@ export default function LeafletMap({ center, zoom = 16, markers = [], route, onM
     const g = layer.current;
     if (!m || !g) return;
     g.clearLayers();
-    for (const mk of markers) L.marker([mk.lat, mk.lng], { icon: markerIcon(mk.kind) }).addTo(g);
+    for (const mk of markers) {
+      const marker = L.marker([mk.lat, mk.lng], { icon: markerIcon(mk.kind), title: mk.title ?? '' }).addTo(g);
+      if (mk.title) {
+        // Titles can contain user-entered names: pass a text node, never an HTML string.
+        const label = document.createElement('span');
+        label.textContent = mk.title;
+        marker.bindTooltip(label);
+      }
+    }
     if (route && markers.length >= 2) {
       const pts = markers.slice(0, 2).map((p) => [p.lat, p.lng] as [number, number]);
       L.polyline(pts, { color: '#2563EB', weight: 4, dashArray: '8 8' }).addTo(g);
       m.fitBounds(L.latLngBounds(pts), { padding: [40, 40] });
+    } else if (fit && markers.length >= 2) {
+      m.fitBounds(L.latLngBounds(markers.map((p) => [p.lat, p.lng] as [number, number])), { padding: [40, 40], maxZoom: 14 });
     }
-  }, [markers, route]);
+  }, [markers, route, fit]);
 
   return <div ref={el} className={className} role="application" aria-label={label} />;
 }

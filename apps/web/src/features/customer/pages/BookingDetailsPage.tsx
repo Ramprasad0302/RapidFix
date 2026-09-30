@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BadgeCheck, CalendarDays, CircleX, Headset, Info, MapPin, MessageSquareText, Phone, Star, Truck, Wrench } from 'lucide-react';
 import type { BookingDetailDto } from '@fixora/shared-types';
@@ -16,19 +16,22 @@ import { TrackingMap } from '../../../components/TrackingMap';
 import { mediaUrl } from '../../../lib/api';
 import { customerApi } from '../../../lib/endpoints';
 import { addressLines, formatSchedule } from '../../../lib/format';
+import { useBookingRoom } from '../../../lib/socket';
 import { toast } from '../../../store/toast';
 import { MobileShell } from '../CustomerTabsLayout';
+import { AdditionalChargesCard, InvoiceLink, PaymentCard, ReportIssueButton, ReviewCard } from '../components/BookingExtras';
 import { ScheduleFields, type ScheduleValue } from '../components/ScheduleFields';
 
 const CANCEL_REASONS = ['Booked by mistake', 'Found another service', 'Change of plans', 'Price is too high', 'Technician is taking too long'];
 
 export function BookingDetailsPage() {
   const { id = '' } = useParams();
+  useBookingRoom(id);
   const booking = useQuery({
     queryKey: ['customer', 'booking', id],
     queryFn: () => customerApi.booking(id),
-    // Poll while work is in progress (Socket.IO push arrives in Phase 7).
-    refetchInterval: (q) => (q.state.data && ['PAYMENT_COMPLETED', 'CUSTOMER_CANCELLED', 'ADMIN_CANCELLED', 'REFUNDED'].includes(q.state.data.status) ? false : 20_000),
+    // Live updates arrive over Socket.IO; this slow poll only covers dropped connections.
+    refetchInterval: (q) => (q.state.data && ['PAYMENT_COMPLETED', 'CUSTOMER_CANCELLED', 'ADMIN_CANCELLED', 'REFUNDED'].includes(q.state.data.status) ? false : 60_000),
   });
 
   return (
@@ -52,9 +55,11 @@ export function BookingDetailsPage() {
 function Details({ b }: { b: BookingDetailDto }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const navigate = useNavigate();
   const t = b.technician;
+  const chatOpen = !!t && !cancelledStatus(b.status) && b.status !== 'PAYMENT_COMPLETED' && b.status !== 'REFUNDED';
   const enRoute = b.status === 'TECHNICIAN_EN_ROUTE';
-  const cancelled = ['CUSTOMER_CANCELLED', 'TECHNICIAN_CANCELLED', 'ADMIN_CANCELLED', 'NO_SHOW'].includes(b.status);
+  const cancelled = cancelledStatus(b.status);
 
   return (
     <main className="flex flex-col gap-4 px-4 pb-10">
@@ -102,12 +107,16 @@ function Details({ b }: { b: BookingDetailDto }) {
           </div>
           <div className="flex gap-2">
             <ContactButton href={t.phone ? `tel:${t.phone}` : undefined} icon={<Phone className="size-5 fill-current" />} label="Call" />
-            <ContactButton icon={<MessageSquareText className="size-5" />} label="Chat" onClick={() => toast('In-app chat with your technician is coming soon.')} />
+            <ContactButton icon={<MessageSquareText className="size-5" />} label="Chat" onClick={chatOpen ? () => navigate(`/bookings/${b.id}/chat`) : undefined} />
           </div>
         </section>
       )}
 
-      {enRoute && t && b.address.latitude != null && b.address.longitude != null && (
+      <AdditionalChargesCard b={b} />
+      <PaymentCard b={b} />
+      <ReviewCard b={b} />
+
+      {(enRoute || b.status === 'TECHNICIAN_ARRIVED') && t && b.address.latitude != null && b.address.longitude != null && (
         <TrackingMap from={t.location} to={{ lat: b.address.latitude, lng: b.address.longitude }} etaMinutes={t.etaMinutes} distanceKm={t.distanceKm} />
       )}
 
@@ -170,12 +179,16 @@ function Details({ b }: { b: BookingDetailDto }) {
         </div>
       )}
       {b.cancellationReason && cancelled && <Alert tone="info">Cancelled: {b.cancellationReason}</Alert>}
+      <InvoiceLink b={b} />
+      {b.status !== 'PENDING' && <ReportIssueButton bookingId={b.id} />}
 
       <CancelDialog booking={b} open={cancelOpen} onClose={() => setCancelOpen(false)} />
       <RescheduleDialog booking={b} open={rescheduleOpen} onClose={() => setRescheduleOpen(false)} />
     </main>
   );
 }
+
+const cancelledStatus = (s: string) => ['CUSTOMER_CANCELLED', 'TECHNICIAN_CANCELLED', 'ADMIN_CANCELLED', 'NO_SHOW'].includes(s);
 
 function StatusBanner({ b }: { b: BookingDetailDto }) {
   const t = b.technician;
@@ -189,7 +202,10 @@ function StatusBanner({ b }: { b: BookingDetailDto }) {
     },
     TECHNICIAN_ARRIVED: { title: 'Your technician has arrived', body: 'Please share the problem details with them.' },
     SERVICE_STARTED: { title: 'Service in progress', body: 'Any extra work will need your approval first.' },
-    PAYMENT_PENDING: { title: 'Service completed', body: 'Please complete the payment with your technician.' },
+    ADDITIONAL_CHARGE_APPROVED: { title: 'Service in progress', body: 'Extra work approved — your bill has been updated.' },
+    PAYMENT_PENDING: { title: 'Service completed', body: 'Please complete the payment to close the booking.' },
+    DISPUTED: { title: 'Under review', body: 'Our support team is looking into this booking and will contact you.' },
+    REFUNDED: { title: 'Refunded', body: 'Your refund has been processed to the original payment method.' },
     PAYMENT_COMPLETED: { title: 'All done!', body: 'Thank you for choosing FIXORA.' },
   };
   const c = copy[b.status];

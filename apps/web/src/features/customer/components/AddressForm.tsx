@@ -6,7 +6,7 @@ import { cx } from '@fixora/ui';
 
 type FormIn = z.input<typeof addressSchema>;
 
-const STATES = [
+export const STATES = [
   'Andhra Pradesh', 'Telangana', 'Karnataka', 'Tamil Nadu', 'Kerala', 'Odisha', 'Maharashtra', 'Chhattisgarh',
   'Madhya Pradesh', 'Uttar Pradesh', 'Bihar', 'Jharkhand', 'West Bengal', 'Gujarat', 'Rajasthan', 'Punjab',
   'Haryana', 'Himachal Pradesh', 'Uttarakhand', 'Goa', 'Assam', 'Arunachal Pradesh', 'Manipur', 'Meghalaya',

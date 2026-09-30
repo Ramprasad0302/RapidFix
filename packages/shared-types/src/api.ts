@@ -45,6 +45,9 @@ export const SocketEvent = {
   PAYMENT_UPDATED: 'payment_updated',
   BOOKING_CANCELLED: 'booking_cancelled',
   NEW_MESSAGE: 'new_message',
+  MESSAGES_READ: 'messages_read',
+  /** A new in-app notification for this user (from the notification outbox). */
+  NOTIFICATION: 'notification',
 } as const;
 export type SocketEvent = (typeof SocketEvent)[keyof typeof SocketEvent];
 

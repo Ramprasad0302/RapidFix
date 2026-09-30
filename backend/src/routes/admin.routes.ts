@@ -5,10 +5,12 @@ import { authenticate, authOf, authorize, requirePermission } from '../middlewar
 import { validate } from '../middleware/validate';
 import * as admin from '../services/admin.service';
 import * as assignment from '../services/assignment.service';
+import { adminModulesRouter } from './adminModules.routes';
 import { ok, paginationMeta } from '../utils/response';
 
 export const adminRouter = Router();
 adminRouter.use(authenticate(), authorize(...ADMIN_ROLES));
+adminRouter.use(adminModulesRouter);
 
 const dashboardQuery = z.object({ range: z.enum(['today', '7d', '30d']).default('7d') });
 

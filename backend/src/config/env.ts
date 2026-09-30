@@ -16,9 +16,10 @@ const schema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
 
-  // Only `console` exists so far; production refuses to boot until an SMS provider is added.
-  OTP_PROVIDER: z.enum(['console']).default('console'),
+  // `console` prints codes to the log (development only — production refuses it); `msg91` sends SMS.
+  OTP_PROVIDER: z.enum(['console', 'msg91']).default('console'),
   OTP_API_KEY: z.string().optional().default(''),
+  OTP_TEMPLATE_ID: z.string().optional().default(''),
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   OTP_RESEND_COOLDOWN_SECONDS: z.coerce.number().int().nonnegative().default(30),
@@ -40,6 +41,16 @@ const schema = z.object({
   STORAGE_ACCESS_KEY: z.string().optional().default(''),
   STORAGE_SECRET_KEY: z.string().optional().default(''),
   UPLOAD_MAX_MB: z.coerce.number().positive().default(5),
+  /** Relative paths resolve from the working directory (the backend folder). */
+  UPLOAD_DIR: z.string().default('uploads'),
+  PRIVATE_UPLOAD_DIR: z.string().default('uploads-private'),
+
+  DATA_ENCRYPTION_KEY: z.string().regex(/^[0-9a-f]{64}$/i, 'DATA_ENCRYPTION_KEY must be 64 hex chars').optional(),
+  PUSH_PROVIDER: z.enum(['none', 'fcm']).default('none'),
+  WEB_APP_URL: z.string().url().default('http://localhost:5173'),
+
+  /** Swagger UI at /api/docs. `auto` = on everywhere except production. */
+  API_DOCS: z.enum(['auto', 'on', 'off']).default('auto'),
 
   TAX_PERCENT: z.coerce.number().min(0).max(100).default(18),
   ASSIGNMENT_REQUEST_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(30),
@@ -55,6 +66,16 @@ if (!parsed.success) {
 
 if (parsed.data.NODE_ENV === 'production' && parsed.data.OTP_PROVIDER === 'console') {
   console.error('OTP_PROVIDER=console is not allowed in production.');
+  process.exit(1);
+}
+
+if (parsed.data.OTP_PROVIDER === 'msg91' && (!parsed.data.OTP_API_KEY || !parsed.data.OTP_TEMPLATE_ID)) {
+  console.error('OTP_PROVIDER=msg91 needs OTP_API_KEY and OTP_TEMPLATE_ID.');
+  process.exit(1);
+}
+
+if (parsed.data.NODE_ENV === 'production' && !parsed.data.DATA_ENCRYPTION_KEY) {
+  console.error('DATA_ENCRYPTION_KEY is required in production.');
   process.exit(1);
 }
 

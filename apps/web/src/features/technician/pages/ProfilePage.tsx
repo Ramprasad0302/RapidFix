@@ -5,6 +5,7 @@ import {
   Bell,
   ChartLine,
   ChevronRight,
+  FileCheck2,
   Headset,
   Landmark,
   LogOut,
@@ -27,22 +28,21 @@ import { TechHeader } from '../components/TechHeader';
 interface Item {
   icon: LucideIcon;
   label: string;
-  to?: string;
-  /** Not built yet — tells the partner honestly instead of opening an empty page. */
-  soon?: string;
+  to: string;
 }
 
 const ACCOUNT: Item[] = [
   { icon: WalletCards, label: 'My Earnings', to: '/technician/earnings' },
-  { icon: Landmark, label: 'Bank Details', soon: 'Bank details for payouts are coming in the next update.' },
+  { icon: Landmark, label: 'Bank & UPI Details', to: '/technician/payout-details' },
   { icon: ToggleRight, label: 'My Availability', to: '/technician' },
-  { icon: MapPinned, label: 'Service Areas', soon: 'Service area management is coming in the next update.' },
-  { icon: Star, label: 'My Reviews', soon: 'Your reviews list is coming in the next update.' },
-  { icon: ChartLine, label: 'Performance', soon: 'Performance insights are coming in the next update.' },
+  { icon: MapPinned, label: 'Service Area', to: '/technician/profile/edit' },
+  { icon: FileCheck2, label: 'My Documents', to: '/technician/documents' },
+  { icon: Star, label: 'My Reviews', to: '/technician/reviews' },
+  { icon: ChartLine, label: 'Performance', to: '/technician/performance' },
 ];
 
 const SETTINGS: Item[] = [
-  { icon: UserRound, label: 'Profile Details', soon: 'Profile editing is coming in the next update. Contact support to change details.' },
+  { icon: UserRound, label: 'Profile Details', to: '/technician/profile/edit' },
   { icon: Bell, label: 'Notifications', to: '/technician/notifications' },
   { icon: Headset, label: 'Help & Support', to: '/technician/help' },
 ];
@@ -61,7 +61,7 @@ export function ProfilePage() {
         {profile.isPending && <Skeleton className="h-24" />}
         {profile.isError && <ErrorState error={profile.error} onRetry={() => void profile.refetch()} />}
         {p && (
-          <section className="flex items-center gap-3.5 rounded-2xl bg-fixora-blue-soft/70 p-3.5">
+          <Link to="/technician/profile/edit" className="flex items-center gap-3.5 rounded-2xl bg-fixora-blue-soft/70 p-3.5">
             <Avatar name={p.name} src={p.avatarUrl} size={64} online={p.isOnline} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-lg font-bold text-slate-900">{p.name}</p>
@@ -71,7 +71,7 @@ export function ProfilePage() {
               </span>
             </div>
             <ChevronRight className="size-5 text-slate-400" aria-hidden />
-          </section>
+          </Link>
         )}
 
         {earnings.isPending ? <Skeleton className="h-36" /> : earnings.data && <EarningsCard e={earnings.data} month={month} onMonth={setMonth} />}
@@ -115,7 +115,7 @@ export function ProfilePage() {
 function Menu({ items }: { items: Item[] }) {
   return (
     <ul className="overflow-hidden rounded-2xl border border-slate-100 shadow-card">
-      {items.map(({ icon: Icon, label, to, soon }) => {
+      {items.map(({ icon: Icon, label, to }) => {
         const body = (
           <>
             <Icon className="size-5 text-fixora-blue" aria-hidden />
@@ -126,15 +126,9 @@ function Menu({ items }: { items: Item[] }) {
         const cls = 'flex w-full items-center gap-3.5 px-4 py-3.5 text-left hover:bg-slate-50';
         return (
           <li key={label} className="border-b border-slate-100 last:border-0">
-            {to ? (
-              <Link to={to} className={cls}>
-                {body}
-              </Link>
-            ) : (
-              <button onClick={() => toast(soon ?? '')} className={cls}>
-                {body}
-              </button>
-            )}
+            <Link to={to} className={cls}>
+              {body}
+            </Link>
           </li>
         );
       })}

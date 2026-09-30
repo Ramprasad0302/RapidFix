@@ -4,6 +4,7 @@ import { env } from '../config/env';
 import { prisma } from '../config/prisma';
 import type { Coupon, Service } from '../generated/prisma/client';
 import { AppError } from '../utils/AppError';
+import { getSetting } from './settings.service';
 
 export type CouponCheck = { coupon: Coupon; valid: true } | { coupon: Coupon | null; valid: false; message: string };
 
@@ -43,6 +44,9 @@ export async function checkCoupon(
   return { coupon, valid: true };
 }
 
+/** GST % — admin setting, falling back to TAX_PERCENT from the environment. */
+export const taxRate = () => getSetting('pricing.taxPercent', env.TAX_PERCENT);
+
 export interface Estimate {
   service: Service;
   breakdown: PriceBreakdownDto;
@@ -56,11 +60,12 @@ export async function estimatePrice(serviceId: string, couponCode?: string | nul
   const check = couponCode ? await checkCoupon(couponCode, service, customerId) : null;
   const applied = check?.valid ? check.coupon : null;
 
+  const taxPercent = await taxRate();
   const p = calculatePrice({
     serviceCharge: service.basePrice,
     visitCharge: service.visitCharge,
     additionalCharges: 0,
-    taxPercent: env.TAX_PERCENT,
+    taxPercent,
     coupon: applied,
   });
 
@@ -69,7 +74,7 @@ export async function estimatePrice(serviceId: string, couponCode?: string | nul
     coupon: applied,
     breakdown: {
       ...p,
-      taxPercent: env.TAX_PERCENT,
+      taxPercent,
       coupon: check
         ? { code: couponCode!.trim().toUpperCase(), valid: check.valid, message: check.valid ? null : check.message }
         : null,

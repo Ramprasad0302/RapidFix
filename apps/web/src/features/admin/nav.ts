@@ -25,13 +25,11 @@ export interface AdminNavItem {
   label: string;
   icon: LucideIcon;
   permission: Permission;
-  /** Built now; the rest are scheduled for Phase 9. */
-  ready?: boolean;
   description: string;
 }
 
 export const MAIN_NAV: AdminNavItem[] = [
-  { slug: '', label: 'Dashboard', icon: LayoutDashboard, permission: Permission.DASHBOARD_VIEW, ready: true, description: 'Business overview' },
+  { slug: '', label: 'Dashboard', icon: LayoutDashboard, permission: Permission.DASHBOARD_VIEW, description: 'Business overview' },
   { slug: 'bookings', label: 'Bookings', icon: CalendarCheck2, permission: Permission.BOOKINGS_MANAGE, description: 'Search bookings, assign or reassign technicians, cancel and resolve disputes.' },
   { slug: 'customers', label: 'Customers', icon: UserRound, permission: Permission.CUSTOMERS_MANAGE, description: 'Customer profiles, bookings, payments, suspend and reactivate.' },
   { slug: 'technicians', label: 'Technicians', icon: UsersRound, permission: Permission.TECHNICIANS_MANAGE, description: 'Approve documents, verify, suspend or block partners.' },
@@ -48,7 +46,7 @@ export const MAIN_NAV: AdminNavItem[] = [
 ];
 
 export const ADMIN_NAV: AdminNavItem[] = [
-  { slug: 'users', label: 'Users & Roles', icon: UserCog, permission: Permission.USERS_MANAGE, ready: true, description: 'Change what each person can do in FIXORA.' },
+  { slug: 'users', label: 'Users & Roles', icon: UserCog, permission: Permission.USERS_MANAGE, description: 'Change what each person can do in FIXORA.' },
   { slug: 'audit-logs', label: 'Audit Logs', icon: FileText, permission: Permission.AUDIT_VIEW, description: 'Every sensitive admin action, who did it and when.' },
   { slug: 'system-settings', label: 'System Settings', icon: Settings2, permission: Permission.SETTINGS_MANAGE, description: 'Integrations: SMS, payments, maps and notifications.' },
 ];

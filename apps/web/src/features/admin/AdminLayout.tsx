@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, ChevronDown, ChevronsLeft, ChevronsRight, Crown, LogOut, Menu, Search, ShieldCheck, X } from 'lucide-react';
 import { hasPermission, type Role } from '@fixora/shared-types';
@@ -7,7 +7,7 @@ import { cx, Logo } from '@fixora/ui';
 import { Avatar } from '../../components/Avatar';
 import { notificationApi } from '../../lib/endpoints';
 import { authActions, useAuth } from '../../store/auth';
-import { ADMIN_NAV, MAIN_NAV, type AdminNavItem } from './nav';
+import { ADMIN_NAV, ALL_NAV, MAIN_NAV, type AdminNavItem } from './nav';
 
 export const ROLE_LABEL: Record<Role, string> = {
   SUPER_ADMIN: 'Super Admin',
@@ -56,11 +56,20 @@ export function AdminLayout() {
       <div className={cx('transition-[padding]', collapsed ? 'lg:pl-[76px]' : 'lg:pl-[264px]')}>
         <TopBar onMenu={() => setDrawer(true)} />
         <main className="px-4 py-6 sm:px-6 lg:px-8">
-          <Outlet />
+          <ModuleGuard />
         </main>
       </div>
     </div>
   );
+}
+
+/** Each module needs its own permission (the API enforces it too); others go back to the dashboard. */
+function ModuleGuard() {
+  const role = useAuth((s) => s.user?.role);
+  const slug = useLocation().pathname.split('/')[2] ?? '';
+  const item = ALL_NAV.find((n) => n.slug === slug);
+  if (item && role && !hasPermission(role, item.permission)) return <Navigate to="/admin" replace />;
+  return <Outlet />;
 }
 
 function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () => void }) {

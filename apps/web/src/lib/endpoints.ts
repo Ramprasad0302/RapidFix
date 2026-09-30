@@ -1,4 +1,36 @@
 import type {
+  AdminBookingDetailDto,
+  AdminBookingRowDto,
+  AdminCategoryDto,
+  AdminCouponDto,
+  AdminCustomerDetailDto,
+  AdminCustomerRowDto,
+  AdminPaymentsDto,
+  AdminPayoutDto,
+  AdminReviewDto,
+  AdminServiceDto,
+  AdminTechnicianDetailDto,
+  AdminTechnicianRowDto,
+  AdminWalletRowDto,
+  AuditLogDto,
+  BroadcastDto,
+  ChatInfoDto,
+  ComplaintDto,
+  InvoiceDto,
+  MessageDto,
+  Paged,
+  PayoutDetailsDto,
+  RazorpayOrderDto,
+  ReportDto,
+  SettingDto,
+  SystemStatusDto,
+  TechnicianDetailsDto,
+  TechnicianDocumentDto,
+  TechnicianPerformanceDto,
+  TechnicianReviewDto,
+  TechnicianVerificationStatus,
+  UserStatus,
+  WalletDto,
   AddressDto,
   AdminDashboardDto,
   AdminUserRowDto,
@@ -116,7 +148,65 @@ export const customerApi = {
   createAddress: (body: AddressInput) => unwrap<AddressDto>(api.post('/customer/addresses', body)),
   updateAddress: (id: string, body: AddressInput) => unwrap<AddressDto>(api.put(`/customer/addresses/${id}`, body)),
   deleteAddress: (id: string) => unwrap<{ deleted: boolean }>(api.delete(`/customer/addresses/${id}`)),
+  razorpayOrder: (id: string) => unwrap<RazorpayOrderDto>(api.post(`/customer/bookings/${id}/payment/razorpay-order`)),
+  razorpayVerify: (id: string, body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/payment/razorpay-verify`, body)),
+  respondCharge: (id: string, chargeId: string, decision: 'approve' | 'reject') =>
+    unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/additional-charges/${chargeId}/${decision}`)),
+  review: (id: string, body: { rating: number; comment?: string }) => unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/review`, body)),
 };
+
+// ─── Shared booking resources (customer, assigned technician, staff) ─────
+export const bookingApi = {
+  chat: (id: string) => unwrap<ChatInfoDto>(api.get(`/bookings/${id}/chat`)),
+  messages: (id: string, before?: string) => unwrap<MessageDto[]>(api.get(`/bookings/${id}/messages`, { params: { before } })),
+  send: (id: string, body: { body?: string; imageUrl?: string }) => unwrap<MessageDto>(api.post(`/bookings/${id}/messages`, body)),
+  markRead: (id: string) => unwrap<{ read: number }>(api.post(`/bookings/${id}/messages/read`)),
+  invoice: (id: string) => unwrap<InvoiceDto>(api.get(`/bookings/${id}/invoice`)),
+};
+
+export const COMPLAINT_CATEGORIES = [
+  'Service quality',
+  'Technician behaviour',
+  'Pricing / billing',
+  'Payment',
+  'Delay / no-show',
+  'App issue',
+  'Other',
+] as const;
+
+export const complaintApi = {
+  raise: (body: { bookingId?: string; category: (typeof COMPLAINT_CATEGORIES)[number]; subject: string; description: string }) =>
+    unwrap<ComplaintDto>(api.post('/complaints', body)),
+  mine: () => unwrap<ComplaintDto[]>(api.get('/complaints/mine')),
+};
+
+export interface PartnerRegistration {
+  name: string;
+  email?: string;
+  experienceYears: number;
+  bio?: string | null;
+  languages: string[];
+  serviceRadiusKm: number;
+  addressLine?: string;
+  villageTown: string;
+  district: string;
+  state: string;
+  pincode: string;
+  baseLatitude?: number | null;
+  baseLongitude?: number | null;
+  skills: string[];
+}
+
+export const partnerApi = {
+  register: (body: PartnerRegistration) => unwrap<AuthSession>(api.post('/partner/register', body)),
+};
+
+/** Private KYC file → object URL (the request carries the access token; files are never public). */
+export async function fetchPrivateFile(path: string) {
+  const res = await api.get<Blob>(`/files${path}`, { responseType: 'blob' });
+  return URL.createObjectURL(res.data);
+}
 
 // ─── Any signed-in user ──────────────────────────────────────────────────
 export const notificationApi = {
@@ -161,6 +251,32 @@ export const technicianApi = {
     unwrap<TechnicianJobDetailDto | null>(api.post(`/technician/jobs/${id}/${ACTION_PATH[action]}`, { reason })),
   saveNotes: (id: string, notes: string) => unwrap<TechnicianJobDetailDto>(api.put(`/technician/jobs/${id}/notes`, { notes })),
   earnings: (month?: string) => unwrap<TechnicianEarningsDto>(api.get('/technician/earnings', { params: { month } })),
+  details: () => unwrap<TechnicianDetailsDto>(api.get('/technician/profile/details')),
+  updateProfile: (body: Omit<PartnerRegistration, 'skills'> & { avatarUrl?: string | null }) =>
+    unwrap<TechnicianDetailsDto>(api.put('/technician/profile', body)),
+  pingLocation: (lat: number, lng: number) => unwrap<{ accepted: boolean }>(api.post('/technician/location', { lat, lng })),
+  payoutDetails: () => unwrap<PayoutDetailsDto>(api.get('/technician/payout-details')),
+  savePayoutDetails: (body: { payoutUpiId?: string; bankAccountHolder?: string; bankIfsc?: string; bankAccountNumber?: string }) =>
+    unwrap<PayoutDetailsDto>(api.put('/technician/payout-details', body)),
+  documents: () => unwrap<TechnicianDocumentDto[]>(api.get('/technician/documents')),
+  addDocument: (type: TechnicianDocumentDto['type'], fileUrl: string) =>
+    unwrap<TechnicianDocumentDto>(api.post('/technician/documents', { type, fileUrl })),
+  deleteDocument: (id: string) => unwrap<{ deleted: boolean }>(api.delete(`/technician/documents/${id}`)),
+  wallet: () => unwrap<WalletDto>(api.get('/technician/wallet')),
+  reviews: () => unwrap<TechnicianReviewDto[]>(api.get('/technician/reviews')),
+  performance: () => unwrap<TechnicianPerformanceDto>(api.get('/technician/performance')),
+  requestCharge: (id: string, body: { title: string; description?: string; amount: number }) =>
+    unwrap<TechnicianJobDetailDto>(api.post(`/technician/jobs/${id}/additional-charges`, body)),
+  collectPayment: (id: string, method: 'CASH' | 'UPI') => unwrap<TechnicianJobDetailDto>(api.post(`/technician/jobs/${id}/collect-payment`, { method })),
+};
+
+export const documentUploadApi = {
+  /** KYC documents are stored privately (served only through /files/private). */
+  upload: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return unwrap<UploadResultDto>(api.post('/uploads', form, { params: { private: 1 }, timeout: 120_000 }));
+  },
 };
 
 // ─── Admin ───────────────────────────────────────────────────────────────
@@ -174,4 +290,65 @@ export const adminApi = {
   assign: (bookingId: string, technicianId: string) =>
     unwrap<{ assigned: boolean }>(api.post(`/admin/bookings/${bookingId}/assign`, { technicianId })),
   changeRole: (id: string, role: Role) => unwrap<{ id: string; role: Role }>(api.patch(`/admin/users/${id}/role`, { role })),
+};
+
+export type BookingGroup = 'all' | 'searching' | 'upcoming' | 'inProgress' | 'awaitingPayment' | 'completed' | 'cancelled' | 'disputed';
+export type CouponInput = Omit<AdminCouponDto, 'id' | 'usedCount'>;
+export type ServiceInput = Omit<AdminServiceDto, 'id' | 'slug' | 'categoryName' | 'bookings'>;
+export type CategoryInput = Omit<AdminCategoryDto, 'id' | 'slug' | 'services'>;
+type PageParams = { page: number; pageSize: number };
+
+export const adminModulesApi = {
+  bookings: (params: { q?: string; group?: BookingGroup; from?: string; to?: string } & PageParams) =>
+    unwrap<Paged<AdminBookingRowDto>>(api.get('/admin/bookings', { params: { ...params, group: params.group === 'all' ? undefined : params.group } })),
+  booking: (id: string) => unwrap<AdminBookingDetailDto>(api.get(`/admin/bookings/${id}`)),
+  cancelBooking: (id: string, reason: string) => unwrap<AdminBookingDetailDto>(api.post(`/admin/bookings/${id}/cancel`, { reason })),
+  openDispute: (id: string, note: string) => unwrap<AdminBookingDetailDto>(api.post(`/admin/bookings/${id}/dispute`, { note })),
+  resolveDispute: (id: string, resolution: 'PAYMENT_PENDING' | 'PAYMENT_COMPLETED' | 'REFUND' | 'CANCEL', note: string) =>
+    unwrap<AdminBookingDetailDto>(api.post(`/admin/bookings/${id}/dispute/resolve`, { resolution, note })),
+  refund: (bookingId: string, body: { amount?: number; reason: string }) => unwrap<{ refunded: boolean }>(api.post(`/admin/payments/${bookingId}/refund`, body)),
+
+  customers: (params: { q?: string; status?: UserStatus } & PageParams) => unwrap<Paged<AdminCustomerRowDto>>(api.get('/admin/customers', { params })),
+  customer: (id: string) => unwrap<AdminCustomerDetailDto>(api.get(`/admin/customers/${id}`)),
+  setUserStatus: (userId: string, status: UserStatus, reason?: string) => unwrap<{ updated: boolean }>(api.post(`/admin/users/${userId}/status`, { status, reason })),
+
+  technicians: (params: { q?: string; verification?: TechnicianVerificationStatus; online?: boolean } & PageParams) =>
+    unwrap<Paged<AdminTechnicianRowDto>>(api.get('/admin/technicians', { params })),
+  liveTechnicians: () => unwrap<AdminTechnicianRowDto[]>(api.get('/admin/technicians/live')),
+  technician: (id: string) => unwrap<AdminTechnicianDetailDto>(api.get(`/admin/technicians/${id}`)),
+  setVerification: (id: string, status: TechnicianVerificationStatus, reason?: string) =>
+    unwrap<AdminTechnicianDetailDto>(api.post(`/admin/technicians/${id}/verification`, { status, reason })),
+  setSkills: (id: string, categoryIds: string[]) => unwrap<AdminTechnicianDetailDto>(api.put(`/admin/technicians/${id}/skills`, { categoryIds })),
+  reviewDocument: (id: string, status: 'APPROVED' | 'REJECTED', remarks?: string) =>
+    unwrap<{ reviewed: boolean }>(api.post(`/admin/technicians/documents/${id}`, { status, remarks })),
+
+  categories: () => unwrap<AdminCategoryDto[]>(api.get('/admin/categories')),
+  saveCategory: (id: string | null, body: CategoryInput) =>
+    unwrap<unknown>(id ? api.put(`/admin/categories/${id}`, body) : api.post('/admin/categories', body)),
+  services: (params: { categoryId?: string; q?: string }) => unwrap<AdminServiceDto[]>(api.get('/admin/services', { params })),
+  saveService: (id: string | null, body: ServiceInput) => unwrap<unknown>(id ? api.put(`/admin/services/${id}`, body) : api.post('/admin/services', body)),
+  offers: () => unwrap<AdminCouponDto[]>(api.get('/admin/offers')),
+  saveOffer: (id: string | null, body: CouponInput) => unwrap<unknown>(id ? api.put(`/admin/offers/${id}`, body) : api.post('/admin/offers', body)),
+
+  payments: (params: { from?: string; to?: string; method?: string; status?: string } & PageParams) =>
+    unwrap<AdminPaymentsDto>(api.get('/admin/payments', { params })),
+  wallets: (q?: string) => unwrap<AdminWalletRowDto[]>(api.get('/admin/payouts/wallets', { params: { q } })),
+  payouts: () => unwrap<AdminPayoutDto[]>(api.get('/admin/payouts')),
+  createPayout: (body: { technicianId: string; amount: number; method: 'UPI' | 'BANK_TRANSFER' | 'CASH'; reference: string }) =>
+    unwrap<unknown>(api.post('/admin/payouts', body)),
+
+  reviews: (params: { rating?: number; visible?: boolean } & PageParams) => unwrap<Paged<AdminReviewDto>>(api.get('/admin/reviews', { params })),
+  setReviewVisibility: (id: string, isVisible: boolean) => unwrap<{ updated: boolean }>(api.patch(`/admin/reviews/${id}`, { isVisible })),
+  complaints: (params: { status?: ComplaintDto['status'] } & PageParams) => unwrap<Paged<ComplaintDto>>(api.get('/admin/complaints', { params })),
+  updateComplaint: (id: string, body: { status?: ComplaintDto['status']; resolution?: string; assignToMe?: boolean }) =>
+    unwrap<ComplaintDto>(api.patch(`/admin/complaints/${id}`, body)),
+  broadcasts: () => unwrap<BroadcastDto[]>(api.get('/admin/notifications/broadcasts')),
+  broadcast: (body: { audience: BroadcastDto['audience']; title: string; body: string }) => unwrap<unknown>(api.post('/admin/notifications/broadcast', body)),
+
+  report: (from: string, to: string) => unwrap<ReportDto>(api.get('/admin/reports', { params: { from, to } })),
+  settings: () => unwrap<SettingDto[]>(api.get('/admin/settings')),
+  updateSetting: (key: string, value: unknown) => unwrap<SettingDto[]>(api.put(`/admin/settings/${encodeURIComponent(key)}`, { value })),
+  auditLogs: (params: { action?: string; q?: string } & PageParams) => unwrap<Paged<AuditLogDto>>(api.get('/admin/audit-logs', { params })),
+  auditActions: () => unwrap<string[]>(api.get('/admin/audit-logs/actions')),
+  system: () => unwrap<SystemStatusDto>(api.get('/admin/system')),
 };

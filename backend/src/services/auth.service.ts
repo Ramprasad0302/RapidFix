@@ -89,7 +89,7 @@ export async function sendOtp(rawPhone: string, meta: ClientMeta): Promise<SendO
   }
 
   const code = generateOtp();
-  await prisma.$transaction([
+  const [, created] = await prisma.$transaction([
     // Only the newest code is ever valid.
     prisma.otpCode.updateMany({ where: { phone, consumedAt: null }, data: { consumedAt: new Date() } }),
     prisma.otpCode.create({
@@ -102,7 +102,13 @@ export async function sendOtp(rawPhone: string, meta: ClientMeta): Promise<SendO
     }),
   ]);
 
-  await otpProvider.send({ phone, code, expiresInSeconds: env.OTP_TTL_SECONDS });
+  try {
+    await otpProvider.send({ phone, code, expiresInSeconds: env.OTP_TTL_SECONDS });
+  } catch (err) {
+    // Undelivered code: drop it so the cooldown doesn't block an immediate retry.
+    await prisma.otpCode.delete({ where: { id: created.id } }).catch(() => undefined);
+    throw err;
+  }
 
   return {
     resendInSeconds: env.OTP_RESEND_COOLDOWN_SECONDS,

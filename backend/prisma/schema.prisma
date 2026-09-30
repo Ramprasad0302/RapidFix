@@ -409,6 +409,12 @@ model Technician {
   completedJobs      Int                @default(0)
   ratingAvg          Float              @default(0)
   ratingCount        Int                @default(0)
+  /// Payout details. The account number is AES-256-GCM encrypted; only the last 4 digits are readable.
+  payoutUpiId        String?            @db.VarChar(80)
+  bankAccountHolder  String?            @db.VarChar(120)
+  bankIfsc           String?            @db.VarChar(11)
+  bankAccountEnc     String?            @db.VarChar(512)
+  bankAccountLast4   String?            @db.VarChar(4)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -611,6 +617,8 @@ model Payment {
   amount          Int
   currency        String        @default("INR") @db.Char(3)
   razorpayOrderId String?       @unique @db.VarChar(64)
+  razorpayPaymentId String?     @db.VarChar(64)
+  refundedAmount  Int           @default(0)
   invoiceNumber   String?       @unique @db.VarChar(32)
   paidAt          DateTime?
   createdAt       DateTime      @default(now())
@@ -842,11 +850,14 @@ model Notification {
   body      String    @db.VarChar(500)
   data      Json?
   readAt    DateTime?
+  /// Outbox marker: set once the push/socket fan-out has run.
+  pushedAt  DateTime?
   createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt, createdAt])
+  @@index([pushedAt, createdAt])
   @@map("notifications")
 }
 

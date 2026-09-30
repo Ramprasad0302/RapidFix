@@ -177,7 +177,7 @@ export function ConfirmLocationPage() {
             <button
               onClick={() => void locate()}
               disabled={locating}
-              className="absolute bottom-4 left-1/2 z-[500] flex -translate-x-1/2 items-center gap-2 rounded-full border border-fixora-blue/30 bg-white px-4 py-2 text-sm font-semibold text-fixora-blue shadow-raised"
+              className="absolute bottom-4 left-1/2 z-[500] flex -translate-x-1/2 items-center gap-2 rounded-full border border-fixora-blue/30 bg-white px-4 py-2 text-sm font-semibold whitespace-nowrap text-fixora-blue shadow-raised"
             >
               {locating ? <Spinner className="size-4" /> : <LocateFixed className="size-4" />} Use current location
             </button>

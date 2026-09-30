@@ -10,6 +10,7 @@ import bcrypt from 'bcryptjs';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { formatBookingCode } from '@fixora/shared-utils';
 import { PrismaClient, type BookingStatus, type Role } from '../src/generated/prisma/client';
+import { postWalletTxn } from '../src/services/wallet.service';
 
 const prisma = new PrismaClient({ adapter: new PrismaMariaDb(process.env.DATABASE_URL!) });
 
@@ -365,6 +366,10 @@ async function main() {
   });
   const ids = demoBookings.map((b) => b.id);
   await prisma.payment.deleteMany({ where: { bookingId: { in: ids } } });
+  // Wallet ledgers are rebuilt from the paid demo bookings below.
+  await prisma.walletTransaction.deleteMany({ where: { wallet: { technicianId: { in: techIds } } } });
+  await prisma.payout.deleteMany({ where: { technicianId: { in: techIds } } });
+  await prisma.technicianWallet.updateMany({ where: { technicianId: { in: techIds } }, data: { balance: 0, totalEarned: 0, totalPaidOut: 0 } });
   await prisma.booking.deleteMany({ where: { id: { in: ids } } });
   const techUserIds = (await prisma.technician.findMany({ where: { id: { in: techIds } }, select: { userId: true } })).map((t) => t.userId);
   await prisma.notification.deleteMany({ where: { userId: { in: [...customers.map((c) => c.userId), ...techUserIds] } } });
@@ -447,16 +452,36 @@ async function main() {
     });
     await prisma.booking.update({ where: { id: booking.id }, data: { code: formatBookingCode(year, booking.seq) } });
     if (paid) {
+      const method = s.method ?? 'UPI';
+      const code = formatBookingCode(year, booking.seq);
       await prisma.payment.create({
         data: {
           bookingId: booking.id,
-          method: s.method ?? 'UPI',
+          method,
           status: 'SUCCESS',
           amount: subtotal + tax,
           paidAt: s.completedAt,
           invoiceNumber: `INV-${year}-${String(booking.seq).padStart(6, '0')}`,
+          transactions: {
+            create: {
+              type: 'CHARGE',
+              status: 'SUCCESS',
+              amount: subtotal + tax,
+              provider: method.toLowerCase(),
+              providerRef: method === 'RAZORPAY' ? `pay_demo${String(booking.seq).padStart(8, '0')}` : null,
+              idempotencyKey: `seed:charge:${booking.id}`,
+              createdAt: s.completedAt,
+            },
+          },
         },
       });
+      // Same wallet rules as live payments: online → credit the share; cash/UPI → debit commission + GST.
+      if (techId) {
+        const earning = subtotal - commission;
+        await postWalletTxn(prisma, techId, method === 'RAZORPAY'
+          ? { type: 'EARNING_CREDIT', amount: earning, earned: earning, bookingId: booking.id, description: `Earning for ${code}`, idempotencyKey: `earn:${booking.id}` }
+          : { type: 'COMMISSION_DEBIT', amount: -(commission + tax), earned: earning, bookingId: booking.id, description: `${method === 'CASH' ? 'Cash' : 'UPI'} job ${code}: commission + GST`, idempotencyKey: `commission:${booking.id}` });
+      }
       if (s.rating && techId) {
         await prisma.review.create({
           data: {

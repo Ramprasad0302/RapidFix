@@ -10,6 +10,7 @@ import {
   type BookingStatus,
   type BookingTab,
   type CustomerBookingStatsDto,
+  type PaymentInfoDto,
 } from '@fixora/shared-types';
 import { formatBookingCode, haversineKm, type AddressInput } from '@fixora/shared-utils';
 import { prisma } from '../config/prisma';
@@ -23,6 +24,7 @@ import { geocodeAddress } from './geo.service';
 import { estimatePrice } from './pricing.service';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
+import { razorpayConfigured } from './payment.service';
 import { isOwnUploadPath } from './storage.service';
 
 const IST_OFFSET_MS = 330 * 60_000;
@@ -39,7 +41,24 @@ export const bookingInclude = {
   },
   coupon: { select: { code: true } },
   statusHistory: { select: { toStatus: true, createdAt: true } },
+  additionalCharges: { orderBy: { requestedAt: 'asc' } },
+  payment: true,
+  review: true,
 } as const satisfies Prisma.BookingInclude;
+
+type ChargeRow = { id: string; title: string; description: string | null; amount: number; status: 'PENDING' | 'APPROVED' | 'REJECTED'; requestedAt: Date; respondedAt: Date | null };
+export const toChargeDto = (c: ChargeRow) => ({
+  id: c.id,
+  title: c.title,
+  description: c.description,
+  amount: c.amount,
+  status: c.status,
+  requestedAt: c.requestedAt.toISOString(),
+  respondedAt: c.respondedAt?.toISOString() ?? null,
+});
+type PaymentRow = { status: PaymentInfoDto['status']; method: PaymentInfoDto['method']; amount: number; paidAt: Date | null; invoiceNumber: string | null; refundedAmount: number } | null;
+export const toPaymentInfo = (p: PaymentRow): PaymentInfoDto | null =>
+  p ? { status: p.status, method: p.method, amount: p.amount, paidAt: p.paidAt?.toISOString() ?? null, invoiceNumber: p.invoiceNumber, refundedAmount: p.refundedAmount } : null;
 
 type BookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 
@@ -131,6 +150,10 @@ export function toCustomerDetail(b: BookingRow): BookingDetailDto {
     canReschedule: CUSTOMER_RESCHEDULABLE.includes(b.status),
     cancellationReason: b.cancellationReason,
     createdAt: b.createdAt.toISOString(),
+    additionalChargeItems: b.additionalCharges.map(toChargeDto),
+    payment: toPaymentInfo(b.payment),
+    review: b.review ? { rating: b.review.rating, comment: b.review.comment, createdAt: b.review.createdAt.toISOString() } : null,
+    onlinePaymentAvailable: razorpayConfigured(),
   };
 }
 

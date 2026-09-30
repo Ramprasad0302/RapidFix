@@ -17,7 +17,7 @@ import { prisma } from '../config/prisma';
 import type { Prisma } from '../generated/prisma/client';
 import { AppError } from '../utils/AppError';
 import { locality } from '../utils/locality';
-import { technicianTitle } from './booking.service';
+import { technicianTitle, toChargeDto, toPaymentInfo } from './booking.service';
 import { dispatchBooking } from './assignment.service';
 import { transitionBooking } from './bookingState';
 import { estimateTechnicianEarning } from './commission.service';
@@ -41,6 +41,8 @@ const jobInclude = {
   service: { include: { category: true } },
   customer: { include: { user: { select: { name: true, phone: true } } } },
   statusHistory: { select: { toStatus: true, createdAt: true } },
+  additionalCharges: { orderBy: { requestedAt: 'asc' } },
+  payment: true,
 } as const satisfies Prisma.BookingInclude;
 type JobRow = Prisma.BookingGetPayload<{ include: typeof jobInclude }>;
 
@@ -192,6 +194,18 @@ export async function getJob(userId: string, id: string): Promise<TechnicianJobD
     technicianNotes: b.technicianNotes,
     timeline: buildTimeline('technician', b.status, b.statusHistory, b.createdAt),
     actions: actionsFor(b.status, tech.verificationStatus === 'VERIFIED'),
+    price: {
+      serviceCharge: b.serviceCharge,
+      visitCharge: b.visitCharge,
+      additionalCharges: b.additionalChargesTotal,
+      discount: b.discountAmount,
+      tax: b.taxAmount,
+      total: b.totalAmount,
+    },
+    additionalChargeItems: b.additionalCharges.map(toChargeDto),
+    payment: toPaymentInfo(b.payment),
+    canRequestAdditionalCharge: b.status === B.SERVICE_STARTED || b.status === B.ADDITIONAL_CHARGE_APPROVED,
+    canCollectPayment: b.status === B.PAYMENT_PENDING,
   };
 }
 

@@ -4,12 +4,14 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { prisma } from './config/prisma';
 import { startDispatchWorker } from './jobs/dispatch.worker';
+import { startNotificationWorker } from './jobs/notification.worker';
 import { initSockets } from './sockets';
 
 const app = createApp();
 const httpServer = createServer(app);
 initSockets(httpServer);
 const stopDispatch = startDispatchWorker();
+const stopNotifications = startNotificationWorker();
 
 httpServer.listen(env.PORT, () => {
   logger.info(`FIXORA API listening on http://localhost:${env.PORT}${env.API_PREFIX}`);
@@ -18,6 +20,7 @@ httpServer.listen(env.PORT, () => {
 async function shutdown(signal: string) {
   logger.info(`${signal} received, shutting down`);
   stopDispatch();
+  stopNotifications();
   httpServer.close();
   await prisma.$disconnect();
   process.exit(0);

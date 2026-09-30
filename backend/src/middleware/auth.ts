@@ -48,6 +48,15 @@ export function requirePermission(permission: Permission): RequestHandler {
   };
 }
 
+/** Any one of several permissions (e.g. reading a booking from the payments or complaints module). */
+export function requireAnyPermission(...permissions: Permission[]): RequestHandler {
+  return (req, _res, next) => {
+    if (!req.auth) return next(AppError.unauthorized());
+    if (!permissions.some((p) => hasPermission(req.auth!.role, p))) return next(AppError.forbidden());
+    next();
+  };
+}
+
 /** For handlers behind `authenticate()` — narrows `req.auth` without non-null assertions. */
 export function authOf(req: Request) {
   if (!req.auth) throw AppError.unauthorized();

@@ -46,7 +46,7 @@ function loadGoogleMaps(): Promise<GoogleNS> {
 }
 
 /** Map engine when VITE_GOOGLE_MAPS_API_KEY is set. */
-export default function GoogleMap({ center, zoom = 16, markers = [], route, onMoveEnd, className, label }: FixoraMapProps) {
+export default function GoogleMap({ center, zoom = 16, markers = [], route, fit, onMoveEnd, className, label }: FixoraMapProps) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<GMap | null>(null);
   const g = useRef<GoogleNS | null>(null);
@@ -93,14 +93,18 @@ export default function GoogleMap({ center, zoom = 16, markers = [], route, onMo
     const google = g.current;
     if (!m || !google) return;
     overlays.current.forEach((o) => o.setMap(null));
-    overlays.current = markers.map((mk) => new google.maps.Marker({ position: mk, map: m, title: mk.kind === 'tech' ? 'Technician' : 'Service address' }));
+    overlays.current = markers.map((mk) => new google.maps.Marker({ position: mk, map: m, title: mk.title ?? (mk.kind === 'tech' ? 'Technician' : 'Service address') }));
     if (route && markers.length >= 2) {
       overlays.current.push(new google.maps.Polyline({ path: markers.slice(0, 2), map: m, strokeColor: '#2563EB', strokeWeight: 4 }));
       const b = new google.maps.LatLngBounds();
       markers.slice(0, 2).forEach((p) => b.extend(p));
       m.fitBounds(b, 48);
+    } else if (fit && markers.length >= 2) {
+      const b = new google.maps.LatLngBounds();
+      markers.forEach((p) => b.extend(p));
+      m.fitBounds(b, 48);
     }
-  }, [markers, route, ready]);
+  }, [markers, route, fit, ready]);
 
   if (error) return <div className={`${className} flex items-center justify-center bg-slate-100 text-sm text-slate-500`}>Map could not load.</div>;
   return <div ref={el} className={className} role="application" aria-label={label} />;

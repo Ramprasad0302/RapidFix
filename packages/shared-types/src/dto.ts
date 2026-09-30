@@ -204,6 +204,11 @@ export interface BookingDetailDto extends BookingListItemDto {
   canReschedule: boolean;
   cancellationReason: string | null;
   createdAt: string;
+  additionalChargeItems: AdditionalChargeDto[];
+  payment: PaymentInfoDto | null;
+  review: ReviewInfoDto | null;
+  /** Razorpay keys are configured on the server. */
+  onlinePaymentAvailable: boolean;
 }
 
 export interface CustomerBookingStatsDto {
@@ -266,6 +271,11 @@ export interface TechnicianJobDetailDto extends TechnicianJobDto {
   technicianNotes: string | null;
   timeline: TimelineStepDto[];
   actions: TechnicianJobAction[];
+  price: { serviceCharge: number; visitCharge: number; additionalCharges: number; discount: number; tax: number; total: number };
+  additionalChargeItems: AdditionalChargeDto[];
+  payment: PaymentInfoDto | null;
+  canRequestAdditionalCharge: boolean;
+  canCollectPayment: boolean;
 }
 
 export interface TechnicianProfileSummary {
@@ -449,4 +459,166 @@ export interface UploadResultDto {
   path: string;
   kind: 'image' | 'video';
   size: number;
+}
+
+// ─── Chat ────────────────────────────────────────────────────────────────
+
+export interface MessageDto {
+  id: string;
+  bookingId: string;
+  senderId: string;
+  senderRole: 'CUSTOMER' | 'TECHNICIAN' | 'STAFF';
+  senderName: string;
+  body: string | null;
+  imageUrl: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface ChatInfoDto {
+  bookingId: string;
+  code: string;
+  service: string;
+  counterpart: { name: string; phone: string | null; avatarUrl: string | null; role: 'CUSTOMER' | 'TECHNICIAN' };
+  canSend: boolean;
+}
+
+// ─── Work & money ────────────────────────────────────────────────────────
+
+export interface AdditionalChargeDto {
+  id: string;
+  title: string;
+  description: string | null;
+  amount: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestedAt: string;
+  respondedAt: string | null;
+}
+
+export interface PaymentInfoDto {
+  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
+  method: 'CASH' | 'UPI' | 'RAZORPAY';
+  amount: number;
+  paidAt: string | null;
+  invoiceNumber: string | null;
+  refundedAmount: number;
+}
+
+export interface ReviewInfoDto {
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}
+
+export interface RazorpayOrderDto {
+  orderId: string;
+  keyId: string;
+  amount: number;
+  currency: 'INR';
+  bookingCode: string;
+  prefill: { name: string; contact: string; email: string };
+}
+
+export interface InvoiceDto {
+  invoiceNumber: string;
+  issuedAt: string;
+  status: 'PAID' | 'DUE' | 'REFUNDED';
+  seller: { name: string; tagline: string; developer: string; supportPhone: string; supportEmail: string };
+  customer: { name: string; phone: string | null; address: string };
+  technician: { name: string } | null;
+  bookingCode: string;
+  service: string;
+  serviceDate: string;
+  items: { name: string; quantity: number; unitPrice: number; amount: number }[];
+  subtotal: number;
+  discount: number;
+  couponCode: string | null;
+  taxPercent: number;
+  tax: number;
+  total: number;
+  paymentMethod: string;
+  paidAt: string | null;
+}
+
+export interface WalletTxnDto {
+  id: string;
+  type: 'EARNING_CREDIT' | 'COMMISSION_DEBIT' | 'PAYOUT_DEBIT' | 'ADJUSTMENT';
+  amount: number;
+  balanceAfter: number;
+  description: string;
+  createdAt: string;
+}
+
+export interface WalletDto {
+  balance: number;
+  totalEarned: number;
+  totalPaidOut: number;
+  transactions: WalletTxnDto[];
+}
+
+export interface PayoutDetailsDto {
+  payoutUpiId: string | null;
+  bankAccountHolder: string | null;
+  bankIfsc: string | null;
+  bankAccountLast4: string | null;
+}
+
+export interface TechnicianDocumentDto {
+  id: string;
+  type: 'AADHAAR' | 'PAN' | 'DRIVING_LICENSE' | 'CERTIFICATE' | 'PROFILE_PHOTO' | 'OTHER';
+  fileUrl: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  remarks: string | null;
+  createdAt: string;
+}
+
+export interface TechnicianPerformanceDto {
+  offersReceived: number;
+  offersAccepted: number;
+  acceptanceRate: number | null;
+  jobsCompleted: number;
+  jobsCancelled: number;
+  ratingAvg: number;
+  ratingCount: number;
+  ratingBreakdown: { stars: number; count: number }[];
+}
+
+export interface ComplaintDto {
+  id: string;
+  bookingId: string | null;
+  bookingCode: string | null;
+  raisedBy: { id: string; name: string | null; role: Role };
+  assignedTo: { id: string; name: string | null } | null;
+  category: string;
+  subject: string;
+  description: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  resolution: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface TechnicianDetailsDto extends TechnicianProfileSummary {
+  email: string | null;
+  bio: string | null;
+  languages: string[];
+  serviceRadiusKm: number;
+  addressLine: string | null;
+  villageTown: string;
+  district: string;
+  state: string;
+  pincode: string;
+  baseLatitude: number | null;
+  baseLongitude: number | null;
+  rejectionReason: string | null;
+}
+
+export interface TechnicianReviewDto {
+  id: string;
+  rating: number;
+  comment: string | null;
+  customerName: string;
+  service: string;
+  bookingCode: string | null;
+  createdAt: string;
 }
