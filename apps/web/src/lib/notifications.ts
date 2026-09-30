@@ -1,5 +1,6 @@
 import { api } from './api';
 import { firebaseConfigured, getFirebaseApp } from './firebase';
+import { RUNTIME } from './runtimeConfig';
 
 /**
  * System notifications for RapidFix.
@@ -13,8 +14,8 @@ import { firebaseConfigured, getFirebaseApp } from './firebase';
 
 type Permission = NotificationPermission | 'unsupported';
 
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-export const pushConfigured = () => firebaseConfigured() && !!import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID && !!VAPID_KEY;
+const VAPID_KEY = RUNTIME.firebase.vapidKey;
+export const pushConfigured = () => firebaseConfigured() && !!RUNTIME.firebase.messagingSenderId && !!VAPID_KEY;
 
 const TOKEN_KEY = 'rapidfix.pushToken';
 let registration: Promise<ServiceWorkerRegistration | null> = Promise.resolve(null);

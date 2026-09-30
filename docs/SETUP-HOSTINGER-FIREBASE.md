@@ -177,6 +177,20 @@ Limits to check with Hostinger for this option: WebSocket support (without it li
 slower polling — the app still works) and whether the app keeps running when idle (the job-dispatch and
 notification workers need a process that stays up).
 
+### Option 3 — Website on Hostinger web hosting + API elsewhere
+Upload only the website (`rapidfix-website.zip`, built with `npm run build -w @fixora/web`, contents of
+`apps/web/dist`) to **rapidfix.in**, and run the API on a VPS at **api.rapidfix.in**.
+1. hPanel → Websites → rapidfix.in → **File Manager** → `public_html` → delete the default `index.php`/`default.php`.
+2. **Upload** `rapidfix-website.zip` → right-click → **Extract** into `public_html` (index.html must sit directly in
+   `public_html`, next to `.htaccess`). Turn on "show hidden files" to see `.htaccess`.
+3. hPanel → **Security → SSL** → install the free SSL for rapidfix.in (location, notifications and the app
+   install need HTTPS).
+4. Edit `public_html/config.js`: `apiUrl` = where the API runs (default `https://api.rapidfix.in/api/v1`);
+   Firebase web values go here too. Save — no rebuild needed.
+5. On the API server: `CORS_ORIGINS=https://rapidfix.in` and `WEB_APP_URL=https://rapidfix.in`.
+6. Firebase → Authentication → Settings → Authorized domains → add `rapidfix.in`.
+Until the API is running at `apiUrl`, the website shows "You're offline".
+
 ### After deploying — checklist
 - `https://yourdomain.com/api/v1/health` → `"db":"ok"`
 - Log in with each Firebase test number (super admin → /admin, technician → /technician, customer → /)

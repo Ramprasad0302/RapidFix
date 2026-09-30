@@ -1,17 +1,18 @@
 import type { FirebaseApp } from 'firebase/app';
+import { RUNTIME } from './runtimeConfig';
 
 /**
  * One Firebase app for the web client (phone sign-in and web push).
  * Values come from Firebase console → Project settings → Your apps → Web app.
  * The SDK is loaded only when a feature actually needs it.
  */
-const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+const f = RUNTIME.firebase;
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (projectId ? `${projectId}.firebaseapp.com` : undefined),
-  projectId,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  apiKey: f.apiKey,
+  authDomain: f.authDomain || (f.projectId ? `${f.projectId}.firebaseapp.com` : undefined),
+  projectId: f.projectId,
+  appId: f.appId,
+  messagingSenderId: f.messagingSenderId,
 };
 
 export const firebaseConfigured = () => !!(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);

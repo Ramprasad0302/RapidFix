@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { SocketEvent } from '@fixora/shared-types';
-import { api } from './api';
+import { api, API_ORIGIN } from './api';
+import { RUNTIME } from './runtimeConfig';
 
 /**
  * One Socket.IO connection per signed-in session. The access token is read on
@@ -16,8 +17,8 @@ const rooms = new Map<string, number>();
 
 export function connectSocket(getToken: () => string | null, onEvent: (event: SocketEvent, payload: Record<string, unknown>) => void) {
   disconnectSocket();
-  // Empty VITE_SOCKET_URL = same origin (dev proxy / nginx).
-  const s = io(import.meta.env.VITE_SOCKET_URL || undefined, {
+  // Default: the API's own domain (same as this site when the API is served here).
+  const s = io(RUNTIME.socketUrl || API_ORIGIN, {
     auth: (cb) => cb({ token: getToken() }),
     transports: ['websocket', 'polling'],
     reconnectionDelay: 2000,

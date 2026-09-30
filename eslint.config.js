@@ -23,6 +23,10 @@ export default tseslint.config(
     rules: reactHooks.configs.recommended.rules,
   },
   {
+    files: ['apps/web/public/config.js'],
+    languageOptions: { globals: globals.browser },
+  },
+  {
     files: ['apps/web/public/sw.js'],
     languageOptions: { globals: globals.serviceworker },
   },
