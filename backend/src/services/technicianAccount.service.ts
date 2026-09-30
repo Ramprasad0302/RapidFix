@@ -232,7 +232,7 @@ export interface PartnerRegistration extends ProfileInput {
 }
 
 /**
- * A signed-in customer (fresh phone login) registers as a FIXORA partner. The
+ * A signed-in customer (fresh phone login) registers as a RapidFix partner. The
  * account becomes a TECHNICIAN pending verification; a new session is issued
  * so the app moves straight into the partner area.
  */

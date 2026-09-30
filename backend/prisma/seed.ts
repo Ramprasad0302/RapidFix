@@ -164,10 +164,10 @@ const CUSTOMER_NAMES = [
 const customerPhone = (i: number) => `+9190000000${String(i + 1).padStart(2, '0')}`;
 
 const STAFF: { phone: string; email: string; name: string; role: Role }[] = [
-  { phone: '+919000000900', email: process.env.SEED_ADMIN_EMAIL ?? 'admin@fixora.local', name: 'FIXORA Admin', role: 'SUPER_ADMIN' },
-  { phone: '+919000000901', email: 'ops@fixora.local', name: 'Ops Admin', role: 'OPERATIONS' },
-  { phone: '+919000000902', email: 'support@fixora.local', name: 'Support Admin', role: 'SUPPORT' },
-  { phone: '+919000000903', email: 'finance@fixora.local', name: 'Finance Admin', role: 'FINANCE' },
+  { phone: '+919000000900', email: process.env.SEED_ADMIN_EMAIL ?? 'admin@rapidfix.local', name: 'RapidFix Admin', role: 'SUPER_ADMIN' },
+  { phone: '+919000000901', email: 'ops@rapidfix.local', name: 'Ops Admin', role: 'OPERATIONS' },
+  { phone: '+919000000902', email: 'support@rapidfix.local', name: 'Support Admin', role: 'SUPPORT' },
+  { phone: '+919000000903', email: 'finance@rapidfix.local', name: 'Finance Admin', role: 'FINANCE' },
 ];
 
 const REVIEW_COMMENTS = [
@@ -181,7 +181,7 @@ const REVIEW_COMMENTS = [
 async function main() {
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
   if (!adminPassword) throw new Error('Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD in backend/.env');
-  console.log('Seeding FIXORA…');
+  console.log('Seeding RapidFix…');
 
   // ── Settings & commission ────────────────────────────────────────────
   const settings: Record<string, unknown> = {
@@ -191,7 +191,7 @@ async function main() {
     'dispatch.searchRadiusKm': 15,
     'dispatch.weights': { skill: 1, distance: 0.5, rating: 0.3, workload: 0.2 },
     'support.phone': '+91 90000 00000',
-    'support.email': 'support@fixora.local',
+    'support.email': 'support@rapidfix.local',
   };
   for (const [key, value] of Object.entries(settings)) {
     await prisma.setting.upsert({ where: { key }, update: {}, create: { key, value: value as object } });
@@ -298,12 +298,12 @@ async function main() {
     const town = i % 5 === 4 ? KANDUKUR : TANUKU;
     const user = await prisma.user.upsert({
       where: { phone },
-      update: { name, role: 'CUSTOMER', status: 'ACTIVE', ...(i === 0 && { email: 'ramkumar@fixora.local' }) },
+      update: { name, role: 'CUSTOMER', status: 'ACTIVE', ...(i === 0 && { email: 'ramkumar@rapidfix.local' }) },
       create: {
         role: 'CUSTOMER',
         phone,
         name,
-        email: i === 0 ? 'ramkumar@fixora.local' : null,
+        email: i === 0 ? 'ramkumar@rapidfix.local' : null,
         // Spread sign-ups over ~2 months so growth KPIs have history.
         createdAt: i < 3 ? at(-75, 10) : at(-Math.floor(rand() * 58), 9 + (i % 8)),
       },
@@ -348,8 +348,8 @@ async function main() {
       highlights: ['15% off on taps, pipes and tanks', 'Leak-tested work', 'Transparent pricing'] },
     { code: 'FIXCLEAN150', title: 'Home Cleaning', description: 'Get ₹150 off on deep cleaning services.', discountType: 'FIXED' as const, discountValue: rs(150), maxDiscountAmount: null, minOrderAmount: rs(399), categoryId: catId.get('cleaning')!, serviceId: null, endsAt: until(10, 20),
       highlights: ['Flat ₹150 off on deep cleaning', 'Safe, eco-friendly chemicals', 'Trained cleaning experts'] },
-    { code: 'WELCOME100', title: 'Welcome to FIXORA', description: '₹100 off on your first booking.', discountType: 'FIXED' as const, discountValue: rs(100), maxDiscountAmount: null, minOrderAmount: rs(249), categoryId: null, serviceId: null, endsAt: until(12, 31), isFirstBookingOnly: true,
-      highlights: ['Valid on any service', 'For your first FIXORA booking'] },
+    { code: 'WELCOME100', title: 'Welcome to RapidFix', description: '₹100 off on your first booking.', discountType: 'FIXED' as const, discountValue: rs(100), maxDiscountAmount: null, minOrderAmount: rs(249), categoryId: null, serviceId: null, endsAt: until(12, 31), isFirstBookingOnly: true,
+      highlights: ['Valid on any service', 'For your first RapidFix booking'] },
   ];
   await prisma.coupon.updateMany({ where: { code: { notIn: COUPONS.map((c) => c.code) } }, data: { isActive: false } });
   const terms = ['Valid once per customer', 'Cannot be combined with other offers', 'Final price may vary based on actual work required'];

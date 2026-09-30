@@ -1,7 +1,7 @@
 import { useId, type ReactElement } from 'react';
 
 /**
- * Original FIXORA category illustrations (soft 3D style). Keyed by the
+ * Original RapidFix category illustrations (soft 3D style). Keyed by the
  * category's `iconKey`, so new categories fall back to a neutral wrench.
  */
 type ArtProps = { className?: string };

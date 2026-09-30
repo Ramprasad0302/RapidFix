@@ -1,4 +1,4 @@
-# FIXORA — Get It Fixed.
+# RapidFix — Get It Fixed.
 
 On-demand local services marketplace for villages, small towns and Tier-2/3 India.
 Developed by **Nirmaan Digital**.
@@ -12,7 +12,7 @@ Developed by **Nirmaan Digital**.
 | `packages/shared-types` | Enums, DTOs (API contracts), booking state machine, permission matrix | |
 | `packages/shared-utils` | Pricing/commission math, formatting, geo, Zod validators | |
 | `packages/web-core` | Central Axios client (refresh + retry) and auth store | |
-| `packages/ui` | FIXORA design tokens (Tailwind v4) and base components (Logo, Button, TextField, OtpInput…) | |
+| `packages/ui` | RapidFix design tokens (Tailwind v4) and base components (Logo, Button, TextField, OtpInput…) | |
 
 ### Why one web app?
 
@@ -46,6 +46,18 @@ npm run dev:web
 
 Open http://localhost:5173 — the app goes straight to Home (brief splash while any saved session is restored).
 
+The web app calls the API on its own origin: the Vite dev server forwards `/api`, `/socket.io` and `/uploads`
+to the API on port 4000 (nginx does the same in production). Both servers must be running — if the API is
+stopped, screens show "You're offline".
+
+### On a phone
+
+- Same Wi-Fi: open `http://<this-computer's-IP>:5173` (e.g. `http://192.168.1.104:5173`).
+- Location and notifications only work on HTTPS (or localhost). Run `npm run dev:phone -w @fixora/web`
+  instead of `dev:web` and open `https://<IP>:5173`; accept the self-signed certificate warning once.
+- Install it: browser menu → "Add to Home screen" / "Install app" (RapidFix is a PWA with its own icon).
+- iPhone web push needs the app installed to the home screen (iOS 16.4+) and a real HTTPS domain.
+
 API reference (Swagger UI, development only by default): http://localhost:4000/api/docs/ — the raw
 OpenAPI 3.1 document is at `/api/docs/openapi.json`. A test fails if a route is added without documenting it.
 
@@ -68,7 +80,7 @@ so the admin charts are meaningful. Re-running it replaces the demo bookings of 
 |---|---|
 | Customer "Ram Kumar" | phone `90000 00001` + OTP |
 | Technician "Ravi Kumar" | phone `90000 00101` + OTP |
-| Super Admin | phone `90000 00900` + OTP, **or** "FIXORA staff? Sign in with email" with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from `backend/.env` |
+| Super Admin | phone `90000 00900` + OTP, **or** "RapidFix staff? Sign in with email" with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from `backend/.env` |
 
 With `OTP_PROVIDER=console` the OTP is shown on the verify screen and printed in the API log (development only —
 production refuses `console`; use `OTP_PROVIDER=msg91`).
@@ -111,7 +123,10 @@ One authenticated socket per session. Users join their own room; screens that sh
 - **Chat** — customer ↔ assigned technician per booking (text + photos, read receipts). Staff can read the
   transcript from the booking drawer but not write. Chat closes when the job is paid or cancelled.
 - **Notifications** — every notification row goes through an outbox worker: socket `notification` event
-  (toast + badge) and, with `PUSH_PROVIDER=fcm`, a Firebase push to registered devices.
+  (toast + badge; a system notification when the tab is in the background) and, with `PUSH_PROVIDER=fcm` on
+  the API plus the `VITE_FIREBASE_*` keys in the web app, a web push that arrives even when the app is closed.
+  Tapping a notification opens the right booking/job. On first launch a permissions sheet asks for location
+  and notifications (our explanation first, then the browser prompt); the Notifications screen offers it again.
 
 ## Payments, invoices & wallet
 
@@ -121,7 +136,7 @@ One authenticated socket per session. Users join their own room; screens that sh
 - **Extra work**: the technician requests it during the job; nothing is billed until the customer approves.
   GST is recalculated on approval.
 - **Commission** (technician → service → category → location → global rule). Online payments *credit* the
-  technician's share to their wallet; cash/UPI jobs *debit* FIXORA's commission + GST (the technician holds
+  technician's share to their wallet; cash/UPI jobs *debit* RapidFix's commission + GST (the technician holds
   the money). Every wallet movement is an idempotent ledger row with the running balance.
 - **Invoices** `INV-YYYY-000123`, printable (Save as PDF) for customer and technician.
 - **Refunds** (full or partial, Finance) go back through Razorpay or are recorded as offline; the technician's

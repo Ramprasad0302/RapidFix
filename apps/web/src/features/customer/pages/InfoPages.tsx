@@ -25,7 +25,7 @@ const FAQ = [
   ['Do I pay before the service?', 'No. You pay after the work is done — by cash, UPI or online. The estimate is shown before you book.'],
   ['Can the price change?', 'The final price can change only if extra work or parts are needed. Your technician must request it in the app and you approve it first.'],
   ['How do I cancel or reschedule?', 'Open the booking in My Bookings and tap Cancel or Reschedule. You can do this until the technician starts travelling.'],
-  ['Are professionals verified?', 'Yes. Every FIXORA partner is ID-verified and approved by our team before they can take jobs.'],
+  ['Are professionals verified?', 'Yes. Every RapidFix partner is ID-verified and approved by our team before they can take jobs.'],
 ];
 
 export function HelpPage() {
@@ -65,17 +65,17 @@ export function HelpPage() {
 
 export function AboutPage() {
   return (
-    <InfoLayout title="About FIXORA">
+    <InfoLayout title="About RapidFix">
       <div className="flex flex-col items-center py-6">
         <Logo size="lg" />
         <p className="mt-3 text-sm text-slate-500">Version {APP_VERSION}</p>
       </div>
       <p>
-        FIXORA connects homes in villages, small towns and growing cities with verified local professionals — AC technicians, electricians,
+        RapidFix connects homes in villages, small towns and growing cities with verified local professionals — AC technicians, electricians,
         plumbers, carpenters, painters, cleaners and appliance experts.
       </p>
       <p className="mt-3">Transparent pricing, verified partners and easy booking — so every job simply gets fixed.</p>
-      <p className="mt-6 text-sm text-slate-500">FIXORA is developed by Nirmaan Digital.</p>
+      <p className="mt-6 text-sm text-slate-500">RapidFix is developed by Nirmaan Digital.</p>
     </InfoLayout>
   );
 }
@@ -87,7 +87,7 @@ export function TermsPage() {
     <InfoLayout title="Terms & Conditions" backTo="/">
       <p className="rounded-xl bg-warning-soft p-3 text-sm text-slate-700">{LEGAL_NOTE}</p>
       <ol className="mt-4 list-decimal space-y-3 pl-5">
-        <li>FIXORA is a platform that connects customers with independent, verified service professionals.</li>
+        <li>RapidFix is a platform that connects customers with independent, verified service professionals.</li>
         <li>Prices shown are estimates. Extra work or parts are charged only after you approve them in the app.</li>
         <li>You can cancel or reschedule free of charge until the technician starts travelling to you.</li>
         <li>Payment is due after the service is completed, by cash, UPI or online payment.</li>
@@ -116,10 +116,10 @@ export function ReferPage() {
   const code = profile.data?.referralCode;
   const share = async () => {
     if (!code) return;
-    const text = `Book trusted home services on FIXORA. Use my code ${code} when you sign up.`;
+    const text = `Book trusted home services on RapidFix. Use my code ${code} when you sign up.`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'FIXORA', text, url: window.location.origin });
+        await navigator.share({ title: 'RapidFix', text, url: window.location.origin });
       } catch {
         /* user dismissed */
       }
@@ -139,7 +139,7 @@ export function ReferPage() {
       <Button size="lg" fullWidth className="mt-5" onClick={() => void share()} leftIcon={<Share2 className="size-5" />}>
         Invite friends
       </Button>
-      <p className="mt-4 text-sm text-slate-500">Share FIXORA with friends and family. Referral rewards will be announced soon — your code is already active.</p>
+      <p className="mt-4 text-sm text-slate-500">Share RapidFix with friends and family. Referral rewards will be announced soon — your code is already active.</p>
     </InfoLayout>
   );
 }
@@ -166,7 +166,7 @@ export function PaymentMethodsPage() {
           </li>
         ))}
       </ul>
-      <p className="mt-5 text-sm text-slate-500">Online payments are processed by Razorpay. FIXORA never stores your card details.</p>
+      <p className="mt-5 text-sm text-slate-500">Online payments are processed by Razorpay. RapidFix never stores your card details.</p>
     </InfoLayout>
   );
 }

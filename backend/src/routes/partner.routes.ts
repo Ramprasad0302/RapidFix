@@ -7,7 +7,7 @@ import { validate } from '../middleware/validate';
 import { registerPartner } from '../services/technicianAccount.service';
 import { ok } from '../utils/response';
 
-/** "Become a FIXORA partner": a freshly signed-in phone account registers as a technician (pending verification). */
+/** "Become a RapidFix partner": a freshly signed-in phone account registers as a technician (pending verification). */
 export const partnerRouter = Router();
 
 const schema = z.object({

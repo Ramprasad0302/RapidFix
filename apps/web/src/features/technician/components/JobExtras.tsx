@@ -162,7 +162,7 @@ export function CollectPaymentCard({ j }: { j: TechnicianJobDetailDto }) {
         }
       >
         <p className="text-[15px] text-slate-600">
-          Confirm only after the money is in your hand or account. FIXORA's commission for this job will be adjusted from your wallet.
+          Confirm only after the money is in your hand or account. RapidFix's commission for this job will be adjusted from your wallet.
         </p>
         {collect.isError && <Alert className="mt-3">{collect.error.message}</Alert>}
       </Dialog>

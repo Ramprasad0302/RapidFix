@@ -71,7 +71,7 @@ function ProfileForm({ d }: { d: TechnicianDetailsDto }) {
       {d.verificationStatus !== 'VERIFIED' && (
         <Alert tone="info">
           {d.verificationStatus === 'PENDING'
-            ? 'Your account is under verification. Upload your documents so FIXORA can approve you faster.'
+            ? 'Your account is under verification. Upload your documents so RapidFix can approve you faster.'
             : `Account status: ${d.verificationStatus}.${d.rejectionReason ? ` ${d.rejectionReason}` : ''}`}
         </Alert>
       )}
@@ -196,7 +196,7 @@ export function DocumentsPage() {
 
   return (
     <Shell title="My Documents">
-      <p className="text-sm text-slate-600">Upload clear photos or PDFs. Documents are private — only you and the FIXORA verification team can see them.</p>
+      <p className="text-sm text-slate-600">Upload clear photos or PDFs. Documents are private — only you and the RapidFix verification team can see them.</p>
       <div className="flex gap-2">
         <select
           value={type}

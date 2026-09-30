@@ -44,6 +44,8 @@ export const SocketEvent = {
   SERVICE_COMPLETED: 'service_completed',
   PAYMENT_UPDATED: 'payment_updated',
   BOOKING_CANCELLED: 'booking_cancelled',
+  /** Schedule or details changed without a status change (e.g. reschedule). */
+  BOOKING_UPDATED: 'booking_updated',
   NEW_MESSAGE: 'new_message',
   MESSAGES_READ: 'messages_read',
   /** A new in-app notification for this user (from the notification outbox). */

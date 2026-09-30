@@ -69,7 +69,7 @@ describe('customer bookings', () => {
     const { token, user } = await otpLogin('9000000001');
     const res = await book(token, { totalAmount: 1, serviceCharge: 1 }).expect(201);
     expect(res.body.data).toMatchObject({ status: 'SEARCHING', locality: 'Tanuku, AP', totalAmount: 47_082 });
-    expect(res.body.data.code).toMatch(/^FX-\d{4}-\d{6}$/);
+    expect(res.body.data.code).toMatch(/^RF-\d{4}-\d{6}$/);
     const history = await prisma.bookingStatusHistory.findMany({ where: { bookingId: res.body.data.id }, orderBy: { createdAt: 'asc' } });
     expect(history.map((h) => h.toStatus)).toEqual(['PENDING', 'SEARCHING']);
     expect(await prisma.notification.count({ where: { userId: user.id, type: 'BOOKING_CONFIRMED' } })).toBe(1);
@@ -130,5 +130,21 @@ describe('customer bookings', () => {
     await prisma.booking.update({ where: { id: booking.body.data.id }, data: { status: 'TECHNICIAN_ACCEPTED' } });
     detail = await request().get(`${API}/customer/bookings/${booking.body.data.id}`).set(bearer(token)).expect(200);
     expect(detail.body.data.technician.phone).toBe('+919000000101');
+  });
+
+  it('tells the technician when the customer reschedules or cancels, and withdraws open offers', async () => {
+    const { token } = await otpLogin('9000000001');
+    const booking = await book(token).expect(201);
+    const id = booking.body.data.id as string;
+    const tech = await createTechnician('+919000000101');
+    await prisma.booking.update({ where: { id }, data: { technicianId: tech.technician!.id, status: 'TECHNICIAN_ASSIGNED' } });
+    await prisma.bookingAssignment.create({ data: { bookingId: id, technicianId: tech.technician!.id, status: 'OFFERED', expiresAt: new Date(Date.now() + 60_000) } });
+
+    await request().post(`${API}/customer/bookings/${id}/reschedule`).set(bearer(token)).send({ scheduleType: 'SCHEDULED', date: tomorrow(), timeSlot: '16-18' }).expect(200);
+    expect(await prisma.notification.count({ where: { userId: tech.id, type: 'BOOKING_RESCHEDULED' } })).toBe(1);
+
+    await request().post(`${API}/customer/bookings/${id}/cancel`).set(bearer(token)).send({ reason: 'Fixed it myself' }).expect(200);
+    expect(await prisma.notification.count({ where: { userId: tech.id, type: 'BOOKING_CANCELLED' } })).toBe(1);
+    expect(await prisma.bookingAssignment.count({ where: { bookingId: id, status: 'OFFERED' } })).toBe(0);
   });
 });

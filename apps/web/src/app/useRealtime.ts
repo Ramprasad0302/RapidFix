@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import { isAdminRole, SocketEvent, type BookingDetailDto, type MessageDto } from '@fixora/shared-types';
+import { notificationLink } from '@fixora/shared-utils';
+import { pushActive, showSystemNotification } from '../lib/notifications';
 import { connectSocket, disconnectSocket } from '../lib/socket';
 import { authStore, useAuth } from '../store/auth';
 import { toast } from '../store/toast';
@@ -65,7 +67,20 @@ export function useRealtime(queryClient: QueryClient) {
         if (event === SocketEvent.NOTIFICATION) {
           const chatFor = (p.data as { bookingId?: string } | null)?.bookingId;
           const muted = p.type === 'NEW_MESSAGE' && chatFor && openChats.has(chatFor);
-          if (typeof p.title === 'string' && !muted) toast(p.title);
+          if (typeof p.title === 'string' && !muted) {
+            if (document.visibilityState === 'visible') toast(p.title);
+            // Backgrounded tab: raise a system notification (unless web push already delivers it).
+            else if (!pushActive()) {
+              const type = typeof p.type === 'string' ? p.type : '';
+              void showSystemNotification({
+                title: p.title,
+                body: typeof p.body === 'string' ? p.body : undefined,
+                url: notificationLink(role, type, p.data as Record<string, unknown> | null),
+                tag: typeof p.id === 'string' ? p.id : undefined,
+                urgent: type === 'NEW_JOB',
+              });
+            }
+          }
           return;
         }
 

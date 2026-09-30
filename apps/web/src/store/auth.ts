@@ -1,6 +1,7 @@
 import { ADMIN_ROLES, isAdminRole, Role } from '@fixora/shared-types';
 import { createAuthStore } from '@fixora/web-core';
 import { api } from '../lib/api';
+import { disablePush } from '../lib/notifications';
 
 /**
  * One session for the whole app. The signed-in role decides which area the
@@ -17,4 +18,10 @@ export function homeFor(role: Role | null | undefined): string {
   if (role === Role.TECHNICIAN) return '/technician';
   if (role && isAdminRole(role)) return '/admin';
   return '/';
+}
+
+/** Sign out and stop push notifications to this device for the old account. */
+export async function signOut() {
+  await disablePush();
+  await authActions.logout();
 }

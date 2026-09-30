@@ -20,7 +20,7 @@ import { cx } from '@fixora/ui';
 import { Avatar } from '../../../components/Avatar';
 import { ErrorState, Skeleton } from '../../../components/States';
 import { technicianApi } from '../../../lib/endpoints';
-import { authActions } from '../../../store/auth';
+import { signOut } from '../../../store/auth';
 import { toast } from '../../../store/toast';
 import { EarningsCard, monthOptions } from '../components/EarningsCard';
 import { TechHeader } from '../components/TechHeader';
@@ -82,7 +82,7 @@ export function ProfilePage() {
           <section>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">My Services</h2>
-              <button onClick={() => toast('Skills are managed by FIXORA during verification.')} className="text-sm font-medium text-fixora-blue">
+              <button onClick={() => toast('Skills are managed by RapidFix during verification.')} className="text-sm font-medium text-fixora-blue">
                 Manage
               </button>
             </div>
@@ -100,7 +100,7 @@ export function ProfilePage() {
         <Menu items={SETTINGS} />
         <button
           onClick={async () => {
-            await authActions.logout();
+            await signOut();
             navigate('/login', { replace: true });
           }}
           className="mb-4 flex items-center gap-3 rounded-2xl bg-danger-soft/70 px-4 py-3.5 text-left font-semibold text-danger"

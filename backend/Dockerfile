@@ -1,4 +1,4 @@
-# FIXORA API — build from the repository root:
+# RapidFix API — build from the repository root:
 #   docker build -f backend/Dockerfile -t fixora-api .
 FROM node:22-alpine AS build
 WORKDIR /app

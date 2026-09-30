@@ -1,5 +1,5 @@
 /*
- * FIXORA design tokens — shared by customer, technician and admin apps.
+ * RapidFix design tokens — shared by customer, technician and admin apps.
  * Each app's index.css does:  @import "tailwindcss"; @import "@fixora/ui/theme.css";
  * Utilities generated: bg-fixora-navy, text-fixora-blue, border-fixora-cyan, …
  */

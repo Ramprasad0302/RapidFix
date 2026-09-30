@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "FIXORA \u2014 Get it fixed. On-demand local services marketplace by Nirmaan Digital.",
+  "description": "RapidFix \u2014 Get it fixed. On-demand local services marketplace by Nirmaan Digital.",
   "workspaces": [
     "packages/*",
     "backend",

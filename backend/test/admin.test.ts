@@ -116,7 +116,7 @@ describe('catalogue, offers and settings', () => {
     expect(row).toMatchObject({ basePrice: 160_000, commission: { type: 'PERCENTAGE', value: 12 }, slug: 'gas-refill' });
   });
 
-  it('rejects images that were not uploaded to FIXORA', async () => {
+  it('rejects images that were not uploaded to RapidFix', async () => {
     const admin = await createStaff('ADMIN');
     await post('/categories', admin.token, {
       name: 'Solar',

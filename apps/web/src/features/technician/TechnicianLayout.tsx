@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router';
 import { CalendarDays, House, UserRound, WalletCards } from 'lucide-react';
 import { BottomNav } from '../../components/BottomNav';
+import { PermissionsSheet } from '../../components/PermissionsSheet';
 import { MobileShell } from '../customer/CustomerTabsLayout';
 import { NewRequestSheet } from './components/NewRequestSheet';
 import { useLocationSharing } from './useLocationSharing';
@@ -21,6 +22,7 @@ export function TechnicianLayout() {
       </div>
       <BottomNav items={TABS} />
       <NewRequestSheet />
+      <PermissionsSheet location="technician" />
     </MobileShell>
   );
 }

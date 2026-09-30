@@ -225,7 +225,7 @@ export function buildOpenApi(serverUrl: string) {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'FIXORA API',
+      title: 'RapidFix API',
       version: '1.0.0',
       description:
         'On-demand local services marketplace — GET IT FIXED. Developed by Nirmaan Digital.\n\n' +

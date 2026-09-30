@@ -114,7 +114,7 @@ const STEPS = [
 export function HowItWorks() {
   return (
     <section>
-      <SectionHeader title="How FIXORA works" subtitle="Fixed in three simple steps" />
+      <SectionHeader title="How RapidFix works" subtitle="Fixed in three simple steps" />
       <ol className="mt-4 flex flex-col gap-0">
         {STEPS.map(({ icon: Icon, title, body }, i) => (
           <li key={title} className="relative flex gap-4 pb-5 last:pb-0">
@@ -154,7 +154,7 @@ export function TrustNumbers() {
     <section className="relative overflow-hidden rounded-[22px] bg-fixora-navy px-5 py-6 text-white">
       <div aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-fixora-blue/30 blur-2xl" />
       <div aria-hidden className="absolute -bottom-20 -left-10 size-44 rounded-full bg-fixora-cyan/15 blur-2xl" />
-      <p className="relative text-xs font-semibold tracking-[0.2em] text-fixora-cyan">FIXORA IN NUMBERS</p>
+      <p className="relative text-xs font-semibold tracking-[0.2em] text-fixora-cyan">RapidFix IN NUMBERS</p>
       <p className="relative mt-1 text-xl font-bold">Trusted by homes across Andhra Pradesh</p>
       <dl className="relative mt-5 grid grid-cols-2 gap-x-4 gap-y-5">
         {!s && Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-12 bg-white/10" />)}
@@ -176,7 +176,7 @@ export function CustomerReviews() {
   if (reviews.isSuccess && reviews.data.length === 0) return null;
   return (
     <section>
-      <SectionHeader title="What customers say" subtitle="Real reviews from FIXORA bookings" />
+      <SectionHeader title="What customers say" subtitle="Real reviews from RapidFix bookings" />
       <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1">
         {reviews.isPending && Array.from({ length: 2 }, (_, i) => <Skeleton key={i} className="h-40 w-[80%] shrink-0 rounded-2xl" />)}
         {reviews.data?.map((r) => (
@@ -205,7 +205,7 @@ export function CustomerReviews() {
 
 // ─── Promise ─────────────────────────────────────────────────────────────
 
-export function FixoraPromise() {
+export function RapidFixPromise() {
   const stats = useQuery({ queryKey: ['stats', 'public'], queryFn: trustApi.stats, staleTime: 10 * 60_000 });
   const warranty = stats.data?.maxWarrantyDays ?? 0;
   const points = [
@@ -221,7 +221,7 @@ export function FixoraPromise() {
           <BadgeCheck className="size-6" aria-hidden />
         </span>
         <div>
-          <h2 className="text-lg font-bold text-slate-900">The FIXORA Promise</h2>
+          <h2 className="text-lg font-bold text-slate-900">The RapidFix Promise</h2>
           <p className="text-sm text-slate-500">Every booking, every time</p>
         </div>
       </div>
@@ -251,7 +251,7 @@ export function InviteBanner() {
         <Gift className="size-6" aria-hidden />
       </span>
       <span className="flex-1">
-        <span className="block font-semibold text-slate-900">Invite friends to FIXORA</span>
+        <span className="block font-semibold text-slate-900">Invite friends to RapidFix</span>
         <span className="block text-sm text-slate-600">Share your code with family and neighbours.</span>
       </span>
       <ChevronRight className="size-5 text-amber-600" aria-hidden />
@@ -282,7 +282,7 @@ export function HomeFooter() {
         <Link to="/privacy">Privacy</Link>
       </nav>
       <p className="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-400">
-        © {new Date().getFullYear()} FIXORA · v{APP_VERSION} · Developed by Nirmaan Digital
+        © {new Date().getFullYear()} RapidFix · v{APP_VERSION} · Developed by Nirmaan Digital
       </p>
     </footer>
   );

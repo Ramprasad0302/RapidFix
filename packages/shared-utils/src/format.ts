@@ -11,9 +11,9 @@ export function formatINR(paise: number): string {
 
 export const rupeesToPaise = (rupees: number) => Math.round(rupees * 100);
 
-/** FX-2026-000123 */
+/** RF-2026-000123 */
 export function formatBookingCode(year: number, sequence: number): string {
-  return `FX-${year}-${String(sequence).padStart(6, '0')}`;
+  return `RF-${year}-${String(sequence).padStart(6, '0')}`;
 }
 
 /** "+91 98765 43210" for display; storage is always E.164 (+919876543210). */

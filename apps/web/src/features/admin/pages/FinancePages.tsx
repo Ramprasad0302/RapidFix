@@ -65,7 +65,7 @@ export function PaymentsPage() {
       {s && (
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
           <StatTile label="Collected" value={formatINR(s.revenue)} />
-          <StatTile label="FIXORA commission" value={formatINR(s.commission)} tone="success" />
+          <StatTile label="RapidFix commission" value={formatINR(s.commission)} tone="success" />
           <StatTile label="Technician earnings" value={formatINR(s.technicianEarnings)} />
           <StatTile label="GST collected" value={formatINR(s.tax)} />
           <StatTile label="Refunded" value={formatINR(s.refunds)} />
@@ -157,7 +157,7 @@ export function PayoutsPage() {
             Pay out
           </Button>
         ) : w.balance < 0 ? (
-          <span className="text-xs text-slate-500">Owes FIXORA</span>
+          <span className="text-xs text-slate-500">Owes RapidFix</span>
         ) : null,
     },
   ];
@@ -178,7 +178,7 @@ export function PayoutsPage() {
       <PageTitle icon={WalletCards} title="Payouts" subtitle="Technician wallets: online earnings are credited, cash-job commission is debited." />
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
         <StatTile label="Due to technicians" value={formatINR(due)} tone="success" />
-        <StatTile label="Owed to FIXORA (cash jobs)" value={formatINR(owed)} tone={owed ? 'warning' : undefined} />
+        <StatTile label="Owed to RapidFix (cash jobs)" value={formatINR(owed)} tone={owed ? 'warning' : undefined} />
         <StatTile label="Payouts recorded" value={payouts.data?.length ?? '—'} />
       </div>
       <Card className="mt-4" title="Wallets">

@@ -225,7 +225,7 @@ export async function report(from: Date, to: Date): Promise<ReportDto> {
 
 const SETTINGS: Record<string, { description: string; schema: z.ZodType; default: unknown }> = {
   'pricing.taxPercent': { description: 'GST % applied to new bookings and extra work', schema: z.number().min(0).max(28), default: 18 },
-  'commission.globalPercent': { description: 'Default FIXORA commission % (overridden by category / service / technician rules)', schema: z.number().min(0).max(50), default: 15 },
+  'commission.globalPercent': { description: 'Default RapidFix commission % (overridden by category / service / technician rules)', schema: z.number().min(0).max(50), default: 15 },
   'dispatch.requestTimeoutSeconds': { description: 'Seconds a technician has to accept an automatic job offer', schema: z.number().int().min(10).max(600), default: 30 },
   'dispatch.maxAttempts': { description: 'Automatic offers per booking before handing over to operations', schema: z.number().int().min(1).max(20), default: 5 },
   'dispatch.searchRadiusKm': { description: 'Maximum distance for automatic assignment', schema: z.number().min(1).max(50), default: 15 },
@@ -235,7 +235,7 @@ const SETTINGS: Record<string, { description: string; schema: z.ZodType; default
     default: { skill: 1, distance: 0.5, rating: 0.3, workload: 0.2 },
   },
   'support.phone': { description: 'Support phone shown to users', schema: z.string().min(6).max(20), default: '+91 90000 00000' },
-  'support.email': { description: 'Support email shown to users', schema: z.email(), default: 'support@fixora.local' },
+  'support.email': { description: 'Support email shown to users', schema: z.email(), default: 'support@rapidfix.local' },
 };
 
 export async function getSettings(): Promise<SettingDto[]> {

@@ -72,7 +72,7 @@ function ImageField({ value, onChange }: { value: string | null; onChange(v: str
 type Commission = { type: 'PERCENTAGE' | 'FIXED'; value: number } | null;
 function CommissionField({ value, onChange, inherited }: { value: Commission; onChange(v: Commission): void; inherited: string }) {
   return (
-    <Field label="FIXORA commission" hint={value ? 'Overrides the broader rule for this item.' : `Uses ${inherited}.`}>
+    <Field label="RapidFix commission" hint={value ? 'Overrides the broader rule for this item.' : `Uses ${inherited}.`}>
       <div className="flex gap-2">
         <select
           value={value?.type ?? ''}

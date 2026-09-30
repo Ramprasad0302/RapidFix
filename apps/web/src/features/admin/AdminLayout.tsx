@@ -5,8 +5,9 @@ import { Bell, ChevronDown, ChevronsLeft, ChevronsRight, Crown, LogOut, Menu, Se
 import { hasPermission, type Role } from '@fixora/shared-types';
 import { cx, Logo } from '@fixora/ui';
 import { Avatar } from '../../components/Avatar';
+import { PermissionsSheet } from '../../components/PermissionsSheet';
 import { notificationApi } from '../../lib/endpoints';
-import { authActions, useAuth } from '../../store/auth';
+import { signOut, useAuth } from '../../store/auth';
 import { ADMIN_NAV, ALL_NAV, MAIN_NAV, type AdminNavItem } from './nav';
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -58,6 +59,7 @@ export function AdminLayout() {
         <main className="px-4 py-6 sm:px-6 lg:px-8">
           <ModuleGuard />
         </main>
+        <PermissionsSheet location={false} />
       </div>
     </div>
   );
@@ -81,7 +83,7 @@ function SidebarContent({ collapsed, onToggle }: { collapsed: boolean; onToggle?
   return (
     <>
       <div className={cx('flex h-[76px] items-center border-b border-white/10', collapsed ? 'justify-center' : 'justify-between px-5')}>
-        <Link to="/admin" aria-label="FIXORA admin home">
+        <Link to="/admin" aria-label="RapidFix admin home">
           {collapsed ? <Logo tone="light" markOnly size="sm" /> : <Logo tone="light" size="sm" />}
         </Link>
         {onToggle && !collapsed && (
@@ -205,7 +207,7 @@ function TopBar({ onMenu }: { onMenu(): void }) {
               <button
                 role="menuitem"
                 onClick={async () => {
-                  await authActions.logout();
+                  await signOut();
                   navigate('/login', { replace: true });
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-danger hover:bg-danger-soft"

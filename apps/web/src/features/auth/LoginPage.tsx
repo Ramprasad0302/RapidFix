@@ -184,12 +184,12 @@ function PhoneStep({
         Continue <ArrowRight className="size-4.5" aria-hidden />
       </Button>
 
-      <p className="mt-6 text-center text-[13px] text-slate-500">New to FIXORA? You’ll be registered automatically</p>
+      <p className="mt-6 text-center text-[13px] text-slate-500">New to RapidFix? You’ll be registered automatically</p>
       <Link to="/partner" className="mt-3 text-center text-[13px] font-medium text-fixora-blue">
-        Are you a technician? Become a FIXORA partner
+        Are you a technician? Become a RapidFix partner
       </Link>
       <button type="button" onClick={onUsePassword} className="mt-auto pt-8 text-center text-[13px] font-medium text-slate-500 hover:text-fixora-blue">
-        FIXORA staff? Sign in with email
+        RapidFix staff? Sign in with email
       </button>
     </form>
   );
@@ -322,7 +322,7 @@ function PasswordStep({ onSignedIn }: { onSignedIn(s: AuthSession): void }) {
         <Logo size="md" />
       </div>
       <h1 className="mt-10 text-center text-[26px] font-bold text-slate-900">Staff sign in</h1>
-      <p className="mt-2 text-center text-[15px] text-slate-500">Use your FIXORA work email and password</p>
+      <p className="mt-2 text-center text-[15px] text-slate-500">Use your RapidFix work email and password</p>
       <div className="mt-8 flex flex-col gap-4">
         <TextField label="Work email" type="email" autoComplete="username" autoFocus error={form.formState.errors.email?.message} {...form.register('email')} />
         <TextField

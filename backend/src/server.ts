@@ -14,7 +14,7 @@ const stopDispatch = startDispatchWorker();
 const stopNotifications = startNotificationWorker();
 
 httpServer.listen(env.PORT, () => {
-  logger.info(`FIXORA API listening on http://localhost:${env.PORT}${env.API_PREFIX}`);
+  logger.info(`RapidFix API listening on http://localhost:${env.PORT}${env.API_PREFIX}`);
 });
 
 async function shutdown(signal: string) {

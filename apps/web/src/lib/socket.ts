@@ -16,7 +16,8 @@ const rooms = new Map<string, number>();
 
 export function connectSocket(getToken: () => string | null, onEvent: (event: SocketEvent, payload: Record<string, unknown>) => void) {
   disconnectSocket();
-  const s = io(import.meta.env.VITE_SOCKET_URL, {
+  // Empty VITE_SOCKET_URL = same origin (dev proxy / nginx).
+  const s = io(import.meta.env.VITE_SOCKET_URL || undefined, {
     auth: (cb) => cb({ token: getToken() }),
     transports: ['websocket', 'polling'],
     reconnectionDelay: 2000,

@@ -1,4 +1,4 @@
-# FIXORA web app — build from the repository root:
+# RapidFix web app — build from the repository root:
 #   docker build -f apps/web/Dockerfile --build-arg PUBLIC_URL=https://fixora.example.com -t fixora-web .
 FROM node:22-alpine AS build
 WORKDIR /app

@@ -128,7 +128,7 @@ function RequestCard({ r }: { r: TechnicianRequestDto }) {
         </div>
         {r.isManual && (
           <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-            <TriangleAlert className="size-3.5" aria-hidden /> Assigned by FIXORA operations
+            <TriangleAlert className="size-3.5" aria-hidden /> Assigned by RapidFix operations
           </p>
         )}
 

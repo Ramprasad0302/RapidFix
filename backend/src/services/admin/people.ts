@@ -109,7 +109,7 @@ export async function setUserStatus(actor: Actor, userId: string, status: 'ACTIV
         userId,
         type: 'ACCOUNT',
         title: status === 'ACTIVE' ? 'Account reactivated' : 'Account suspended',
-        body: status === 'ACTIVE' ? 'Your FIXORA account is active again.' : `Your account has been ${status.toLowerCase()}${reason ? `: ${reason}` : ''}. Contact support for help.`,
+        body: status === 'ACTIVE' ? 'Your RapidFix account is active again.' : `Your account has been ${status.toLowerCase()}${reason ? `: ${reason}` : ''}. Contact support for help.`,
       },
     });
   });
@@ -207,10 +207,10 @@ export async function technicianDetail(id: string): Promise<AdminTechnicianDetai
 }
 
 const VERIFICATION_COPY: Record<TechnicianVerificationStatus, { title: string; body: string }> = {
-  VERIFIED: { title: 'You are verified!', body: 'Your FIXORA partner profile is approved. Go online to start receiving jobs.' },
+  VERIFIED: { title: 'You are verified!', body: 'Your RapidFix partner profile is approved. Go online to start receiving jobs.' },
   REJECTED: { title: 'Verification not approved', body: 'Please check the reason and update your documents.' },
-  SUSPENDED: { title: 'Partner account suspended', body: 'Contact FIXORA support to know more.' },
-  BLOCKED: { title: 'Partner account blocked', body: 'Contact FIXORA support to know more.' },
+  SUSPENDED: { title: 'Partner account suspended', body: 'Contact RapidFix support to know more.' },
+  BLOCKED: { title: 'Partner account blocked', body: 'Contact RapidFix support to know more.' },
   PENDING: { title: 'Verification pending', body: 'Our team will review your profile.' },
 };
 

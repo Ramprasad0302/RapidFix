@@ -301,7 +301,7 @@ export async function assignManually(bookingId: string, technicianId: string, ac
         const prevTech = await tx.technician.findUnique({ where: { id: previous }, select: { userId: true } });
         if (prevTech) {
           await tx.notification.create({
-            data: { userId: prevTech.userId, type: 'JOB_REASSIGNED', title: 'Job reassigned', body: `${current.service.name} was reassigned by FIXORA operations.`, data: { bookingId: current.id } },
+            data: { userId: prevTech.userId, type: 'JOB_REASSIGNED', title: 'Job reassigned', body: `${current.service.name} was reassigned by RapidFix operations.`, data: { bookingId: current.id } },
           });
         }
       }

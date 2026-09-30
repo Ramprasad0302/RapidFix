@@ -16,7 +16,7 @@ const PERKS = [
   { icon: IndianRupee, title: 'Earn more', body: 'Keep most of every job. Payouts to your bank or UPI.' },
   { icon: MapPinned, title: 'Jobs near you', body: 'Requests are matched to your skills and travel radius.' },
   { icon: CalendarClock, title: 'Your schedule', body: 'Go online when you want. Accept only what fits.' },
-  { icon: BadgeCheck, title: 'Verified badge', body: 'Customers trust verified FIXORA partners.' },
+  { icon: BadgeCheck, title: 'Verified badge', body: 'Customers trust verified RapidFix partners.' },
 ];
 
 /** "Become a partner": a signed-in phone account registers as a technician (pending verification). */
@@ -29,7 +29,7 @@ export function PartnerRegisterPage() {
     mutationFn: (v: PartnerFormValues) => partnerApi.register(toPartnerPayload(v)),
     onSuccess: (session) => {
       authActions.setSession(session);
-      toast('Welcome to FIXORA! Upload your documents to get verified.');
+      toast('Welcome to RapidFix! Upload your documents to get verified.');
       navigate('/technician/documents', { replace: true });
     },
   });
@@ -43,7 +43,7 @@ export function PartnerRegisterPage() {
       <main className="flex flex-col gap-5 px-4 pb-10">
         <section className="rounded-2xl bg-fixora-navy p-5 text-white">
           <Logo tone="light" size="sm" />
-          <h1 className="mt-4 text-2xl leading-tight font-bold">Grow your service business with FIXORA</h1>
+          <h1 className="mt-4 text-2xl leading-tight font-bold">Grow your service business with RapidFix</h1>
           <ul className="mt-4 grid grid-cols-2 gap-3">
             {PERKS.map((p) => (
               <li key={p.title} className="rounded-xl bg-white/8 p-3">
@@ -63,7 +63,7 @@ export function PartnerRegisterPage() {
             </Button>
           </>
         ) : user && isAdminRole(user.role) ? (
-          <Alert tone="info">You're signed in with a FIXORA staff account. Partners register with their own mobile number.</Alert>
+          <Alert tone="info">You're signed in with a RapidFix staff account. Partners register with their own mobile number.</Alert>
         ) : categories.isPending ? (
           <CenteredSpinner />
         ) : (

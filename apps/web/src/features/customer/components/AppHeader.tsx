@@ -15,7 +15,7 @@ export function AppHeader() {
   return (
     <>
       <header className="flex items-center justify-between gap-2 px-4 pt-[max(0.9rem,env(safe-area-inset-top))] pb-3">
-        <Link to="/" aria-label="FIXORA home">
+        <Link to="/" aria-label="RapidFix home">
           <Logo size="sm" />
         </Link>
         <div className="flex items-center gap-3">

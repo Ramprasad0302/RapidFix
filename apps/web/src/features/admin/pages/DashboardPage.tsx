@@ -51,7 +51,7 @@ export function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[30px] font-bold tracking-tight text-slate-900">Dashboard</h1>
-          <p className="text-[15px] text-slate-500">Welcome back{name ? `, ${firstName(name)}` : ''}! Here’s what’s happening with FIXORA.</p>
+          <p className="text-[15px] text-slate-500">Welcome back{name ? `, ${firstName(name)}` : ''}! Here’s what’s happening with RapidFix.</p>
         </div>
         <label className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-card">
           <CalendarDays className="size-4.5 text-slate-600" aria-hidden />
@@ -260,7 +260,7 @@ function RecentBookings({ d }: { d: AdminDashboardDto }) {
           <tbody className="divide-y divide-slate-100">
             {d.recentBookings.map((b) => (
               <tr key={b.id} className="text-slate-700 hover:bg-slate-50/60">
-                <td className="px-5 py-3 font-medium whitespace-nowrap text-slate-900">{b.code.replace(/^FX-\d{4}-/, 'FX-')}</td>
+                <td className="px-5 py-3 font-medium whitespace-nowrap text-slate-900">{b.code.replace(/^([A-Z]{2})-\d{4}-/, '$1-')}</td>
                 <td className="px-5 py-3">
                   <span className="flex items-center gap-2 whitespace-nowrap">
                     <Avatar name={b.customerName} src={b.customerAvatarUrl} size={28} /> {b.customerName}

@@ -1,13 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BadgePercent, Bell, BriefcaseBusiness, CalendarCheck2, CircleCheck, IndianRupee, Truck, type LucideIcon } from 'lucide-react';
 import type { NotificationDto } from '@fixora/shared-types';
-import { cx } from '@fixora/ui';
+import { notificationLink } from '@fixora/shared-utils';
+import { Button, cx } from '@fixora/ui';
 import { PageHeader } from '../../../components/PageHeader';
 import { EmptyState, ErrorState, Skeleton } from '../../../components/States';
 import { notificationApi } from '../../../lib/endpoints';
 import { timeAgo } from '../../../lib/format';
+import { notificationPermission, requestNotificationPermission } from '../../../lib/notifications';
 import { homeFor, useAuth } from '../../../store/auth';
 import { MobileShell } from '../CustomerTabsLayout';
 
@@ -40,15 +42,16 @@ export function NotificationsPage() {
   }, [hasUnread, markAllRead]);
 
   const linkFor = (n: NotificationDto) => {
-    const bookingId = typeof n.data?.bookingId === 'string' ? n.data.bookingId : null;
-    if (!bookingId) return null;
-    return role === 'TECHNICIAN' ? `/technician/jobs/${bookingId}` : `/bookings/${bookingId}`;
+    if (!role) return null;
+    const to = notificationLink(role, n.type, n.data);
+    return to.endsWith('/notifications') ? null : to;
   };
 
   return (
     <MobileShell>
       <PageHeader title="Notifications" backTo={homeFor(role)} />
       <main className="px-4 pb-10">
+        <EnableNotificationsCard />
         {list.isPending && Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="mb-3 h-20" />)}
         {list.isError && <ErrorState error={list.error} onRetry={() => void list.refetch()} />}
         {list.isSuccess && list.data.length === 0 && (
@@ -78,5 +81,29 @@ export function NotificationsPage() {
         </ul>
       </main>
     </MobileShell>
+  );
+}
+
+/** Shown until system notifications are allowed (or explains how to unblock them). */
+function EnableNotificationsCard() {
+  const [perm, setPerm] = useState(notificationPermission);
+  if (perm === 'granted' || perm === 'unsupported') return null;
+  return (
+    <section className="mb-4 flex items-start gap-3 rounded-2xl bg-fixora-blue-soft p-4">
+      <Bell className="mt-0.5 size-6 shrink-0 text-fixora-blue" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-slate-900">Turn on notifications</p>
+        <p className="text-sm text-slate-600">
+          {perm === 'denied'
+            ? 'Notifications are blocked. Allow them for this site in your browser or phone settings, then reopen RapidFix.'
+            : 'Get booking updates, job requests and messages instantly — even when the app is in the background.'}
+        </p>
+        {perm === 'default' && (
+          <Button size="sm" className="mt-2.5" onClick={() => void requestNotificationPermission().then(setPerm)}>
+            Allow notifications
+          </Button>
+        )}
+      </div>
+    </section>
   );
 }

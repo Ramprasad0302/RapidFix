@@ -206,7 +206,7 @@ function StatusBanner({ b }: { b: BookingDetailDto }) {
     PAYMENT_PENDING: { title: 'Service completed', body: 'Please complete the payment to close the booking.' },
     DISPUTED: { title: 'Under review', body: 'Our support team is looking into this booking and will contact you.' },
     REFUNDED: { title: 'Refunded', body: 'Your refund has been processed to the original payment method.' },
-    PAYMENT_COMPLETED: { title: 'All done!', body: 'Thank you for choosing FIXORA.' },
+    PAYMENT_COMPLETED: { title: 'All done!', body: 'Thank you for choosing RapidFix.' },
   };
   const c = copy[b.status];
   if (!c) return null;

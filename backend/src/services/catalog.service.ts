@@ -136,7 +136,7 @@ export async function nearbyTechnicians(lat: number, lng: number, radiusKm: numb
     .slice(0, limit)
     .map(({ t, d }) => ({
       id: t.id,
-      name: t.user.name ?? 'FIXORA Professional',
+      name: t.user.name ?? 'RapidFix Professional',
       avatarUrl: t.user.avatarUrl,
       title: t.skills[0]?.category.professionalTitle ?? 'Technician',
       ratingAvg: Math.round(t.ratingAvg * 10) / 10,

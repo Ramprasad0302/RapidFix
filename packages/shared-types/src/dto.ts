@@ -333,7 +333,7 @@ export interface TechnicianRequestDto {
   scheduledFor: string;
   timeSlot: string;
   description: string;
-  /** Technician's share after FIXORA commission (paise). */
+  /** Technician's share after RapidFix commission (paise). */
   estimatedEarning: number;
   offeredAt: string;
   expiresAt: string;

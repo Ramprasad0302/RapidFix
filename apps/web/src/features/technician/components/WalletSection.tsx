@@ -10,14 +10,14 @@ import { formatDate } from '../../../lib/format';
 
 const TYPE_LABEL: Record<WalletTxnDto['type'], string> = {
   EARNING_CREDIT: 'Online payment earning',
-  COMMISSION_DEBIT: 'FIXORA fee (cash / UPI job)',
+  COMMISSION_DEBIT: 'RapidFix fee (cash / UPI job)',
   PAYOUT_DEBIT: 'Payout to you',
   ADJUSTMENT: 'Adjustment',
 };
 
 /**
- * FIXORA wallet: online payments credit your share; cash/UPI jobs debit FIXORA's
- * fee (you already hold the money). Positive balance = FIXORA pays you out.
+ * RapidFix wallet: online payments credit your share; cash/UPI jobs debit RapidFix's
+ * fee (you already hold the money). Positive balance = RapidFix pays you out.
  */
 export function WalletSection() {
   const wallet = useQuery({ queryKey: ['tech', 'wallet'], queryFn: technicianApi.wallet });
@@ -31,10 +31,10 @@ export function WalletSection() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
-            <WalletCards className="size-4.5 text-fixora-blue" aria-hidden /> FIXORA Wallet
+            <WalletCards className="size-4.5 text-fixora-blue" aria-hidden /> RapidFix Wallet
           </p>
           <p className={cx('mt-1 text-[28px] font-bold', owes ? 'text-danger' : 'text-slate-900')}>{formatINR(Math.abs(w.balance))}</p>
-          <p className="text-xs text-slate-500">{owes ? 'Fee due to FIXORA — settled from your next online earnings or payout.' : w.balance > 0 ? 'Available for your next payout.' : 'All settled.'}</p>
+          <p className="text-xs text-slate-500">{owes ? 'Fee due to RapidFix — settled from your next online earnings or payout.' : w.balance > 0 ? 'Available for your next payout.' : 'All settled.'}</p>
         </div>
         <Link to="/technician/payout-details" className="flex items-center gap-1 rounded-lg bg-fixora-blue-soft px-2.5 py-1.5 text-xs font-semibold text-fixora-blue">
           <Landmark className="size-3.5" /> Bank / UPI

@@ -224,7 +224,7 @@ export function BookingDrawer({ id }: { id: string }) {
             [`Discount${b.couponCode ? ` (${b.couponCode})` : ''}`, `− ${formatINR(b.price.discount)}`],
             ['GST', formatINR(b.price.tax)],
             ['Total', <b key="t">{formatINR(b.price.total)}</b>],
-            ['FIXORA commission', b.commissionAmount == null ? '—' : formatINR(b.commissionAmount)],
+            ['RapidFix commission', b.commissionAmount == null ? '—' : formatINR(b.commissionAmount)],
             ['Technician earning', b.technicianEarning == null ? '—' : formatINR(b.technicianEarning)],
             ['Payment', b.payment ? `${b.payment.method} · ${humanize(b.payment.status)}` : `${b.paymentMethod} · ${humanize(b.paymentStatus)}`],
             ['Invoice', b.payment?.invoiceNumber ?? '—'],

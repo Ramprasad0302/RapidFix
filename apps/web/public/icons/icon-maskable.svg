@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#132B4D"/><stop offset="1" stop-color="#0B1F3A"/></linearGradient>
+    <linearGradient id="bowl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60A5FA"/><stop offset="1" stop-color="#2563EB"/></linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stop-color="#22D3EE"/><stop offset="1" stop-color="#0EA5E9"/></linearGradient>
+    <linearGradient id="stem" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#DCE7F7"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(146 130) scale(5.4)">
+    <rect x="0" y="12.5" width="9" height="3.4" rx="1.7" fill="#22D3EE"/>
+    <rect x="1.5" y="19.5" width="6.5" height="3.4" rx="1.7" fill="#22D3EE" opacity=".6"/>
+    <path d="M13.5 4H22L14 44H5.5z" fill="url(#stem)"/>
+    <path fill-rule="evenodd" d="M22 4H33.5C40.5 4 44.2 8.4 43 14.2 41.9 19.7 37.3 25 30.2 25H17.8zM20.7 10.5H31.2C33.6 10.5 34.9 11.8 34.5 13.9 34.1 16.1 32.4 18 29.8 18H19.2z" fill="url(#bowl)"/>
+    <path d="M21 23H32.6L28.6 30.8H37.2L22 46.5 25.8 36.2H18.8z" fill="url(#bolt)"/>
+  </g>
+</svg>

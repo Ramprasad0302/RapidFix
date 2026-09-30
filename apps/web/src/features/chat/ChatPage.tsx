@@ -129,7 +129,7 @@ function MessageList({ messages, me, counterpartName, counterpartAvatar }: { mes
                   mine ? 'rounded-br-md bg-fixora-blue text-white' : 'rounded-bl-md bg-white text-slate-900',
                 )}
               >
-                {m.senderRole === 'STAFF' && <p className="mb-0.5 text-[11px] font-semibold opacity-80">FIXORA Support</p>}
+                {m.senderRole === 'STAFF' && <p className="mb-0.5 text-[11px] font-semibold opacity-80">RapidFix Support</p>}
                 {m.imageUrl && (
                   <a href={mediaUrl(m.imageUrl)!} target="_blank" rel="noopener noreferrer">
                     <img src={mediaUrl(m.imageUrl)!} alt="Shared photo" loading="lazy" className="mb-1 max-h-56 w-full rounded-xl object-cover" />

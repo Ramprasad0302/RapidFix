@@ -13,7 +13,7 @@ export function RouteError() {
       <Logo />
       <h1 className="mt-8 text-lg font-bold text-slate-900">{chunkFailed ? 'Connection problem' : 'Something went wrong'}</h1>
       <p className="mt-1 max-w-xs text-sm text-slate-500">
-        {chunkFailed ? 'Part of the app could not load. Check your connection and try again.' : 'Please try again. If this keeps happening, contact FIXORA support.'}
+        {chunkFailed ? 'Part of the app could not load. Check your connection and try again.' : 'Please try again. If this keeps happening, contact RapidFix support.'}
       </p>
       <div className="mt-6 flex gap-3">
         <button onClick={() => window.location.reload()} className="h-11 rounded-xl bg-fixora-blue px-5 font-semibold text-white">

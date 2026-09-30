@@ -35,7 +35,7 @@ const toMessage = (m: {
   bookingId: m.bookingId,
   senderId: m.senderId,
   senderRole: m.sender.role === 'CUSTOMER' ? 'CUSTOMER' : m.sender.role === 'TECHNICIAN' ? 'TECHNICIAN' : 'STAFF',
-  senderName: m.sender.name ?? (m.sender.role === 'CUSTOMER' ? 'Customer' : 'FIXORA'),
+  senderName: m.sender.name ?? (m.sender.role === 'CUSTOMER' ? 'Customer' : 'RapidFix'),
   body: m.body,
   imageUrl: m.imageUrl,
   readAt: m.readAt?.toISOString() ?? null,

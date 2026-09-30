@@ -144,7 +144,7 @@ export async function adminCancel(id: string, actor: Actor, reason: string, ip?:
     }
     if (b.technician && wasActive) await tx.technician.updateMany({ where: { id: b.technician.id, activeJobCount: { gt: 0 } }, data: { activeJobCount: { decrement: 1 } } });
     const notify = [b.customer.userId, b.technician?.userId].filter((x): x is string => !!x);
-    await tx.notification.createMany({ data: notify.map((userId) => ({ userId, type: 'BOOKING_CANCELLED', title: 'Booking cancelled', body: `${b.code} was cancelled by FIXORA: ${reason}`, data: { bookingId: id } })) });
+    await tx.notification.createMany({ data: notify.map((userId) => ({ userId, type: 'BOOKING_CANCELLED', title: 'Booking cancelled', body: `${b.code} was cancelled by RapidFix: ${reason}`, data: { bookingId: id } })) });
   });
   emitBookingEvent(id, [b.customer.userId, b.technician?.userId].filter((x): x is string => !!x), SocketEvent.BOOKING_CANCELLED, {}, { staff: true });
   await recordAudit({ actorId: actor.userId, actorRole: actor.role as never, action: 'BOOKING_CANCELLED', entity: 'Booking', entityId: id, oldValue: { status: b.status }, newValue: { reason }, ip });

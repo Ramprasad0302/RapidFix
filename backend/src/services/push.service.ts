@@ -57,7 +57,19 @@ export async function pushToUser(userId: string, msg: PushMessage): Promise<void
       const res = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: { token: t.token, notification: { title: msg.title, body: msg.body }, data: msg.data ?? {} } }),
+        body: JSON.stringify({
+          message: {
+            token: t.token,
+            notification: { title: msg.title, body: msg.body },
+            data: msg.data ?? {},
+            // Deliver immediately (job offers expire) and open the right screen on tap.
+            webpush: {
+              headers: { Urgency: 'high', TTL: '3600' },
+              ...(msg.data?.url && { fcm_options: { link: new URL(msg.data.url, env.WEB_APP_URL).toString() } }),
+            },
+            android: { priority: 'high' },
+          },
+        }),
         signal: AbortSignal.timeout(10_000),
       });
       if (res.status === 404 || res.status === 400) {

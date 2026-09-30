@@ -26,7 +26,7 @@ import { Avatar } from '../../../components/Avatar';
 import { Skeleton } from '../../../components/States';
 import { APP_VERSION } from '../../../lib/config';
 import { customerApi } from '../../../lib/endpoints';
-import { authActions, useAuth } from '../../../store/auth';
+import { signOut, useAuth } from '../../../store/auth';
 import { useUnreadCount } from '../queries';
 
 interface MenuItem {
@@ -68,7 +68,7 @@ function Guest() {
       <p className="text-[15px] text-slate-500">Access your bookings, saved addresses and more</p>
       <section className="mt-5 flex flex-col items-center rounded-3xl bg-gradient-to-b from-[#EEF4FF] to-[#F6F9FF] px-6 pt-6 pb-6 text-center">
         <GuestAvatar className="size-28" />
-        <h2 className="mt-3 text-xl font-bold text-slate-900">Welcome to FIXORA!</h2>
+        <h2 className="mt-3 text-xl font-bold text-slate-900">Welcome to RapidFix!</h2>
         <p className="mt-1 text-[15px] text-slate-600">Login or create an account to manage your bookings, addresses and more.</p>
         <Link to="/login?redirect=/account" className="mt-5 flex h-13 w-full items-center justify-center gap-1.5 rounded-full bg-fixora-blue text-[16px] font-semibold text-white hover:bg-fixora-blue-dark">
           Login / Sign Up <ChevronRight className="size-5" aria-hidden />
@@ -86,7 +86,7 @@ function Guest() {
           { to: '/help', icon: Headset, title: 'Help & Support', subtitle: 'Get help, FAQs and support' },
           { to: '/terms', icon: FileText, title: 'Terms & Conditions' },
           { to: '/privacy', icon: ShieldCheck, title: 'Privacy Policy' },
-          { to: '/about', icon: Info, title: 'About FIXORA', subtitle: `Version ${APP_VERSION}` },
+          { to: '/about', icon: Info, title: 'About RapidFix', subtitle: `Version ${APP_VERSION}` },
         ]}
       />
     </>
@@ -150,7 +150,7 @@ function SignedIn() {
       <Menu
         items={[
           { to: '/notifications', icon: Bell, title: 'Notifications', subtitle: 'Service updates and offers' },
-          { to: '/account/refer', icon: Gift, title: 'Refer & Earn', subtitle: 'Invite friends to FIXORA' },
+          { to: '/account/refer', icon: Gift, title: 'Refer & Earn', subtitle: 'Invite friends to RapidFix' },
           { to: '/help', icon: Headset, title: 'Help & Support', subtitle: 'Get help, FAQs and support' },
           { to: '/account/edit', icon: Settings, title: 'Settings', subtitle: 'Language, app preferences' },
           {
@@ -159,13 +159,13 @@ function SignedIn() {
             danger: true,
             // Customers stay in the app as guests after logging out.
             onClick: async () => {
-              await authActions.logout();
+              await signOut();
               navigate('/', { replace: true });
             },
           },
         ]}
       />
-      <p className="py-4 text-center text-xs text-slate-400">FIXORA v{APP_VERSION} · by Nirmaan Digital</p>
+      <p className="py-4 text-center text-xs text-slate-400">RapidFix v{APP_VERSION} · by Nirmaan Digital</p>
     </>
   );
 }

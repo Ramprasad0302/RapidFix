@@ -212,7 +212,7 @@ export async function completePayment(bookingId: string, s: Settlement) {
     });
 
     if (s.method === 'RAZORPAY') {
-      // FIXORA holds the money → credit the technician's share.
+      // RapidFix holds the money → credit the technician's share.
       await postWalletTxn(tx, b.technician.id, {
         type: 'EARNING_CREDIT',
         amount: split.technicianNet,
@@ -222,7 +222,7 @@ export async function completePayment(bookingId: string, s: Settlement) {
         idempotencyKey: `earn:${bookingId}`,
       });
     } else {
-      // Technician holds the cash → they owe FIXORA the commission and the GST.
+      // Technician holds the cash → they owe RapidFix the commission and the GST.
       await postWalletTxn(tx, b.technician.id, {
         type: 'COMMISSION_DEBIT',
         amount: -(split.commission + b.taxAmount),
@@ -280,7 +280,7 @@ export async function refundPayment(bookingId: string, actor: { userId: string; 
       },
     });
     await tx.payment.update({ where: { id: b.payment!.id }, data: { refundedAmount: { increment: amount }, ...(full && { status: 'REFUNDED' }) } });
-    // Claw back the technician's share proportionally when FIXORA had credited it.
+    // Claw back the technician's share proportionally when RapidFix had credited it.
     if (b.technician && b.technicianEarning && b.payment!.method === 'RAZORPAY') {
       const clawback = Math.round((b.technicianEarning * amount) / b.payment!.amount);
       await postWalletTxn(tx, b.technician.id, {

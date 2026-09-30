@@ -1,6 +1,7 @@
 import {
   BOOKING_TAB_STATUSES,
   BookingStatus as B,
+  SocketEvent,
   CUSTOMER_CANCELLABLE,
   CUSTOMER_RESCHEDULABLE,
   TIME_SLOTS,
@@ -25,6 +26,7 @@ import { estimatePrice } from './pricing.service';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
 import { razorpayConfigured } from './payment.service';
+import { emitBookingEvent } from './realtime.service';
 import { isOwnUploadPath } from './storage.service';
 
 const IST_OFFSET_MS = 330 * 60_000;
@@ -129,7 +131,7 @@ export function toCustomerDetail(b: BookingRow): BookingDetailDto {
     technician: t
       ? {
           id: t.id,
-          name: t.user.name ?? 'FIXORA Professional',
+          name: t.user.name ?? 'RapidFix Professional',
           // The customer sees the number only once the technician has accepted the job.
           phone: TECH_CONTACT_VISIBLE.includes(b.status) ? t.user.phone : null,
           avatarUrl: t.user.avatarUrl,
@@ -437,8 +439,23 @@ export async function cancelCustomerBooking(customerId: string, userId: string, 
         data: { activeJobCount: { decrement: 1 } },
       });
     }
+    // Withdraw any open job offer and tell the technician.
+    await tx.bookingAssignment.updateMany({ where: { bookingId: booking.id, status: 'OFFERED' }, data: { status: 'CANCELLED', respondedAt: new Date() } });
+    const techUserId = await technicianUserId(tx, booking.technicianId);
+    if (techUserId) {
+      await tx.notification.create({
+        data: { userId: techUserId, type: 'BOOKING_CANCELLED', title: 'Job cancelled', body: `${booking.code} was cancelled by the customer.`, data: { bookingId: booking.id } },
+      });
+    }
   });
+  const techUserId = await technicianUserId(prisma, booking.technicianId);
+  emitBookingEvent(booking.id, [userId, techUserId].filter((x): x is string => !!x), SocketEvent.BOOKING_CANCELLED, {});
   return getCustomerBooking(customerId, id);
+}
+
+async function technicianUserId(db: Prisma.TransactionClient, technicianId: string | null) {
+  if (!technicianId) return null;
+  return (await db.technician.findUnique({ where: { id: technicianId }, select: { userId: true } }))?.userId ?? null;
 }
 
 export async function rescheduleCustomerBooking(customerId: string, userId: string, id: string, input: ScheduleInput) {
@@ -456,6 +473,14 @@ export async function rescheduleCustomerBooking(customerId: string, userId: stri
     await tx.bookingStatusHistory.create({
       data: { bookingId: booking.id, fromStatus: booking.status, toStatus: booking.status, changedById: userId, note: 'Rescheduled' },
     });
+    const techUserId = await technicianUserId(tx, booking.technicianId);
+    if (techUserId) {
+      await tx.notification.create({
+        data: { userId: techUserId, type: 'BOOKING_RESCHEDULED', title: 'Job rescheduled', body: `${booking.code} moved to ${scheduledFor.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}.`, data: { bookingId: booking.id } },
+      });
+    }
   });
+  const techUserId = await technicianUserId(prisma, booking.technicianId);
+  emitBookingEvent(booking.id, [userId, techUserId].filter((x): x is string => !!x), SocketEvent.BOOKING_UPDATED, { rescheduled: true });
   return getCustomerBooking(customerId, id);
 }

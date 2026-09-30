@@ -74,8 +74,8 @@ function Dashboard({ d }: { d: TechnicianDashboardDto }) {
       {!verified && (
         <Alert tone="info">
           {p.verificationStatus === 'PENDING'
-            ? 'Your profile is under verification. You can go online and accept jobs once FIXORA approves your documents.'
-            : 'Your partner account needs attention. Please contact FIXORA support.'}
+            ? 'Your profile is under verification. You can go online and accept jobs once RapidFix approves your documents.'
+            : 'Your partner account needs attention. Please contact RapidFix support.'}
         </Alert>
       )}
 

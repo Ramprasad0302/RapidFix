@@ -46,7 +46,7 @@ export const MAIN_NAV: AdminNavItem[] = [
 ];
 
 export const ADMIN_NAV: AdminNavItem[] = [
-  { slug: 'users', label: 'Users & Roles', icon: UserCog, permission: Permission.USERS_MANAGE, description: 'Change what each person can do in FIXORA.' },
+  { slug: 'users', label: 'Users & Roles', icon: UserCog, permission: Permission.USERS_MANAGE, description: 'Change what each person can do in RapidFix.' },
   { slug: 'audit-logs', label: 'Audit Logs', icon: FileText, permission: Permission.AUDIT_VIEW, description: 'Every sensitive admin action, who did it and when.' },
   { slug: 'system-settings', label: 'System Settings', icon: Settings2, permission: Permission.SETTINGS_MANAGE, description: 'Integrations: SMS, payments, maps and notifications.' },
 ];

@@ -47,13 +47,13 @@ export function toAuthUser(u: UserWithTech): AuthUser {
 /** Throws when the account may not sign in (suspended user, suspended/blocked technician). */
 export function assertCanSignIn(user: Pick<User, 'status' | 'role'> & { technician?: { verificationStatus: string } | null }) {
   if (user.status !== 'ACTIVE') {
-    throw AppError.forbidden('Your account is suspended. Please contact FIXORA support.', 'ACCOUNT_SUSPENDED');
+    throw AppError.forbidden('Your account is suspended. Please contact RapidFix support.', 'ACCOUNT_SUSPENDED');
   }
   if (user.role === Role.TECHNICIAN) {
     const vs = user.technician?.verificationStatus;
     if (vs === 'SUSPENDED' || vs === 'BLOCKED') {
       throw AppError.forbidden(
-        `Your partner account is ${vs.toLowerCase()}. Please contact FIXORA support.`,
+        `Your partner account is ${vs.toLowerCase()}. Please contact RapidFix support.`,
         `TECHNICIAN_${vs}`,
       );
     }

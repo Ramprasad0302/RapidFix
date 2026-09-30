@@ -1,4 +1,4 @@
-// FIXORA — database schema (MySQL 8+, Prisma 7)
+// RapidFix — database schema (MySQL 8+, Prisma 7)
 // Conventions:
 //   • Primary keys are UUID strings (CHAR(36)).
 //   • All money is stored as INT paise (₹1 = 100) — never floats.

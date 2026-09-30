@@ -49,7 +49,7 @@ export async function payWithRazorpay(order: RazorpayOrderDto): Promise<Razorpay
       order_id: order.orderId,
       amount: order.amount,
       currency: order.currency,
-      name: 'FIXORA',
+      name: 'RapidFix',
       description: `Booking ${order.bookingCode}`,
       prefill: order.prefill,
       theme: { color: '#1D4ED8' },

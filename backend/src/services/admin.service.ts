@@ -267,7 +267,7 @@ export async function changeRole(actor: { userId: string; role: Role }, targetId
   }
   if (target.role === Role.SUPER_ADMIN) {
     const supers = await prisma.user.count({ where: { role: Role.SUPER_ADMIN, status: 'ACTIVE' } });
-    if (supers <= 1) throw AppError.conflict('FIXORA must keep at least one Super Admin.', 'LAST_SUPER_ADMIN');
+    if (supers <= 1) throw AppError.conflict('RapidFix must keep at least one Super Admin.', 'LAST_SUPER_ADMIN');
   }
   if (isAdminRole(newRole) && !target.phone && !target.email) {
     throw AppError.badRequest('Staff accounts need a phone number or email to sign in.', 'NO_LOGIN_METHOD');

@@ -100,7 +100,7 @@ export function OfferDetailsPage() {
 
           <Dialog open={termsOpen} onClose={() => setTermsOpen(false)} title="Terms & Conditions">
             <ul className="list-disc space-y-2 pl-5 text-[15px] text-slate-700">
-              {o.isFirstBookingOnly && <li>Valid only on your first FIXORA booking.</li>}
+              {o.isFirstBookingOnly && <li>Valid only on your first RapidFix booking.</li>}
               {o.minOrderAmount > 0 && <li>Minimum order value {formatINR(o.minOrderAmount)}.</li>}
               {o.maxDiscountAmount != null && <li>Maximum discount {formatINR(o.maxDiscountAmount)}.</li>}
               {o.terms.map((t) => (

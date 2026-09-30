@@ -312,7 +312,7 @@ function csvCell(v: unknown) {
 function downloadCsv(r: ReportDto) {
   const rupees = (p: number) => (p / 100).toFixed(2);
   const rows: unknown[][] = [
-    ['FIXORA report', `${formatDate(r.from)} – ${formatDate(r.to)}`],
+    ['RapidFix report', `${formatDate(r.from)} – ${formatDate(r.to)}`],
     [],
     ['Summary'],
     ['Bookings', r.bookings],
@@ -387,7 +387,7 @@ export function ReportsPage() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <StatTile label="Bookings" value={r.bookings} hint={`${r.completed} completed · ${r.cancelled} cancelled`} />
             <StatTile label="Revenue" value={formatINR(r.revenue)} hint={`Avg ${formatINR(r.averageBookingValue)} per booking`} />
-            <StatTile label="FIXORA commission" value={formatINR(r.commission)} tone="success" hint={`Partners earned ${formatINR(r.technicianEarnings)}`} />
+            <StatTile label="RapidFix commission" value={formatINR(r.commission)} tone="success" hint={`Partners earned ${formatINR(r.technicianEarnings)}`} />
             <StatTile label="Cancellation rate" value={`${r.cancellationRate}%`} tone={r.cancellationRate > 15 ? 'warning' : undefined} />
             <StatTile label="New customers" value={r.newCustomers} hint={`${r.repeatCustomers} repeat customers`} />
             <StatTile label="New technicians" value={r.newTechnicians} />

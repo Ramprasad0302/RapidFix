@@ -18,14 +18,14 @@ import { AppHeader } from '../components/AppHeader';
 import {
   ActiveBookingStrip,
   CustomerReviews,
-  FixoraPromise,
+  RapidFixPromise,
   HomeFooter,
   HowItWorks,
   InviteBanner,
   OffersStrip,
   TrustNumbers,
 } from '../components/HomeSections';
-import { LocationPrompt } from '../components/LocationPrompt';
+import { PermissionsSheet } from '../../../components/PermissionsSheet';
 import { LocationPicker } from '../components/LocationPicker';
 import { useCategories } from '../queries';
 
@@ -48,16 +48,16 @@ export function HomePage() {
         <TrustedBanner />
         <PopularServices />
         <OffersStrip />
-        <WhyFixora />
+        <WhyRapidFix />
         <NearbyProfessionals />
         <HowItWorks />
         <TrustNumbers />
         <CustomerReviews />
-        <FixoraPromise />
+        <RapidFixPromise />
         <InviteBanner />
         <HomeFooter />
       </main>
-      <LocationPrompt />
+      <PermissionsSheet location="customer" />
     </>
   );
 }
@@ -206,10 +206,10 @@ function PopularServices() {
   );
 }
 
-function WhyFixora() {
+function WhyRapidFix() {
   return (
     <section>
-      <SectionHeader title="Why Choose FIXORA?" subtitle="Built for towns and villages" />
+      <SectionHeader title="Why Choose RapidFix?" subtitle="Built for towns and villages" />
       <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1">
         {WHY.map(({ icon: Icon, color, title, body }) => (
           <div key={title} className="flex w-[46%] max-w-[200px] shrink-0 gap-2.5 rounded-2xl bg-[#F3F6FB] p-3.5">

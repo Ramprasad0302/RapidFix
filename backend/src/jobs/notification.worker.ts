@@ -1,4 +1,5 @@
-import { SocketEvent } from '@fixora/shared-types';
+import { SocketEvent, type Role } from '@fixora/shared-types';
+import { notificationLink } from '@fixora/shared-utils';
 import { logger } from '../config/logger';
 import { prisma } from '../config/prisma';
 import { pushToUser } from '../services/push.service';
@@ -15,6 +16,7 @@ export async function deliverPendingNotifications(limit = 100): Promise<number> 
     where: { pushedAt: null },
     orderBy: { createdAt: 'asc' },
     take: limit,
+    include: { user: { select: { role: true } } },
   });
   for (const n of pending) {
     // Claim first so a second worker/instance can't double-send.
@@ -22,7 +24,8 @@ export async function deliverPendingNotifications(limit = 100): Promise<number> 
     if (!count) continue;
     emitToUser(n.userId, SocketEvent.NOTIFICATION, { id: n.id, type: n.type, title: n.title, body: n.body, data: n.data ?? null });
     const data = Object.fromEntries(Object.entries((n.data as Record<string, unknown> | null) ?? {}).map(([k, v]) => [k, String(v)]));
-    await pushToUser(n.userId, { title: n.title, body: n.body, data: { type: n.type, ...data } }).catch((err) =>
+    const url = notificationLink(n.user.role as Role, n.type, n.data as Record<string, unknown> | null);
+    await pushToUser(n.userId, { title: n.title, body: n.body, data: { type: n.type, url, notificationId: n.id, ...data } }).catch((err) =>
       logger.warn({ err: (err as Error).message }, 'push delivery failed'),
     );
   }
