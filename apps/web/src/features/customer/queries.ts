@@ -22,7 +22,9 @@ export function useUnreadCount() {
 }
 
 /** Support phone/email from admin Settings, with built-in fallbacks while loading or offline. */
+export const useAppConfig = () => useQuery({ queryKey: ['app-config'], queryFn: trustApi.appConfig, staleTime: 30 * 60_000 });
+
 export function useSupportContacts() {
-  const q = useQuery({ queryKey: ['app-config'], queryFn: trustApi.appConfig, staleTime: 30 * 60_000 });
+  const q = useAppConfig();
   return { phone: q.data?.supportPhone ?? SUPPORT_PHONE, email: q.data?.supportEmail ?? SUPPORT_EMAIL };
 }

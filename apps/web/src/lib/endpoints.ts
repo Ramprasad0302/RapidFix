@@ -76,6 +76,7 @@ export const authApi = {
   sendOtp: (phone: string) => unwrap<SendOtpResult>(api.post('/auth/send-otp', { phone }, { skipAuthRefresh: true })),
   verifyOtp: (phone: string, otp: string) =>
     unwrap<AuthSession>(api.post('/auth/verify-otp', { phone, otp }, { skipAuthRefresh: true })),
+  firebaseLogin: (idToken: string) => unwrap<AuthSession>(api.post('/auth/firebase', { idToken }, { skipAuthRefresh: true })),
   passwordLogin: (email: string, password: string) =>
     unwrap<AuthSession>(api.post('/auth/login', { email, password }, { skipAuthRefresh: true })),
 };
@@ -97,7 +98,7 @@ export const catalogApi = {
 export const trustApi = {
   stats: () => unwrap<PublicStatsDto>(api.get('/stats/public')),
   reviews: () => unwrap<FeaturedReviewDto[]>(api.get('/reviews/featured')),
-  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string }>(api.get('/app-config')),
+  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string; otpProvider: 'server' | 'firebase' }>(api.get('/app-config')),
 };
 
 // ─── Geocoding (server-side proxy) ───────────────────────────────────────

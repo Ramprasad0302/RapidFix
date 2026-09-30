@@ -16,8 +16,9 @@ const schema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
 
-  // `console` prints codes to the log (development only — production refuses it); `msg91` sends SMS.
-  OTP_PROVIDER: z.enum(['console', 'msg91']).default('console'),
+  // `console` prints codes to the log (development only — production refuses it); `msg91` sends SMS
+  // from the server; `firebase` = Firebase phone auth in the app, verified here (needs FIREBASE_PROJECT_ID).
+  OTP_PROVIDER: z.enum(['console', 'msg91', 'firebase']).default('console'),
   OTP_API_KEY: z.string().optional().default(''),
   OTP_TEMPLATE_ID: z.string().optional().default(''),
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
@@ -71,6 +72,11 @@ if (parsed.data.NODE_ENV === 'production' && parsed.data.OTP_PROVIDER === 'conso
 
 if (parsed.data.OTP_PROVIDER === 'msg91' && (!parsed.data.OTP_API_KEY || !parsed.data.OTP_TEMPLATE_ID)) {
   console.error('OTP_PROVIDER=msg91 needs OTP_API_KEY and OTP_TEMPLATE_ID.');
+  process.exit(1);
+}
+
+if (parsed.data.OTP_PROVIDER === 'firebase' && !parsed.data.FIREBASE_PROJECT_ID) {
+  console.error('OTP_PROVIDER=firebase needs FIREBASE_PROJECT_ID.');
   process.exit(1);
 }
 

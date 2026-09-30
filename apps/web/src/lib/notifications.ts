@@ -1,4 +1,5 @@
 import { api } from './api';
+import { firebaseConfigured, getFirebaseApp } from './firebase';
 
 /**
  * System notifications for RapidFix.
@@ -12,14 +13,8 @@ import { api } from './api';
 
 type Permission = NotificationPermission | 'unsupported';
 
-const FIREBASE = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID as string | undefined,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined,
-  vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined,
-};
-export const pushConfigured = () => !!(FIREBASE.apiKey && FIREBASE.projectId && FIREBASE.appId && FIREBASE.messagingSenderId && FIREBASE.vapidKey);
+const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+export const pushConfigured = () => firebaseConfigured() && !!import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID && !!VAPID_KEY;
 
 const TOKEN_KEY = 'rapidfix.pushToken';
 let registration: Promise<ServiceWorkerRegistration | null> = Promise.resolve(null);
@@ -79,10 +74,10 @@ export async function enablePush() {
   try {
     const reg = await registration;
     if (!reg) return;
-    const [{ initializeApp, getApps }, { getMessaging, getToken, isSupported }] = await Promise.all([import('firebase/app'), import('firebase/messaging')]);
+    const { getMessaging, getToken, isSupported } = await import('firebase/messaging');
     if (!(await isSupported())) return;
-    const app = getApps()[0] ?? initializeApp(FIREBASE);
-    const token = await getToken(getMessaging(app), { vapidKey: FIREBASE.vapidKey, serviceWorkerRegistration: reg });
+    const app = await getFirebaseApp();
+    const token = await getToken(getMessaging(app), { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (!token) return;
     await api.post('/notifications/tokens', { token, platform: 'WEB' });
     writeToken(token);

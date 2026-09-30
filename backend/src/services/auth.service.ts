@@ -5,6 +5,7 @@ import { env } from '../config/env';
 import { prisma } from '../config/prisma';
 import { Prisma, type User } from '../generated/prisma/client';
 import { AppError } from '../utils/AppError';
+import { verifyFirebasePhoneToken } from './firebaseAuth.service';
 import { generateOtp, hmacSha256, randomReferralCode, safeEqual } from '../utils/crypto';
 import { recordAudit } from './audit.service';
 import { otpProvider } from './otp';
@@ -63,6 +64,8 @@ export function assertCanSignIn(user: Pick<User, 'status' | 'role'> & { technici
 // ─── OTP ─────────────────────────────────────────────────────────────────
 
 export async function sendOtp(rawPhone: string, meta: ClientMeta): Promise<SendOtpResult> {
+  // With Firebase, the SMS is sent by Firebase from the app (reCAPTCHA-protected), not by us.
+  if (env.OTP_PROVIDER === 'firebase') throw AppError.badRequest('Please update the app to sign in.', 'USE_FIREBASE_OTP');
   const phone = toE164India(rawPhone);
 
   const existing = await prisma.user.findUnique({ where: { phone }, include: userInclude });
@@ -181,9 +184,24 @@ async function startSession(user: UserWithTech, meta: ClientMeta, isNewUser?: bo
 }
 
 export async function verifyOtp(rawPhone: string, code: string, meta: ClientMeta) {
+  if (env.OTP_PROVIDER === 'firebase') throw AppError.badRequest('Please verify with the code sent by SMS.', 'USE_FIREBASE_OTP');
   const phone = toE164India(rawPhone);
   await consumeOtp(phone, code);
+  return signInVerifiedPhone(phone, meta);
+}
 
+/**
+ * Firebase phone sign-in: the app verified the SMS code with Firebase and sends
+ * us Firebase's ID token. Only Indian mobile numbers are accepted.
+ */
+export async function firebaseLogin(idToken: string, meta: ClientMeta) {
+  const phone = await verifyFirebasePhoneToken(idToken);
+  if (!/^\+91[6-9]\d{9}$/.test(phone)) throw AppError.badRequest('Please use an Indian mobile number.', 'UNSUPPORTED_PHONE');
+  return signInVerifiedPhone(phone, meta);
+}
+
+/** Existing account → sign in; new number → customer account. */
+async function signInVerifiedPhone(phone: string, meta: ClientMeta) {
   let user = await prisma.user.findUnique({ where: { phone }, include: userInclude });
   let isNewUser = false;
   if (!user) {

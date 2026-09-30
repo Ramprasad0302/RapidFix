@@ -35,6 +35,12 @@ export const verifyOtp: RequestHandler = async (req, res) => {
   ok(res, session);
 };
 
+export const firebaseLogin: RequestHandler = async (req, res) => {
+  const { session, refreshToken } = await authService.firebaseLogin(req.body.idToken, meta(req));
+  setRefreshCookie(res, refreshToken);
+  ok(res, session);
+};
+
 export const passwordLogin: RequestHandler = async (req, res) => {
   const { session, refreshToken } = await authService.passwordLogin(req.body.email, req.body.password, meta(req));
   setRefreshCookie(res, refreshToken);

@@ -312,7 +312,7 @@ export async function systemStatus(): Promise<SystemStatusDto> {
     version: '1.0.0',
     database: { ok: dbOk, latencyMs },
     integrations: [
-      { name: 'SMS / OTP', configured: env.OTP_PROVIDER !== 'console', detail: env.OTP_PROVIDER === 'console' ? 'Development console (codes shown on screen)' : 'MSG91 SMS (DLT template)' },
+      { name: 'SMS / OTP', configured: env.OTP_PROVIDER !== 'console', detail: env.OTP_PROVIDER === 'console' ? 'Development console (codes shown on screen)' : env.OTP_PROVIDER === 'firebase' ? 'Firebase phone authentication' : 'MSG91 SMS (DLT template)' },
       { name: 'Razorpay payments', configured: razorpayConfigured(), detail: razorpayConfigured() ? `Key ${env.RAZORPAY_KEY_ID.slice(0, 12)}…` : 'Cash / UPI only' },
       { name: 'Razorpay webhooks', configured: !!env.RAZORPAY_WEBHOOK_SECRET, detail: '/api/v1/payments/razorpay/webhook' },
       { name: 'Google Maps', configured: !!env.GOOGLE_MAPS_API_KEY, detail: env.GOOGLE_MAPS_API_KEY ? 'Geocoding + maps' : 'OpenStreetMap fallback (development)' },

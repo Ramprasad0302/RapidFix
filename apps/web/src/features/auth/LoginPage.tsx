@@ -9,6 +9,9 @@ import { adminLoginSchema, formatIndianPhone, sendOtpSchema, toE164India } from 
 import { Alert, Button, Logo, OtpInput, TextField } from '@fixora/ui';
 import { OtpPhoneArt } from '../../components/art/Scenes';
 import { authApi } from '../../lib/endpoints';
+import { disposeRecaptcha, firebaseOtp, RECAPTCHA_CONTAINER, serverOtp, type OtpSender } from '../../lib/phoneOtp';
+import { CenteredSpinner } from '../../components/States';
+import { useAppConfig } from '../customer/queries';
 import { authActions, homeFor, useAuth } from '../../store/auth';
 
 type Step = 'phone' | 'otp' | 'password';
@@ -45,6 +48,9 @@ export function LoginPage() {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [otpInfo, setOtpInfo] = useState<OtpInfo>({ resendAt: 0 });
+  const config = useAppConfig();
+  const sender: OtpSender = config.data?.otpProvider === 'firebase' ? firebaseOtp : serverOtp;
+  useEffect(() => disposeRecaptcha, []);
 
   if (status === 'authenticated' && role) return <Navigate to={destinationFor(role, redirect)} replace />;
 
@@ -66,8 +72,12 @@ export function LoginPage() {
         </button>
       </header>
       <main className="flex flex-1 flex-col px-6 pb-8">
-        {step === 'phone' && (
+        {/* Firebase attaches its invisible reCAPTCHA here (phone sign-in via Firebase). */}
+        <div id={RECAPTCHA_CONTAINER} />
+        {config.isPending && step !== 'password' && <CenteredSpinner />}
+        {!config.isPending && step === 'phone' && (
           <PhoneStep
+            sender={sender}
             heading={fromBooking ? 'Login to continue' : 'Login or Sign up'}
             subheading={fromBooking ? 'Please login to confirm your booking' : 'Enter your mobile number to continue'}
             onSent={(p, info) => {
@@ -78,7 +88,7 @@ export function LoginPage() {
             onUsePassword={() => setStep('password')}
           />
         )}
-        {step === 'otp' && <OtpStep phone={phone} info={otpInfo} onInfo={setOtpInfo} onVerified={finish} />}
+        {step === 'otp' && <OtpStep sender={sender} phone={phone} info={otpInfo} onInfo={setOtpInfo} onVerified={finish} />}
         {step === 'password' && <PasswordStep onSignedIn={finish} />}
       </main>
     </div>
@@ -98,11 +108,13 @@ interface OtpInfo {
 const secondsFromNow = (seconds: number) => Date.now() + seconds * 1000;
 
 function PhoneStep({
+  sender,
   heading,
   subheading,
   onSent,
   onUsePassword,
 }: {
+  sender: OtpSender;
   heading: string;
   subheading: string;
   onSent(phone: string, info: OtpInfo): void;
@@ -114,7 +126,7 @@ function PhoneStep({
   const submit = form.handleSubmit(async ({ phone }) => {
     setError(null);
     try {
-      const res = await authApi.sendOtp(phone);
+      const res = await sender.send(phone);
       onSent(phone, { resendAt: secondsFromNow(res.resendInSeconds), devCode: res.devCode });
     } catch (e) {
       const err = asError(e);
@@ -197,7 +209,19 @@ function PhoneStep({
 
 // ─── Step 2: OTP ─────────────────────────────────────────────────────────
 
-function OtpStep({ phone, info, onInfo, onVerified }: { phone: string; info: OtpInfo; onInfo(i: OtpInfo): void; onVerified(s: AuthSession): void }) {
+function OtpStep({
+  sender,
+  phone,
+  info,
+  onInfo,
+  onVerified,
+}: {
+  sender: OtpSender;
+  phone: string;
+  info: OtpInfo;
+  onInfo(i: OtpInfo): void;
+  onVerified(s: AuthSession): void;
+}) {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -215,7 +239,7 @@ function OtpStep({ phone, info, onInfo, onVerified }: { phone: string; info: Otp
     setVerifying(true);
     setError(null);
     try {
-      onVerified(await authApi.verifyOtp(phone, code));
+      onVerified(await sender.verify(phone, code));
     } catch (e) {
       setError(asError(e).message);
       setOtp('');
@@ -228,7 +252,7 @@ function OtpStep({ phone, info, onInfo, onVerified }: { phone: string; info: Otp
     setError(null);
     setOtp('');
     try {
-      const res = await authApi.sendOtp(phone);
+      const res = await sender.send(phone);
       onInfo({ resendAt: secondsFromNow(res.resendInSeconds), devCode: res.devCode });
       setNow(Date.now());
     } catch (e) {

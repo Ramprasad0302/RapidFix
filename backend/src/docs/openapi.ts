@@ -35,6 +35,7 @@ export const ROUTES: RouteDoc[] = [
   R('get', '/health', 'System', 'Liveness + database check', 'public'),
   R('post', '/auth/send-otp', 'Auth', 'Send a login OTP (rate limited, 30 s resend cooldown)', 'public', { body: sendOtpSchema }),
   R('post', '/auth/verify-otp', 'Auth', 'Verify OTP → access token + httpOnly refresh cookie. New numbers become customers.', 'public', { body: verifyOtpSchema }),
+  R('post', '/auth/firebase', 'Auth', 'Exchange a Firebase phone-auth ID token (OTP_PROVIDER=firebase) for a session', 'public', { body: obj({ idToken: str }) }),
   R('post', '/auth/login', 'Auth', 'Staff email + password login', 'public', { body: adminLoginSchema }),
   R('post', '/auth/refresh', 'Auth', 'Rotate the refresh cookie and issue a new access token (reuse is detected and revokes the family)', 'public'),
   R('post', '/auth/logout', 'Auth', 'Revoke the current refresh token', 'public'),

@@ -169,7 +169,8 @@ operations → technicians, super admin → staff). Every sensitive action is wr
 
 | Feature | Without keys (dev) | With keys |
 |---|---|---|
-| OTP | shown on screen / API log | `OTP_PROVIDER=msg91`, `OTP_API_KEY`, `OTP_TEMPLATE_ID` (DLT template with `##otp##`) |
+| OTP | shown on screen / API log | `OTP_PROVIDER=msg91` + `OTP_API_KEY`, `OTP_TEMPLATE_ID` (DLT template with `##otp##`) **or** `OTP_PROVIDER=firebase` + `FIREBASE_PROJECT_ID` (API) and `VITE_FIREBASE_*` (web) — see docs/SETUP-HOSTINGER-FIREBASE.md |
+| Database | local MySQL | any MySQL 8 / MariaDB 10.6+ (e.g. Hostinger) via `DATABASE_URL` |
 | Payments | Cash / UPI collected by the technician | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` |
 | Push | in-app + socket notifications | `PUSH_PROVIDER=fcm` + `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` |
 | Geocoding | OpenStreetMap Nominatim (low volume) | `GOOGLE_MAPS_API_KEY` (server) |

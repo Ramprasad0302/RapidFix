@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { adminLoginSchema, sendOtpSchema, verifyOtpSchema } from '@fixora/shared-utils';
 import * as auth from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth';
@@ -10,6 +11,7 @@ export const authRouter = Router();
 
 authRouter.post('/send-otp', otpSendLimiter, validate(sendOtpSchema), auth.sendOtp);
 authRouter.post('/verify-otp', otpVerifyLimiter, validate(verifyOtpSchema), auth.verifyOtp);
+authRouter.post('/firebase', otpVerifyLimiter, validate(z.object({ idToken: z.string().min(100).max(4096) })), auth.firebaseLogin);
 authRouter.post('/login', adminLoginLimiter, validate(adminLoginSchema), auth.passwordLogin);
 
 authRouter.post('/refresh', refreshLimiter, auth.refresh);
