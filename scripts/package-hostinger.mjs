@@ -24,6 +24,12 @@ const run = (cmd) => execSync(cmd, { cwd: root, stdio: 'inherit' });
 const ANDROID_PACKAGE = 'in.rapidfix.app';
 const ANDROID_UPLOAD_SHA256 = 'FD:F6:26:E9:2F:D8:C4:35:59:B5:2E:89:6B:65:C8:04:F6:D0:E5:F8:C5:2A:D7:F0:5D:F9:B2:D5:74:AA:ED:B2';
 
+/** package.json first (hosts detect the framework from it), then everything else. */
+const zipDir = (file, cwd) => {
+  execSync(`zip -q "${file}" package.json`, { cwd, stdio: 'inherit' });
+  execSync(`zip -qr "${file}" . -x '*.DS_Store' -x package.json`, { cwd, stdio: 'inherit' });
+};
+
 console.log('▸ Building website and API…');
 run('npm run build -w @fixora/web');
 run('npm run db:generate -w @fixora/backend');
@@ -112,7 +118,7 @@ Health check: https://<your-domain>/api/v1/health
 );
 
 rmSync(zip, { force: true });
-execSync(`zip -qr "${zip}" . -x '*.DS_Store'`, { cwd: out, stdio: 'inherit' });
+zipDir(zip, out);
 console.log(`✔ ${zip}`);
 if (!existsSync(zip)) process.exit(1);
 
@@ -130,7 +136,7 @@ writeFileSync(
   ),
 );
 rmSync(apiZip, { force: true });
-execSync(`zip -qr "${apiZip}" . -x '*.DS_Store'`, { cwd: apiOut, stdio: 'inherit' });
+zipDir(apiZip, apiOut);
 console.log(`✔ ${apiZip}`);
 
 // ─── Frontend-only Node app (Express static server) for a separate website app ───────────────
@@ -229,5 +235,5 @@ The backend (rapidfix-backend.zip) must run at that address with CORS_ORIGINS=ht
 `,
 );
 rmSync(webZip, { force: true });
-execSync(`zip -qr "${webZip}" . -x '*.DS_Store'`, { cwd: webOut, stdio: 'inherit' });
+zipDir(webZip, webOut);
 console.log(`✔ ${webZip}`);
