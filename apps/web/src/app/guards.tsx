@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation, useParams } from 'react-router';
 import { Role } from '@fixora/shared-types';
 import { DesktopTopBar } from '../components/DesktopTopBar';
+import { NotificationNudge } from '../components/NotificationNudge';
 import { SplashScreen } from '../components/SplashScreen';
 import { homeFor, useAuth } from '../store/auth';
 
@@ -60,6 +61,7 @@ export function AreaFrame({ area }: { area: 'customer' | 'technician' }) {
   return (
     <div className="min-h-dvh overflow-x-clip lg:bg-slate-50">
       <DesktopTopBar area={area} />
+      <NotificationNudge area={area} />
       <Outlet />
     </div>
   );

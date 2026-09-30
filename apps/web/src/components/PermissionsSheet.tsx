@@ -9,7 +9,8 @@ import { LocationPicker } from '../features/customer/components/LocationPicker';
 import { Dialog } from './Dialog';
 
 type State = 'granted' | 'denied' | 'prompt' | 'unsupported';
-const SESSION_KEY = 'rapidfix.permissionsAsked';
+const GEO_KEY = 'rapidfix.permissionsAsked';
+const NOTIF_KEY = 'rapidfix.notificationsAsked';
 
 async function geolocationState(): Promise<State> {
   if (!('geolocation' in navigator)) return 'unsupported';
@@ -26,14 +27,16 @@ const notifState = (): State => {
   return p === 'default' ? 'prompt' : p;
 };
 
-function sessionFlag(set?: boolean) {
+/** Each question is asked at most once per session — separately, so logging in still brings up notifications. */
+export function sessionFlag(key: string, set?: boolean) {
   try {
-    if (set) sessionStorage.setItem(SESSION_KEY, '1');
-    return sessionStorage.getItem(SESSION_KEY) === '1';
+    if (set) sessionStorage.setItem(key, '1');
+    return sessionStorage.getItem(key) === '1';
   } catch {
     return false;
   }
 }
+export const NOTIFICATIONS_ASKED_KEY = NOTIF_KEY;
 
 /** Short label for the header from a reverse-geocoded point. */
 export async function locateAndSelect(select: ReturnType<typeof useLocationStore.getState>['select']) {
@@ -56,7 +59,8 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
   const [notif, setNotif] = useState<State>(notifState);
   const [busy, setBusy] = useState<'geo' | 'notif' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [dismissed, setDismissed] = useState(sessionFlag);
+  const [geoDismissed, setGeoDismissed] = useState(() => sessionFlag(GEO_KEY));
+  const [notifDismissed, setNotifDismissed] = useState(() => sessionFlag(NOTIF_KEY));
 
   useEffect(() => {
     let alive = true;
@@ -75,12 +79,21 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
   const needGeo = !!location && (geo === 'prompt' || (location === 'customer' && !selected && (geo === 'denied' || geo === 'unsupported')));
   const [manual, setManual] = useState(false);
   const needNotif = authed && notif === 'prompt' && notificationsSupported();
-  const open = !dismissed && geo !== null && (needGeo || needNotif);
+  const askGeo = needGeo && !geoDismissed;
+  const askNotif = needNotif && !notifDismissed;
+  const open = geo !== null && (askGeo || askNotif);
 
   const close = () => {
-    sessionFlag(true);
+    // Only the questions shown now count as asked; the other one can still come up later (e.g. after login).
+    if (askGeo || !needGeo) {
+      sessionFlag(GEO_KEY, true);
+      setGeoDismissed(true);
+    }
+    if (askNotif || !authed) {
+      if (authed) sessionFlag(NOTIF_KEY, true);
+      setNotifDismissed(authed);
+    }
     markPromptSeen();
-    setDismissed(true);
   };
 
   const allowLocation = async () => {
