@@ -78,9 +78,11 @@ so the admin charts are meaningful. Re-running it replaces the demo bookings of 
 
 | Who | How to sign in |
 |---|---|
-| Customer "Ram Kumar" | phone `90000 00001` + OTP |
-| Technician "Ravi Kumar" | phone `90000 00101` + OTP |
-| Super Admin | phone `90000 00900` + OTP, **or** "RapidFix staff? Sign in with email" with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from `backend/.env` |
+| Customer "Ram Kumar" | phone `93639 39199` + OTP |
+| Technician "Ravi Kumar" | phone `95055 82333` + OTP |
+| Super Admin | phone `94919 63366` + OTP, **or** "RapidFix staff? Sign in with email" with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from `backend/.env` |
+
+These three are also registered as Firebase test numbers (fixed OTP, no SMS). Other demo accounts use `90000 00xxx` numbers.
 
 With `OTP_PROVIDER=console` the OTP is shown on the verify screen and printed in the API log (development only —
 production refuses `console`; use `OTP_PROVIDER=msg91`).

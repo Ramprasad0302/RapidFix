@@ -145,8 +145,11 @@ const KANDUKUR = LOCATIONS[1]!;
 
 // ─── People (fictitious) ─────────────────────────────────────────────────
 
+/** Owner's real numbers (Firebase test numbers) for the main demo accounts. */
+const OWNER_PHONES = { superAdmin: '+919491963366', technician: '+919505582333', customer: '+919363939199' } as const;
+
 const TECHNICIANS = [
-  { phone: '+919000000101', name: 'Ravi Kumar', skills: ['ac-cooling', 'electrical', 'appliance-repair'], exp: 6, town: TANUKU, dLat: 0.018, dLng: 0.012, rating: 4.8, count: 120, status: 'VERIFIED', online: true },
+  { phone: OWNER_PHONES.technician, name: 'Ravi Kumar', skills: ['ac-cooling', 'electrical', 'appliance-repair'], exp: 6, town: TANUKU, dLat: 0.018, dLng: 0.012, rating: 4.8, count: 120, status: 'VERIFIED', online: true },
   { phone: '+919000000102', name: 'Suresh Reddy', skills: ['electrical', 'cctv'], exp: 8, town: TANUKU, dLat: -0.02, dLng: 0.015, rating: 4.7, count: 95, status: 'VERIFIED', online: true },
   { phone: '+919000000103', name: 'Prakash Rao', skills: ['plumbing', 'ro-service'], exp: 4, town: TANUKU, dLat: 0.01, dLng: -0.02, rating: 4.6, count: 64, status: 'VERIFIED', online: true },
   { phone: '+919000000104', name: 'Imran Khan', skills: ['plumbing'], exp: 5, town: KANDUKUR, dLat: 0.012, dLng: 0.016, rating: 4.7, count: 58, status: 'VERIFIED', online: true },
@@ -161,10 +164,10 @@ const CUSTOMER_NAMES = [
   'Kiran Rao', 'Lavanya Devi', 'Arjun Naidu', 'Sravani K', 'Harish Babu', 'Divya Reddy', 'Mohan Das', 'Swathi M',
   'Gopal Krishna', 'Padma Latha', 'Venkat Rao', 'Keerthi S', 'Naresh P',
 ];
-const customerPhone = (i: number) => `+9190000000${String(i + 1).padStart(2, '0')}`;
+const customerPhone = (i: number) => (i === 0 ? OWNER_PHONES.customer : `+9190000000${String(i + 1).padStart(2, '0')}`);
 
 const STAFF: { phone: string; email: string; name: string; role: Role }[] = [
-  { phone: '+919000000900', email: process.env.SEED_ADMIN_EMAIL ?? 'admin@rapidfix.local', name: 'RapidFix Admin', role: 'SUPER_ADMIN' },
+  { phone: OWNER_PHONES.superAdmin, email: process.env.SEED_ADMIN_EMAIL ?? 'admin@rapidfix.local', name: 'RapidFix Admin', role: 'SUPER_ADMIN' },
   { phone: '+919000000901', email: 'ops@rapidfix.local', name: 'Ops Admin', role: 'OPERATIONS' },
   { phone: '+919000000902', email: 'support@rapidfix.local', name: 'Support Admin', role: 'SUPPORT' },
   { phone: '+919000000903', email: 'finance@rapidfix.local', name: 'Finance Admin', role: 'FINANCE' },
