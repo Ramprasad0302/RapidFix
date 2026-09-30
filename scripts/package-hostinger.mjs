@@ -126,3 +126,87 @@ writeFileSync(
 rmSync(apiZip, { force: true });
 execSync(`zip -qr "${apiZip}" . -x '*.DS_Store'`, { cwd: apiOut, stdio: 'inherit' });
 console.log(`✔ ${apiZip}`);
+
+// ─── Frontend-only Node app (Express static server) for a separate website app ───────────────
+// Hostinger's Node.js hosting only accepts framework projects, so the built website ships with
+// a tiny Express server. Its config.js points the browser at the separate API.
+const webOut = path.join(root, 'build', 'hostinger-frontend');
+const webZip = process.env.OUT_WEB_ZIP ?? path.join(homedir(), 'Desktop', 'rapidfix-frontend.zip');
+const apiUrl = process.env.FRONTEND_API_URL ?? 'https://api.rapidfix.in/api/v1';
+rmSync(webOut, { recursive: true, force: true });
+mkdirSync(webOut, { recursive: true });
+cpSync(path.join(root, 'apps/web/dist'), path.join(webOut, 'public'), { recursive: true });
+rmSync(path.join(webOut, 'public', '.htaccess'), { force: true });
+const cfgPath = path.join(webOut, 'public', 'config.js');
+writeFileSync(cfgPath, readFileSync(cfgPath, 'utf8').replace("  apiUrl: '',", `  apiUrl: '${apiUrl}',`));
+const webDeps = Object.fromEntries(['express', 'compression'].map((d) => [d, backendPkg.dependencies[d]]));
+writeFileSync(
+  path.join(webOut, 'package.json'),
+  JSON.stringify(
+    {
+      name: 'rapidfix-frontend',
+      version: '1.0.0',
+      private: true,
+      description: 'RapidFix website (static build served by Express).',
+      main: 'server.js',
+      engines: { node: '>=22' },
+      scripts: { start: 'node server.js', build: 'echo "Already built — nothing to do"' },
+      dependencies: webDeps,
+    },
+    null,
+    2,
+  ) + '\n',
+);
+writeFileSync(
+  path.join(webOut, 'server.js'),
+  `// RapidFix website server: serves the built app in ./public (Hostinger runs: npm start).
+const path = require('node:path');
+const express = require('express');
+const compression = require('compression');
+
+const app = express();
+const dir = path.join(__dirname, 'public');
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+app.use(compression());
+app.use((req, res, next) => {
+  // Always HTTPS (phones need it for location, notifications and app install).
+  if (req.get('x-forwarded-proto') === 'http') return res.redirect(301, 'https://' + req.get('host') + req.originalUrl);
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+  next();
+});
+// Hashed build files never change; the app shell, settings and service worker are always revalidated.
+app.use('/assets', express.static(path.join(dir, 'assets'), { immutable: true, maxAge: '365d', index: false }));
+app.use(
+  express.static(dir, {
+    index: false,
+    setHeaders: (res, file) => {
+      res.setHeader('Cache-Control', /(\\.html|sw\\.js|config\\.js|\\.webmanifest)$/.test(file) ? 'no-cache' : 'public, max-age=86400');
+    },
+  }),
+);
+// Every app address (/bookings/123, /admin, …) loads the app.
+app.get(/.*/, (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(dir, 'index.html'));
+});
+
+const port = process.env.PORT || 3000; // a number, or a socket path from the host
+app.listen(/^\\d+$/.test(String(port)) ? Number(port) : port, () => console.log('RapidFix website listening on ' + port));
+`,
+);
+writeFileSync(
+  path.join(webOut, 'README-DEPLOY.txt'),
+  `RapidFix website (frontend) — Hostinger Node.js app on rapidfix.in
+Framework: Express · Entry: server.js · Start: npm start · Node 22
+No environment variables needed.
+The API address and Firebase settings are in public/config.js (apiUrl = ${apiUrl}).
+The backend (rapidfix-backend.zip) must run at that address with CORS_ORIGINS=https://rapidfix.in,https://www.rapidfix.in
+`,
+);
+rmSync(webZip, { force: true });
+execSync(`zip -qr "${webZip}" . -x '*.DS_Store'`, { cwd: webOut, stdio: 'inherit' });
+console.log(`✔ ${webZip}`);
