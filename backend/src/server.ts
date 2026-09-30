@@ -14,7 +14,7 @@ const stopDispatch = startDispatchWorker();
 const stopNotifications = startNotificationWorker();
 
 httpServer.listen(env.PORT, () => {
-  logger.info(`RapidFix API listening on http://localhost:${env.PORT}${env.API_PREFIX}`);
+  logger.info(typeof env.PORT === 'number' ? `RapidFix API listening on http://localhost:${env.PORT}${env.API_PREFIX}` : `RapidFix API listening on ${env.PORT}`);
 });
 
 async function shutdown(signal: string) {

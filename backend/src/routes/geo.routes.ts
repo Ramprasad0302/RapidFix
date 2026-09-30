@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
+import { limiterBase } from '../middleware/rateLimit';
 import { z } from 'zod';
 import { env } from '../config/env';
 import { validate } from '../middleware/validate';
@@ -11,6 +12,7 @@ export const geoRouter = Router();
 
 geoRouter.use(
   rateLimit({
+    ...limiterBase,
     windowMs: 60_000,
     limit: 40,
     standardHeaders: 'draft-8',

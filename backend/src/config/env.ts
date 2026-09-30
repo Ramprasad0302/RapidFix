@@ -2,7 +2,11 @@ import { z } from 'zod';
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(4000),
+  // A TCP port, or a socket path when a host (e.g. LiteSpeed on Hostinger) hands one to the app.
+  PORT: z
+    .string()
+    .default('4000')
+    .transform((v) => (/^\d+$/.test(v.trim()) ? Number(v.trim()) : v.trim())),
   API_PREFIX: z.string().default('/api/v1'),
   CORS_ORIGINS: z
     .string()

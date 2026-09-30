@@ -9,6 +9,7 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { docsEnabled, docsRouter } from './docs/docs.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { limiterBase } from './middleware/rateLimit';
 import { apiRouter } from './routes';
 import { handleRazorpayWebhook } from './services/payment.service';
 import { UPLOAD_DIR } from './services/storage.service';
@@ -63,7 +64,7 @@ export function createApp() {
   // Coarse global limit; stricter limits are applied to OTP/login routes.
   app.use(
     env.API_PREFIX,
-    rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false }),
+    rateLimit({ ...limiterBase, windowMs: 60_000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false }),
   );
 
   app.use(env.API_PREFIX, apiRouter);

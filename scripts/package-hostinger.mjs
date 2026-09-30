@@ -27,7 +27,8 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 
 // Compiled API (our own shared packages and the Prisma client are bundled in).
-cpSync(path.join(root, 'backend/dist/server.js'), path.join(out, 'server.js'));
+// .mjs = always an ES module, whatever the host's loader; start.js stays CommonJS.
+cpSync(path.join(root, 'backend/dist/server.js'), path.join(out, 'server.mjs'));
 // Website, served by the API. config.js keeps apiUrl empty = same domain.
 cpSync(path.join(root, 'apps/web/dist'), path.join(out, 'public'), { recursive: true });
 rmSync(path.join(out, 'public', '.htaccess'), { force: true });
@@ -46,7 +47,6 @@ writeFileSync(
       version: '1.0.0',
       private: true,
       description: 'RapidFix — Get It Fixed. Website + API (Express).',
-      type: 'module',
       main: 'start.js',
       engines: { node: '>=22' },
       scripts: {
@@ -63,7 +63,8 @@ writeFileSync(
 // Entry point: production defaults that point at this folder's layout, then the server.
 writeFileSync(
   path.join(out, 'start.js'),
-  `// RapidFix entry point (Hostinger runs: npm start)
+  `// RapidFix entry point (Hostinger runs: npm start, or loads this file directly).
+// Plain CommonJS on purpose: some hosts load the startup file with require().
 const defaults = {
   NODE_ENV: 'production',
   SERVE_WEB: 'on',
@@ -79,7 +80,10 @@ try {
 } catch {
   /* no .env file */
 }
-await import('./server.js');
+import('./server.mjs').catch((err) => {
+  console.error('RapidFix failed to start:', err);
+  process.exit(1);
+});
 `,
 );
 
