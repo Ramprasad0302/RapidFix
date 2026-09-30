@@ -3,6 +3,9 @@ import { testDatabaseUrl } from './testDbUrl';
 // Must run before any src/ module reads `env`.
 process.env.DATABASE_URL = testDatabaseUrl();
 process.env.NODE_ENV = 'test';
+// Tests never depend on the developer's .env choices (Firebase OTP, push); suites that need them set them.
+process.env.OTP_PROVIDER = 'console';
+process.env.PUSH_PROVIDER = 'none';
 
 // Deterministic fake gateway credentials — outbound calls are mocked in tests.
 process.env.RAZORPAY_KEY_ID = 'rzp_test_fixora';
