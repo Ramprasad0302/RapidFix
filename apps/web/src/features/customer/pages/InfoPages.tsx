@@ -99,16 +99,94 @@ export function TermsPage() {
   );
 }
 
+const PRIVACY: [string, string[]][] = [
+  [
+    'What we collect',
+    [
+      'Account: mobile number (verified by OTP), name, email and date of birth.',
+      'Addresses you save for service visits, and your location when you tap “Use my current location”.',
+      'Bookings: services, problem descriptions, photos/videos you attach, chat messages with your technician, ratings and reviews.',
+      'Payments: amount, method and status. Card/UPI details are handled by our payment partner (Razorpay) — we never see or store your card or UPI PIN.',
+      'Partners (technicians) also provide: ID and skill documents, profile photo, bank/UPI details for payouts, and live location while online or on a job.',
+      'Device: a notification token so we can send booking updates, and basic technical logs (IP address, app version) for security.',
+    ],
+  ],
+  [
+    'Why we use it',
+    [
+      'To create your account, match your booking with a nearby verified professional and show live job updates.',
+      'To send notifications about your bookings, payments and account (you can turn them off in your phone settings).',
+      'To process payments, refunds and partner payouts, and to prevent fraud and misuse.',
+      'To provide support and resolve complaints.',
+    ],
+  ],
+  [
+    'Who sees it',
+    [
+      'Your technician sees your name, number, service address and booking details only for the job assigned to them.',
+      'Customers see a partner’s name, photo, rating and live location during an active job.',
+      'Service providers who help run RapidFix: Google Firebase (OTP sign-in and notifications), Razorpay (payments), Google Maps or OpenStreetMap (address lookup) and our hosting provider (Hostinger). They use the data only to provide their service to us.',
+      'Authorities, when the law requires it.',
+      'We never sell your personal data or use it for third-party advertising.',
+    ],
+  ],
+  [
+    'How long we keep it',
+    [
+      'Account data is kept while your account is active.',
+      'Booking, invoice and payment records are kept for as long as Indian tax and accounting law requires, without your name or number after you delete your account.',
+    ],
+  ],
+  [
+    'Your choices',
+    [
+      'Edit your name, email, date of birth and addresses any time in the app (Account → Edit Profile).',
+      'Location and notifications are asked for only when needed, and can be turned off in your phone settings.',
+      'Delete your account any time: Account → Delete my account, or visit rapidfix.in/delete-account. Personal details are erased immediately.',
+    ],
+  ],
+  [
+    'Security',
+    [
+      'All data travels over HTTPS. Partner bank account numbers are encrypted, and ID documents are private files only our verification team can open.',
+    ],
+  ],
+  ['Children', ['RapidFix is meant for adults. Partners must be 18 or older; we do not knowingly collect data from children under 13.']],
+];
+
 export function PrivacyPage() {
+  const { phone, email } = useSupportContacts();
   return (
     <InfoLayout title="Privacy Policy" backTo="/">
-      <p className="rounded-xl bg-warning-soft p-3 text-sm text-slate-700">{LEGAL_NOTE}</p>
-      <ul className="mt-4 list-disc space-y-3 pl-5">
-        <li>We collect your phone number, name, addresses and booking details to provide the service.</li>
-        <li>Your number and address are shared only with the professional assigned to your booking, and only while the job is active.</li>
-        <li>Location is used only when you choose “Use my current location”.</li>
-        <li>We never sell your personal data.</li>
-      </ul>
+      <h1 className="mt-2 text-2xl font-bold text-slate-900">RapidFix Privacy Policy</h1>
+      <p className="mt-1 text-sm text-slate-500">Last updated: 30 September 2026</p>
+      <p className="mt-4">
+        This policy explains what personal data the RapidFix app and website (rapidfix.in) collect, why, and the choices you have. By using RapidFix you agree to it.
+      </p>
+      {PRIVACY.map(([heading, points]) => (
+        <section key={heading} className="mt-6">
+          <h2 className="text-lg font-semibold text-slate-900">{heading}</h2>
+          <ul className="mt-2 list-disc space-y-2 pl-5">
+            {points.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      <section className="mt-6">
+        <h2 className="text-lg font-semibold text-slate-900">Contact</h2>
+        <p className="mt-2">
+          Questions or requests about your data: email{' '}
+          <a href={`mailto:${email}`} className="font-medium text-fixora-blue">
+            {email}
+          </a>{' '}
+          or call{' '}
+          <a href={`tel:${phone.replace(/\s/g, '')}`} className="font-medium text-fixora-blue">
+            {phone}
+          </a>
+          .
+        </p>
+      </section>
     </InfoLayout>
   );
 }

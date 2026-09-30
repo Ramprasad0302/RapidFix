@@ -2,6 +2,7 @@ import type { CookieOptions, Request, RequestHandler, Response } from 'express';
 import { env, isProd } from '../config/env';
 import { authOf } from '../middleware/auth';
 import * as authService from '../services/auth.service';
+import * as accountService from '../services/account.service';
 import { refreshTtlMs, type ClientMeta } from '../services/token.service';
 import { AppError } from '../utils/AppError';
 import { ok } from '../utils/response';
@@ -69,4 +70,11 @@ export const logout: RequestHandler = async (req, res) => {
 
 export const me: RequestHandler = async (req, res) => {
   ok(res, await authService.getMe(authOf(req).userId));
+};
+
+/** "Delete my account" — erases personal data; see account.service. */
+export const deleteAccount: RequestHandler = async (req, res) => {
+  await accountService.deleteAccount(authOf(req).userId, req.ip);
+  clearRefreshCookie(res);
+  ok(res, { deleted: true });
 };

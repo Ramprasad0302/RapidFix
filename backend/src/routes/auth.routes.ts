@@ -17,3 +17,5 @@ authRouter.post('/login', adminLoginLimiter, validate(adminLoginSchema), auth.pa
 authRouter.post('/refresh', refreshLimiter, auth.refresh);
 authRouter.post('/logout', auth.logout);
 authRouter.get('/me', authenticate(), auth.me);
+// Google Play / privacy: users can delete their own account. The body must say DELETE, so it's never accidental.
+authRouter.delete('/account', authenticate(), otpVerifyLimiter, validate(z.object({ confirm: z.literal('DELETE') })), auth.deleteAccount);

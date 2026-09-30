@@ -27,7 +27,7 @@ self.addEventListener('fetch', (event) => {
 function show(title, options) {
   return self.registration.showNotification(title || 'RapidFix', {
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    badge: '/icons/badge-96.png',
     ...options,
   });
 }

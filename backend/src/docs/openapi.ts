@@ -40,6 +40,7 @@ export const ROUTES: RouteDoc[] = [
   R('post', '/auth/refresh', 'Auth', 'Rotate the refresh cookie and issue a new access token (reuse is detected and revokes the family)', 'public'),
   R('post', '/auth/logout', 'Auth', 'Revoke the current refresh token', 'public'),
   R('get', '/auth/me', 'Auth', 'Current user', 'user'),
+  R('delete', '/auth/account', 'Auth', 'Delete my account (personal data erased; bookings kept anonymised)', 'user', { body: obj({ confirm: str }) }),
 
   // Public catalogue
   R('get', '/services/categories', 'Catalogue', 'Active categories with subcategories', 'public'),

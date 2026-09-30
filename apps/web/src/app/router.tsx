@@ -32,6 +32,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/login', ...page(() => import('../features/auth/LoginPage'), 'LoginPage') },
       { path: '/partner', ...page(() => import('../features/partner/PartnerRegisterPage'), 'PartnerRegisterPage') },
+      { path: '/delete-account', ...page(() => import('../features/auth/DeleteAccountPage'), 'DeleteAccountPage') },
 
       // ── Customer (guest-first) ───────────────────────────────────────
       {

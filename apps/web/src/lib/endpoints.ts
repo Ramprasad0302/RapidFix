@@ -74,6 +74,8 @@ import { api } from './api';
 
 // ─── Auth ────────────────────────────────────────────────────────────────
 export const authApi = {
+  /** Erase this account (Google Play requirement). */
+  deleteAccount: () => unwrap<{ deleted: boolean }>(api.delete('/auth/account', { data: { confirm: 'DELETE' } })),
   sendOtp: (phone: string) => unwrap<SendOtpResult>(api.post('/auth/send-otp', { phone }, { skipAuthRefresh: true })),
   verifyOtp: (phone: string, otp: string) =>
     unwrap<AuthSession>(api.post('/auth/verify-otp', { phone, otp }, { skipAuthRefresh: true })),

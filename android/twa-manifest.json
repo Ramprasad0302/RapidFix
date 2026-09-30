@@ -1,0 +1,47 @@
+{
+  "packageId": "in.rapidfix.app",
+  "host": "rapidfix.in",
+  "name": "RapidFix — Get It Fixed",
+  "launcherName": "RapidFix",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#FFFFFF",
+  "themeColorDark": "#0B1F3A",
+  "navigationColor": "#FFFFFF",
+  "navigationColorDark": "#0B1F3A",
+  "navigationDividerColor": "#E2E8F0",
+  "navigationDividerColorDark": "#0B1F3A",
+  "backgroundColor": "#FFFFFF",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://rapidfix.in/icons/icon-512.png",
+  "maskableIconUrl": "https://rapidfix.in/icons/maskable-512.png",
+  "monochromeIconUrl": "https://rapidfix.in/icons/monochrome-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "/Users/ramsmac/Desktop/RapidFix-Android/rapidfix-upload.keystore",
+    "alias": "rapidfix"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    { "name": "Book a service", "shortName": "Book", "url": "/book", "chosenIconUrl": "https://rapidfix.in/icons/icon-192.png" },
+    { "name": "My bookings", "shortName": "Bookings", "url": "/bookings", "chosenIconUrl": "https://rapidfix.in/icons/icon-192.png" }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://rapidfix.in/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": { "enabled": true }
+  },
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://rapidfix.in/",
+  "minSdkVersion": 23,
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "1.0.0"
+}

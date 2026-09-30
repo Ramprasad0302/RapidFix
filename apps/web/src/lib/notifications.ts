@@ -101,7 +101,7 @@ export async function showSystemNotification(n: { title: string; body?: string; 
   const options: NotificationOptions & { vibrate?: number[]; renotify?: boolean } = {
     body: n.body,
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    badge: '/icons/badge-96.png',
     tag: n.tag,
     data: { url: n.url },
     requireInteraction: !!n.urgent,

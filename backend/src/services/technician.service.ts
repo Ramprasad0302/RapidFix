@@ -286,6 +286,13 @@ export async function performAction(userId: string, id: string, action: Technici
     if (notice) {
       await tx.notification.create({ data: { userId: job.customer.userId, ...notice, data: { bookingId: job.id } } });
     }
+    if (action === 'ACCEPT') {
+      // The technician gets the confirmed job on their phone too (a reminder with the time).
+      const when = job.scheduledFor.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+      await tx.notification.create({
+        data: { userId, type: 'JOB_CONFIRMED', title: 'Job confirmed', body: `${job.service.name}${job.code ? ` · ${job.code}` : ''} · ${when}. Head there on time.`, data: { bookingId: job.id } },
+      });
+    }
   });
 
   const event = CUSTOMER_EVENT[action];

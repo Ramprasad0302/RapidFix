@@ -18,6 +18,12 @@ const out = path.join(root, 'build', 'hostinger');
 const zip = process.env.OUT_ZIP ?? path.join(homedir(), 'Desktop', 'rapidfix-node-app.zip');
 const run = (cmd) => execSync(cmd, { cwd: root, stdio: 'inherit' });
 
+// Play Store app (Trusted Web Activity, android/). Android verifies the app ↔ site link through
+// /.well-known/assetlinks.json listing these certificate fingerprints: the upload key below, plus
+// Google Play's app-signing key — add that one on Hostinger as ANDROID_SHA256 (no rebuild needed).
+const ANDROID_PACKAGE = 'in.rapidfix.app';
+const ANDROID_UPLOAD_SHA256 = 'FD:F6:26:E9:2F:D8:C4:35:59:B5:2E:89:6B:65:C8:04:F6:D0:E5:F8:C5:2A:D7:F0:5D:F9:B2:D5:74:AA:ED:B2';
+
 console.log('▸ Building website and API…');
 run('npm run build -w @fixora/web');
 run('npm run db:generate -w @fixora/backend');
@@ -178,6 +184,17 @@ app.use((req, res, next) => {
   res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
   next();
 });
+// Android app link verification (Play Store app). Extra fingerprints: ANDROID_SHA256="AA:BB:…,CC:DD:…".
+app.get('/.well-known/assetlinks.json', (_req, res) => {
+  const fingerprints = [...new Set(['${ANDROID_UPLOAD_SHA256}', ...(process.env.ANDROID_SHA256 || '').split(',')].map((f) => f.trim().toUpperCase()).filter(Boolean))];
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json([
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: { namespace: 'android_app', package_name: process.env.ANDROID_PACKAGE || '${ANDROID_PACKAGE}', sha256_cert_fingerprints: fingerprints },
+    },
+  ]);
+});
 // Hashed build files never change; the app shell, settings and service worker are always revalidated.
 app.use('/assets', express.static(path.join(dir, 'assets'), { immutable: true, maxAge: '365d', index: false }));
 app.use(
@@ -205,6 +222,8 @@ writeFileSync(
   `RapidFix website (frontend) — Hostinger Node.js app on rapidfix.in
 Framework: Express · Entry: server.js (start.js also works) · Start: npm start · Node 22
 No environment variables needed.
+Android app: after the first Play upload, add env var ANDROID_SHA256 = Play Console → App integrity → App signing key SHA-256
+(check https://rapidfix.in/.well-known/assetlinks.json shows it).
 The API address and Firebase settings are in public/config.js (apiUrl = ${apiUrl}).
 The backend (rapidfix-backend.zip) must run at that address with CORS_ORIGINS=https://rapidfix.in,https://www.rapidfix.in
 `,

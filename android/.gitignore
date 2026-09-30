@@ -1,0 +1,8 @@
+# Build outputs and local Gradle state
+*.apk
+*.aab
+*.idsig
+.gradle/
+app/build/
+build/
+local.properties

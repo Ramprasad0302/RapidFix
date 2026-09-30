@@ -107,6 +107,9 @@ export function ProfilePage() {
         >
           <LogOut className="size-5" /> <span className="flex-1">Logout</span> <ChevronRight className="size-5" />
         </button>
+        <Link to="/delete-account" className="mb-6 text-center text-sm font-medium text-slate-500 hover:text-danger">
+          Delete my account
+        </Link>
       </main>
     </>
   );

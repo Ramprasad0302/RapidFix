@@ -27,6 +27,7 @@ const asError = (e: unknown): ErrorLike =>
 function destinationFor(role: Role, redirect: string | null) {
   const safe = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\') ? redirect : null;
   if (!safe) return homeFor(role);
+  if (safe === '/delete-account') return safe; // open to every signed-in role
   const area = safe.startsWith('/technician') ? Role.TECHNICIAN : safe.startsWith('/admin') ? 'ADMIN' : Role.CUSTOMER;
   const fits = area === 'ADMIN' ? isAdminRole(role) : area === role;
   return fits ? safe : homeFor(role);

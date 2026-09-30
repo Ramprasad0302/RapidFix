@@ -165,6 +165,9 @@ function SignedIn() {
           },
         ]}
       />
+      <Link to="/delete-account" className="mt-4 block text-center text-sm font-medium text-slate-500 hover:text-danger">
+        Delete my account
+      </Link>
       <p className="py-4 text-center text-xs text-slate-400">RapidFix v{APP_VERSION} · by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-fixora-blue hover:underline">Nirmaan Digital</a></p>
     </>
   );
