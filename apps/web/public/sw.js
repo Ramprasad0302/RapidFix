@@ -1,8 +1,8 @@
 /* RapidFix service worker: install-to-home-screen, offline fallback,
    system notifications and web push (Firebase Cloud Messaging payloads). */
-const CACHE = 'rapidfix-v1';
+const CACHE = 'rapidfix-v2';
 const OFFLINE_URL = '/offline.html';
-const PRECACHE = [OFFLINE_URL, '/icons/icon-192.png', '/icons/icon-512.png', '/favicon.svg'];
+const PRECACHE = [OFFLINE_URL, '/icons/icon-192.png', '/icons/icon-512.png', '/brand/logo-full.webp'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));

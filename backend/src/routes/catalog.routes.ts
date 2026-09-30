@@ -5,6 +5,7 @@ import { validate } from '../middleware/validate';
 import { prisma } from '../config/prisma';
 import * as catalog from '../services/catalog.service';
 import { estimatePrice } from '../services/pricing.service';
+import { getSetting } from '../services/settings.service';
 import { ok } from '../utils/response';
 
 /** Public, cacheable catalogue — guests can browse, search and price everything. */
@@ -63,6 +64,12 @@ catalogRouter.get('/technicians/nearby', validate(nearbyQuery, 'query'), async (
 
 catalogRouter.get('/stats/public', cachePublic(300), async (_req, res) => {
   ok(res, await catalog.publicStats());
+});
+
+/** Public contact details (admin-editable in Settings). */
+catalogRouter.get('/app-config', cachePublic(300), async (_req, res) => {
+  const [supportPhone, supportEmail] = await Promise.all([getSetting('support.phone', '+91 94919 63366'), getSetting('support.email', 'support@rapidfix.local')]);
+  ok(res, { supportPhone, supportEmail });
 });
 
 catalogRouter.get('/reviews/featured', cachePublic(300), async (_req, res) => {

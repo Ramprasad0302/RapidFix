@@ -4,7 +4,7 @@ import { Logo } from '@fixora/ui';
 export function SplashScreen() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-white">
-      <Logo size="lg" />
+      <Logo variant="full" size="lg" />
       <div className="mt-10 h-1 w-24 overflow-hidden rounded-full bg-fixora-blue-soft" aria-label="Loading" role="progressbar">
         <div className="h-full w-1/2 animate-[splash_1s_ease-in-out_infinite] rounded-full bg-fixora-blue" />
       </div>

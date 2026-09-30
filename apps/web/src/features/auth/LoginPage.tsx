@@ -131,7 +131,7 @@ function PhoneStep({
   return (
     <form onSubmit={submit} noValidate className="flex flex-1 flex-col">
       <div className="mt-2 flex justify-center">
-        <Logo size="md" />
+        <Logo variant="full" size="md" />
       </div>
       <h1 className="mt-10 text-center text-[26px] font-bold text-slate-900">{heading}</h1>
       <p className="mt-2 text-center text-[15px] text-slate-500">{subheading}</p>
@@ -319,7 +319,7 @@ function PasswordStep({ onSignedIn }: { onSignedIn(s: AuthSession): void }) {
   return (
     <form onSubmit={submit} noValidate className="flex flex-1 flex-col">
       <div className="mt-2 flex justify-center">
-        <Logo size="md" />
+        <Logo variant="full" size="md" />
       </div>
       <h1 className="mt-10 text-center text-[26px] font-bold text-slate-900">Staff sign in</h1>
       <p className="mt-2 text-center text-[15px] text-slate-500">Use your RapidFix work email and password</p>

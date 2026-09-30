@@ -6,7 +6,7 @@ export function NotFoundPage() {
   const role = useAuth((s) => s.user?.role);
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-white px-6 text-center">
-      <Logo />
+      <Logo variant="full" size="sm" />
       <p className="mt-8 text-5xl font-extrabold text-fixora-blue">404</p>
       <h1 className="mt-2 text-lg font-bold text-slate-900">Page not found</h1>
       <p className="mt-1 text-sm text-slate-500">The page you’re looking for doesn’t exist.</p>

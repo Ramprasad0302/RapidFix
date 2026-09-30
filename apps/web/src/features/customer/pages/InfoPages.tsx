@@ -5,7 +5,8 @@ import { Button, Logo } from '@fixora/ui';
 import { SupportArt } from '../../../components/art/Scenes';
 import { PageHeader } from '../../../components/PageHeader';
 import { Skeleton } from '../../../components/States';
-import { APP_VERSION, SUPPORT_EMAIL, SUPPORT_PHONE } from '../../../lib/config';
+import { APP_VERSION } from '../../../lib/config';
+import { useSupportContacts } from '../queries';
 import { customerApi } from '../../../lib/endpoints';
 import { homeFor, useAuth } from '../../../store/auth';
 import { copyText } from '../../../store/toast';
@@ -29,6 +30,7 @@ const FAQ = [
 ];
 
 export function HelpPage() {
+  const { phone: SUPPORT_PHONE, email: SUPPORT_EMAIL } = useSupportContacts();
   const role = useAuth((s) => s.user?.role);
   return (
     <InfoLayout title="Help & Support" backTo={homeFor(role) === '/' ? '/account' : homeFor(role)}>
@@ -67,7 +69,7 @@ export function AboutPage() {
   return (
     <InfoLayout title="About RapidFix">
       <div className="flex flex-col items-center py-6">
-        <Logo size="lg" />
+        <Logo variant="full" size="md" />
         <p className="mt-3 text-sm text-slate-500">Version {APP_VERSION}</p>
       </div>
       <p>

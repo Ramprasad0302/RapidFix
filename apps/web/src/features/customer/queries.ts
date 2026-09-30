@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { catalogApi, notificationApi } from '../../lib/endpoints';
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from '../../lib/config';
+import { catalogApi, notificationApi, trustApi } from '../../lib/endpoints';
 import { useAuth } from '../../store/auth';
 
 /** Categories rarely change — cache for 30 min so slow networks aren't hit on every screen. */
@@ -18,4 +19,10 @@ export function useUnreadCount() {
     refetchInterval: 60_000,
     select: (d) => d.count,
   });
+}
+
+/** Support phone/email from admin Settings, with built-in fallbacks while loading or offline. */
+export function useSupportContacts() {
+  const q = useQuery({ queryKey: ['app-config'], queryFn: trustApi.appConfig, staleTime: 30 * 60_000 });
+  return { phone: q.data?.supportPhone ?? SUPPORT_PHONE, email: q.data?.supportEmail ?? SUPPORT_EMAIL };
 }

@@ -47,6 +47,7 @@ export const ROUTES: RouteDoc[] = [
   R('get', '/locations', 'Catalogue', 'Serviceable towns', 'public'),
   R('get', '/technicians/nearby', 'Catalogue', 'Verified online technicians near a point (no contact details)', 'public', { query: ['lat', 'lng'] }),
   R('get', '/stats/public', 'Catalogue', 'Trust numbers for the home page', 'public'),
+  R('get', '/app-config', 'Catalogue', 'Public support phone and email (from admin settings)', 'public'),
   R('get', '/reviews/featured', 'Catalogue', 'Recent 4–5★ reviews', 'public'),
   R('get', '/offers', 'Catalogue', 'Live offers', 'public', { query: ['category'] }),
   R('get', '/offers/{code}', 'Catalogue', 'Offer detail', 'public'),

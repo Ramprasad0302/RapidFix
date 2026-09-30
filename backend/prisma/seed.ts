@@ -190,7 +190,7 @@ async function main() {
     'dispatch.maxAttempts': 5,
     'dispatch.searchRadiusKm': 15,
     'dispatch.weights': { skill: 1, distance: 0.5, rating: 0.3, workload: 0.2 },
-    'support.phone': '+91 90000 00000',
+    'support.phone': '+91 94919 63366',
     'support.email': 'support@rapidfix.local',
   };
   for (const [key, value] of Object.entries(settings)) {

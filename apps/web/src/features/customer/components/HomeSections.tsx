@@ -22,7 +22,8 @@ import { CategoryArt } from '../../../components/art/CategoryArt';
 import { SectionHeader } from '../../../components/PageHeader';
 import { ProgressSteps } from '../../../components/ProgressSteps';
 import { Skeleton } from '../../../components/States';
-import { APP_VERSION, SUPPORT_EMAIL, SUPPORT_PHONE } from '../../../lib/config';
+import { APP_VERSION } from '../../../lib/config';
+import { useSupportContacts } from '../queries';
 import { catalogApi, customerApi, trustApi } from '../../../lib/endpoints';
 import { formatDate } from '../../../lib/format';
 import { statusMeta, TRACKED } from '../../../lib/status';
@@ -262,6 +263,7 @@ export function InviteBanner() {
 // ─── Footer ──────────────────────────────────────────────────────────────
 
 export function HomeFooter() {
+  const { phone: SUPPORT_PHONE, email: SUPPORT_EMAIL } = useSupportContacts();
   return (
     <footer className="-mx-4 mt-2 bg-slate-50 px-6 pt-8 pb-6">
       <Logo size="sm" />

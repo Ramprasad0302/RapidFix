@@ -234,7 +234,7 @@ const SETTINGS: Record<string, { description: string; schema: z.ZodType; default
     schema: z.object({ skill: z.number().min(0).max(5), distance: z.number().min(0).max(5), rating: z.number().min(0).max(5), workload: z.number().min(0).max(5) }),
     default: { skill: 1, distance: 0.5, rating: 0.3, workload: 0.2 },
   },
-  'support.phone': { description: 'Support phone shown to users', schema: z.string().min(6).max(20), default: '+91 90000 00000' },
+  'support.phone': { description: 'Support phone shown to users', schema: z.string().min(6).max(20), default: '+91 94919 63366' },
   'support.email': { description: 'Support email shown to users', schema: z.email(), default: 'support@rapidfix.local' },
 };
 

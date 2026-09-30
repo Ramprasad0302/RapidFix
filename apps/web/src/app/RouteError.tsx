@@ -10,7 +10,7 @@ export function RouteError() {
   const chunkFailed = /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(error?.message ?? '');
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-white px-6 text-center">
-      <Logo />
+      <Logo variant="full" size="sm" />
       <h1 className="mt-8 text-lg font-bold text-slate-900">{chunkFailed ? 'Connection problem' : 'Something went wrong'}</h1>
       <p className="mt-1 max-w-xs text-sm text-slate-500">
         {chunkFailed ? 'Part of the app could not load. Check your connection and try again.' : 'Please try again. If this keeps happening, contact RapidFix support.'}
