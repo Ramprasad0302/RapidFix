@@ -41,7 +41,7 @@ export function HomePage() {
   return (
     <>
       <AppHeader />
-      <main className="flex flex-col gap-7 px-4">
+      <main className="flex flex-col gap-7 px-4 lg:gap-12 lg:px-8 lg:pt-8">
         <Hero name={firstName(name)} />
         <ActiveBookingStrip />
         <Categories />
@@ -66,9 +66,9 @@ function Hero({ name }: { name: string }) {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   return (
-    <section className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-fixora-navy via-[#12306a] to-fixora-blue px-5 pt-6 pb-5 text-white">
-      <HomeScene className="pointer-events-none absolute -right-10 bottom-14 w-[64%] opacity-90" />
-      <div className="absolute top-3 right-3 hidden w-[38%] max-w-[160px] flex-col gap-2 rounded-2xl bg-white/95 p-2.5 text-slate-900 shadow-raised min-[340px]:flex">
+    <section className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-fixora-navy via-[#12306a] to-fixora-blue px-5 pt-6 pb-5 text-white lg:rounded-[28px] lg:px-12 lg:pt-12 lg:pb-12">
+      <HomeScene className="pointer-events-none absolute -right-10 bottom-14 w-[64%] opacity-90 lg:right-40 lg:bottom-0 lg:w-[34%]" />
+      <div className="absolute top-3 right-3 hidden w-[38%] max-w-[160px] flex-col gap-2 rounded-2xl bg-white/95 p-2.5 text-slate-900 shadow-raised min-[340px]:flex lg:top-10 lg:right-10 lg:max-w-[210px] lg:gap-3 lg:p-4">
         {[
           { icon: ShieldCheck, cls: 'text-fixora-blue', a: 'Verified', b: 'Professionals' },
           { icon: IndianRupee, cls: 'rounded-full bg-fixora-cyan p-0.5 text-white', a: 'Transparent', b: 'Pricing' },
@@ -84,13 +84,13 @@ function Hero({ name }: { name: string }) {
         ))}
       </div>
 
-      <p className="relative max-w-[58%] text-[19px] text-white/90">{greeting()}{name ? ',' : '!'}</p>
+      <p className="relative max-w-[58%] text-[19px] text-white/90 lg:text-2xl">{greeting()}{name ? ',' : '!'}</p>
       {name && (
-        <p className="relative mt-0.5 text-[34px] leading-tight font-extrabold">
+        <p className="relative mt-0.5 text-[34px] leading-tight font-extrabold lg:text-5xl">
           {name}! <span aria-hidden>👋</span>
         </p>
       )}
-      <p className="relative mt-2 max-w-[58%] text-[15px] text-white/85">What service do you need today?</p>
+      <p className="relative mt-2 max-w-[58%] text-[15px] text-white/85 lg:mt-3 lg:text-xl">What service do you need today?</p>
 
       <form
         role="search"
@@ -98,7 +98,7 @@ function Hero({ name }: { name: string }) {
           e.preventDefault();
           navigate(`/search?q=${encodeURIComponent(q.trim())}`);
         }}
-        className="relative mt-5 flex h-13 items-center gap-2 rounded-2xl bg-white pr-2 pl-4 text-slate-900 shadow-raised"
+        className="relative mt-5 flex h-13 items-center gap-2 rounded-2xl bg-white pr-2 pl-4 text-slate-900 shadow-raised lg:mt-8 lg:h-15 lg:max-w-xl"
       >
         <Search className="size-5 shrink-0 text-slate-700" aria-hidden />
         <input
@@ -124,7 +124,7 @@ function Categories() {
     <section aria-labelledby="cat-heading">
       <SectionHeader title="What are you looking for?" subtitle="Choose a category to get started" className="mb-3" />
       <span id="cat-heading" className="sr-only">Service categories</span>
-      <div className="grid grid-cols-5 gap-x-2 gap-y-4">
+      <div className="grid grid-cols-5 gap-x-2 gap-y-4 lg:grid-cols-10 lg:gap-x-4">
       {categories.isPending &&
         Array.from({ length: 10 }, (_, i) => (
           <div key={i} className="flex flex-col items-center gap-2">
@@ -147,17 +147,17 @@ function CategoryTile({ to, iconKey, label }: { to: string; iconKey: string; lab
       <span className="flex aspect-[1.15] w-full items-center justify-center rounded-2xl bg-[#F2F5FA] transition-colors group-hover:bg-fixora-blue-soft">
         <CategoryArt iconKey={iconKey} className="size-[62%]" />
       </span>
-      <span className="text-[12.5px] leading-tight font-medium text-slate-800">{label}</span>
+      <span className="text-[12.5px] leading-tight font-medium text-slate-800 lg:text-sm">{label}</span>
     </Link>
   );
 }
 
 function TrustedBanner() {
   return (
-    <section className="relative overflow-hidden rounded-[22px] bg-gradient-to-r from-[#EAF2FF] via-[#DCEAFF] to-[#C7DDFF] px-5 py-5">
-      <HomeScene tone="light" className="pointer-events-none absolute -right-6 -bottom-3 w-[55%]" />
-      <ShieldBadge className="absolute top-4 right-5 h-11 w-auto drop-shadow" />
-      <h2 className="relative max-w-[66%] text-[20px] leading-tight font-extrabold text-fixora-navy">
+    <section className="relative overflow-hidden rounded-[22px] bg-gradient-to-r from-[#EAF2FF] via-[#DCEAFF] to-[#C7DDFF] px-5 py-5 lg:rounded-[28px] lg:px-12 lg:py-10">
+      <HomeScene tone="light" className="pointer-events-none absolute -right-6 -bottom-3 w-[55%] lg:right-24 lg:w-[30%]" />
+      <ShieldBadge className="absolute top-4 right-5 h-11 w-auto drop-shadow lg:top-8 lg:right-10 lg:h-16" />
+      <h2 className="relative max-w-[66%] text-[20px] leading-tight font-extrabold text-fixora-navy lg:max-w-[50%] lg:text-3xl">
         Trusted Professionals at Your Doorstep
       </h2>
       <p className="relative mt-1 text-sm text-slate-700">Reliable. Skilled. Verified.</p>
@@ -185,11 +185,11 @@ function PopularServices() {
         }
       />
       {popular.isError && <ErrorState error={popular.error} onRetry={() => void popular.refetch()} className="py-6" />}
-      <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1">
+      <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1 lg:gap-5" data-desktop-cols style={{ '--desktop-cols': 6 } as React.CSSProperties}>
         {popular.isPending && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-40 w-[44%] shrink-0" />)}
         {popular.data?.map((s) => (
           <Link key={s.id} to={`/book/s/${s.slug}`} className="w-[44%] max-w-[190px] shrink-0 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card">
-            <ServiceArt imageUrl={s.imageUrl} iconKey={s.category.iconKey} alt={s.name} className="h-24 w-full" artClassName="h-[70%] w-auto" />
+            <ServiceArt imageUrl={s.imageUrl} iconKey={s.category.iconKey} alt={s.name} className="h-24 w-full lg:h-36" artClassName="h-[70%] w-auto" />
             <div className="flex items-end justify-between gap-1 p-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-slate-900">{s.name}</p>
@@ -210,9 +210,9 @@ function WhyRapidFix() {
   return (
     <section>
       <SectionHeader title="Why Choose RapidFix?" subtitle="Built for towns and villages" />
-      <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1">
+      <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1 lg:gap-5" data-desktop-cols style={{ '--desktop-cols': 4 } as React.CSSProperties}>
         {WHY.map(({ icon: Icon, color, title, body }) => (
-          <div key={title} className="flex w-[46%] max-w-[200px] shrink-0 gap-2.5 rounded-2xl bg-[#F3F6FB] p-3.5">
+          <div key={title} className="flex w-[46%] max-w-[200px] shrink-0 gap-2.5 rounded-2xl bg-[#F3F6FB] p-3.5 lg:p-5">
             <Icon className={cx('size-8 shrink-0', color)} aria-hidden />
             <div>
               <p className="text-[13.5px] leading-tight font-semibold text-slate-900">{title}</p>
@@ -271,7 +271,7 @@ function NearbyProfessionals() {
         </div>
       )}
       {!!nearby.data?.length && (
-        <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1">
+        <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1 lg:gap-5" data-desktop-cols style={{ '--desktop-cols': 3 } as React.CSSProperties}>
           {nearby.data.map((t) => (
             <Link
               key={t.id}

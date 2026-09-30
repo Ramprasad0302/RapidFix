@@ -41,8 +41,8 @@ interface MenuItem {
 export function AccountPage() {
   const status = useAuth((s) => s.status);
   return (
-    <main className="px-4">
-      <header className="flex items-center justify-between pt-[max(0.9rem,env(safe-area-inset-top))] pb-2">
+    <main className="px-4 lg:mx-auto lg:max-w-3xl lg:pt-8">
+      <header className="flex items-center justify-between pt-[max(0.9rem,env(safe-area-inset-top))] pb-2 lg:hidden">
         <Logo size="sm" />
         <BellLink />
       </header>

@@ -6,7 +6,7 @@ import { useUnreadCount } from '../../customer/queries';
 export function TechHeader() {
   const unread = useUnreadCount().data ?? 0;
   return (
-    <header className="flex items-center justify-between px-4 pt-[max(0.9rem,env(safe-area-inset-top))] pb-3">
+    <header className="flex items-center justify-between lg:hidden px-4 pt-[max(0.9rem,env(safe-area-inset-top))] pb-3">
       <Logo size="sm" />
       <Link to="/technician/notifications" aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} className="relative flex size-10 items-center justify-center rounded-full hover:bg-slate-100">
         <Bell className="size-6" strokeWidth={1.8} />

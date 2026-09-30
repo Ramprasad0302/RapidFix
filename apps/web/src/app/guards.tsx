@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation, useParams } from 'react-router';
 import { Role } from '@fixora/shared-types';
+import { DesktopTopBar } from '../components/DesktopTopBar';
 import { SplashScreen } from '../components/SplashScreen';
 import { homeFor, useAuth } from '../store/auth';
 
@@ -35,7 +36,7 @@ export function CustomerArea() {
 
   if (status === 'unknown' && !waitedEnough) return <SplashScreen />;
   if (status === 'authenticated' && role !== Role.CUSTOMER) return <Navigate to={homeFor(role)} replace />;
-  return <Outlet />;
+  return <AreaFrame area="customer" />;
 }
 
 /** `/customer/bookings` → `/bookings` (spec URLs keep working). */
@@ -43,4 +44,14 @@ export function StripCustomerPrefix() {
   const params = useParams();
   const location = useLocation();
   return <Navigate to={`/${params['*'] ?? ''}${location.search}`} replace />;
+}
+
+/** Laptop frame for the customer and technician apps: grey page background + top navigation. */
+export function AreaFrame({ area }: { area: 'customer' | 'technician' }) {
+  return (
+    <div className="min-h-dvh lg:bg-slate-50">
+      <DesktopTopBar area={area} />
+      <Outlet />
+    </div>
+  );
 }

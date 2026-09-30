@@ -82,7 +82,7 @@ export function OffersStrip() {
   return (
     <section>
       <SectionHeader title="Offers for you" subtitle="Save more on services you need" action={<SeeAll to="/offers" />} />
-      <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1">
+      <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1 lg:gap-5" data-desktop-cols style={{ '--desktop-cols': 3 } as React.CSSProperties}>
         {offers.isPending && Array.from({ length: 2 }, (_, i) => <Skeleton key={i} className="h-36 w-[78%] shrink-0 rounded-2xl" />)}
         {offers.data?.map((o, i) => (
           <article key={o.id} className={cx('relative w-[78%] max-w-[320px] shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br p-4 text-white', OFFER_BG[i % OFFER_BG.length])}>
@@ -116,10 +116,10 @@ export function HowItWorks() {
   return (
     <section>
       <SectionHeader title="How RapidFix works" subtitle="Fixed in three simple steps" />
-      <ol className="mt-4 flex flex-col gap-0">
+      <ol className="mt-4 flex flex-col gap-0 lg:grid lg:grid-cols-3 lg:gap-6">
         {STEPS.map(({ icon: Icon, title, body }, i) => (
-          <li key={title} className="relative flex gap-4 pb-5 last:pb-0">
-            {i < STEPS.length - 1 && <span aria-hidden className="absolute top-12 left-[23px] h-[calc(100%-3rem)] w-0.5 bg-gradient-to-b from-fixora-blue/40 to-fixora-blue/5" />}
+          <li key={title} className="relative flex gap-4 pb-5 last:pb-0 lg:rounded-2xl lg:border lg:border-slate-100 lg:bg-white lg:p-5 lg:shadow-card">
+            {i < STEPS.length - 1 && <span aria-hidden className="absolute top-12 left-[23px] h-[calc(100%-3rem)] w-0.5 bg-gradient-to-b from-fixora-blue/40 to-fixora-blue/5 lg:hidden" />}
             <span className="relative flex size-12 shrink-0 items-center justify-center rounded-2xl bg-fixora-blue-soft text-fixora-blue">
               <Icon className="size-6" aria-hidden />
               <span className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-fixora-navy text-[11px] font-bold text-white">{i + 1}</span>
@@ -152,17 +152,17 @@ export function TrustNumbers() {
       ]
     : [];
   return (
-    <section className="relative overflow-hidden rounded-[22px] bg-fixora-navy px-5 py-6 text-white">
+    <section className="relative overflow-hidden rounded-[22px] bg-fixora-navy px-5 py-6 text-white lg:rounded-[28px] lg:px-12 lg:py-10">
       <div aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-fixora-blue/30 blur-2xl" />
       <div aria-hidden className="absolute -bottom-20 -left-10 size-44 rounded-full bg-fixora-cyan/15 blur-2xl" />
-      <p className="relative text-xs font-semibold tracking-[0.2em] text-fixora-cyan">RapidFix IN NUMBERS</p>
+      <p className="relative text-xs font-semibold tracking-[0.2em] text-fixora-cyan">RAPIDFIX IN NUMBERS</p>
       <p className="relative mt-1 text-xl font-bold">Trusted by homes across Andhra Pradesh</p>
-      <dl className="relative mt-5 grid grid-cols-2 gap-x-4 gap-y-5">
+      <dl className="relative mt-5 grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
         {!s && Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-12 bg-white/10" />)}
         {items.map((it) => (
           <div key={it.label} className="flex flex-col-reverse">
             <dt className="text-[13px] text-white/65">{it.label}</dt>
-            <dd className="text-[28px] leading-tight font-extrabold tracking-tight">{it.value}</dd>
+            <dd className="text-[28px] leading-tight font-extrabold tracking-tight lg:text-4xl">{it.value}</dd>
           </div>
         ))}
       </dl>
@@ -178,7 +178,7 @@ export function CustomerReviews() {
   return (
     <section>
       <SectionHeader title="What customers say" subtitle="Real reviews from RapidFix bookings" />
-      <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1">
+      <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1 lg:gap-5" data-desktop-cols style={{ '--desktop-cols': 3 } as React.CSSProperties}>
         {reviews.isPending && Array.from({ length: 2 }, (_, i) => <Skeleton key={i} className="h-40 w-[80%] shrink-0 rounded-2xl" />)}
         {reviews.data?.map((r) => (
           <figure key={r.id} className="flex w-[80%] max-w-[320px] shrink-0 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-card">
@@ -216,7 +216,7 @@ export function RapidFixPromise() {
     { icon: Headset, title: 'Local support', body: 'Real people to help, every day' },
   ];
   return (
-    <section className="rounded-[22px] border border-fixora-blue/10 bg-gradient-to-b from-[#F4F8FF] to-white p-5">
+    <section className="rounded-[22px] border border-fixora-blue/10 bg-gradient-to-b from-[#F4F8FF] to-white p-5 lg:rounded-[28px] lg:p-8">
       <div className="flex items-center gap-3">
         <span className="flex size-11 items-center justify-center rounded-2xl bg-fixora-blue text-white">
           <BadgeCheck className="size-6" aria-hidden />
@@ -226,7 +226,7 @@ export function RapidFixPromise() {
           <p className="text-sm text-slate-500">Every booking, every time</p>
         </div>
       </div>
-      <ul className="mt-4 grid grid-cols-2 gap-3">
+      <ul className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
         {points.map(({ icon: Icon, title, body }) => (
           <li key={title} className="rounded-2xl bg-white p-3 shadow-card">
             <Icon className="size-5 text-fixora-blue" aria-hidden />
@@ -265,7 +265,7 @@ export function InviteBanner() {
 export function HomeFooter() {
   const { phone: SUPPORT_PHONE, email: SUPPORT_EMAIL } = useSupportContacts();
   return (
-    <footer className="-mx-4 mt-2 bg-slate-50 px-6 pt-8 pb-6">
+    <footer className="-mx-4 mt-2 bg-slate-50 px-6 pt-8 pb-6 lg:-mx-8 lg:-mb-12 lg:rounded-t-[28px] lg:px-12 lg:pt-12">
       <Logo size="sm" />
       <p className="mt-3 text-[15px] font-semibold text-slate-800">Trusted home services for every town.</p>
       <p className="mt-1 text-sm text-slate-500">Verified local professionals for repairs, cleaning, installation and more.</p>

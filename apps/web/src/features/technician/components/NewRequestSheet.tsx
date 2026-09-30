@@ -59,8 +59,8 @@ function RequestCard({ r }: { r: TechnicianRequestDto }) {
   const circ = 2 * Math.PI * radius;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/55 backdrop-blur-[2px]" role="alertdialog" aria-labelledby="req-title" aria-describedby="req-body">
-      <section className="w-full max-w-[480px] rounded-t-[28px] bg-white px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-raised">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/55 backdrop-blur-[2px] lg:items-center" role="alertdialog" aria-labelledby="req-title" aria-describedby="req-body">
+      <section className="w-full max-w-[480px] rounded-t-[28px] bg-white px-5 lg:rounded-[28px] pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-raised">
         <div className="flex items-center justify-between">
           <div>
             <p className="flex items-center gap-2 text-xs font-bold tracking-[0.18em] text-fixora-blue">

@@ -13,6 +13,7 @@ import { apiRouter } from './routes';
 import { handleRazorpayWebhook } from './services/payment.service';
 import { UPLOAD_DIR } from './services/storage.service';
 import { ok } from './utils/response';
+import { mountWebApp, shouldServeWeb, WEB_CSP } from './webApp';
 
 export function createApp() {
   const app = express();
@@ -20,7 +21,13 @@ export function createApp() {
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
 
-  app.use(helmet());
+  const serveWeb = shouldServeWeb();
+  app.use(
+    helmet({
+      // The API's JSON needs no CSP; the served web app gets rules for its map, font, payment and Firebase providers.
+      contentSecurityPolicy: serveWeb ? { directives: WEB_CSP } : undefined,
+    }),
+  );
   app.use(
     cors({
       origin: env.CORS_ORIGINS,
@@ -72,6 +79,8 @@ export function createApp() {
     },
     express.static(UPLOAD_DIR, { immutable: true, maxAge: '365d', index: false, dotfiles: 'deny' }),
   );
+
+  if (serveWeb) mountWebApp(app);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

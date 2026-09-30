@@ -66,7 +66,7 @@ export function BookingShell({
   if (requireService && !hasService) return <Navigate to="/book" replace />;
   return (
     <MobileShell>
-      <div className="flex min-h-dvh flex-col">
+      <div className="flex min-h-dvh flex-col lg:min-h-[calc(100dvh-7rem)]">
         <PageHeader title="Book a Service" backTo={backTo} />
         {step && (
           <div className="px-2 pb-2">

@@ -27,7 +27,7 @@ export function PageHeader({
   return (
     <header
       className={cx(
-        'sticky top-0 z-30 grid grid-cols-[48px_1fr_auto] items-center bg-white/95 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 backdrop-blur',
+        'sticky top-0 z-30 grid grid-cols-[48px_1fr_auto] lg:top-16 items-center bg-white/95 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 backdrop-blur',
         className,
       )}
     >

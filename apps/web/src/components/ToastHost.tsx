@@ -4,7 +4,7 @@ import { useToast } from '../store/toast';
 export function ToastHost() {
   const { message, tone } = useToast();
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex justify-center px-4">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] lg:bottom-8 flex justify-center px-4">
       {message && (
         <div
           role="status"

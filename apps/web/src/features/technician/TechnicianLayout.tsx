@@ -16,8 +16,8 @@ const TABS = [
 export function TechnicianLayout() {
   useLocationSharing();
   return (
-    <MobileShell>
-      <div className="pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)]">
+    <MobileShell wide>
+      <div className="pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] lg:pb-12">
         <Outlet />
       </div>
       <BottomNav items={TABS} />

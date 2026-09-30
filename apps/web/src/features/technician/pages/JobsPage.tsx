@@ -31,7 +31,7 @@ export function JobsPage() {
   return (
     <>
       <TechHeader />
-      <main className="px-4">
+      <main className="px-4 lg:mx-auto lg:max-w-5xl lg:px-8 lg:pt-8">
         <h1 className="text-[28px] font-bold text-slate-900">My Bookings</h1>
         <p className="text-[15px] text-slate-500">View and manage your assigned bookings.</p>
 
@@ -60,7 +60,7 @@ export function JobsPage() {
           {[...groups.entries()].map(([k, items]) => (
             <section key={k}>
               <h2 className="mb-2.5 text-[17px] font-semibold text-slate-900">{formatDayHeading(items[0]!.scheduledFor)}</h2>
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-4">
                 {items.map((j) => (
                   <JobCard key={j.id} job={j} />
                 ))}

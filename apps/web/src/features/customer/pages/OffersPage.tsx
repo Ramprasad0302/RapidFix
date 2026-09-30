@@ -21,7 +21,7 @@ export function OffersPage() {
   return (
     <>
       <AppHeader />
-      <main className="flex flex-col gap-5 px-4">
+      <main className="flex flex-col gap-5 px-4 lg:gap-7 lg:px-8 lg:pt-8">
         <PromoCarousel />
 
         <div role="tablist" aria-label="Offer categories" className="scroll-row -mx-4 gap-2.5 px-4 pb-1">
@@ -47,7 +47,7 @@ export function OffersPage() {
             ) : undefined
           }
         />
-        <section className="-mt-2 flex flex-col gap-3">
+        <section className="-mt-2 flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-5">
           {all.isPending && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-36" />)}
           {all.isError && <ErrorState error={all.error} onRetry={() => void all.refetch()} />}
           {all.isSuccess && offers.length === 0 && (

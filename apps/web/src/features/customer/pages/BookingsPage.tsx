@@ -37,7 +37,7 @@ export function BookingsPage() {
   }, [bookings.data, q]);
 
   return (
-    <main className="px-4 pt-[max(1.5rem,env(safe-area-inset-top))]">
+    <main className="px-4 pt-[max(1.5rem,env(safe-area-inset-top))] lg:px-8 lg:pt-10">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-[30px] font-bold tracking-tight text-slate-900">My Bookings</h1>
@@ -96,7 +96,7 @@ export function BookingsPage() {
             ))}
           </div>
 
-          <section className="mt-5 flex flex-col gap-3.5" aria-live="polite">
+          <section className="mt-5 flex flex-col gap-3.5 lg:grid lg:grid-cols-2 lg:gap-5" aria-live="polite">
             {bookings.isPending && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-32" />)}
             {bookings.isError && <ErrorState error={bookings.error} onRetry={() => void bookings.refetch()} />}
             {bookings.isSuccess && visible.length === 0 && (

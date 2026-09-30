@@ -52,6 +52,10 @@ const schema = z.object({
   PUSH_PROVIDER: z.enum(['none', 'fcm']).default('none'),
   WEB_APP_URL: z.string().url().default('http://localhost:5173'),
 
+  /** Serve the built web app from this server. `auto` = only in production, when the build exists. */
+  SERVE_WEB: z.enum(['auto', 'on', 'off']).default('auto'),
+  WEB_DIST_DIR: z.string().default('../apps/web/dist'),
+
   /** Swagger UI at /api/docs. `auto` = on everywhere except production. */
   API_DOCS: z.enum(['auto', 'on', 'off']).default('auto'),
 

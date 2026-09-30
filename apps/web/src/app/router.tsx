@@ -2,7 +2,7 @@ import type { ComponentType } from 'react';
 import { createBrowserRouter, Navigate, Outlet, ScrollRestoration, type RouteObject } from 'react-router';
 import { ADMIN_ROLES, Role } from '@fixora/shared-types';
 import { CenteredSpinner } from '../components/States';
-import { CustomerArea, RequireRole, StripCustomerPrefix } from './guards';
+import { AreaFrame, CustomerArea, RequireRole, StripCustomerPrefix } from './guards';
 import { RouteError } from './RouteError';
 
 /** Code-split route: each page loads only when first visited. */
@@ -95,24 +95,29 @@ export const router = createBrowserRouter([
         element: <RequireRole roles={[Role.TECHNICIAN]} />,
         children: [
           {
-            ...page(() => import('../features/technician/TechnicianLayout'), 'TechnicianLayout'),
+            element: <AreaFrame area="technician" />,
             children: [
-              { index: true, ...page(() => tech('DashboardPage'), 'DashboardPage') },
-              { path: 'bookings', ...page(() => tech('JobsPage'), 'JobsPage') },
-              { path: 'earnings', ...page(() => tech('EarningsPage'), 'EarningsPage') },
-              { path: 'profile', ...page(() => tech('ProfilePage'), 'ProfilePage') },
+              {
+                ...page(() => import('../features/technician/TechnicianLayout'), 'TechnicianLayout'),
+                children: [
+                  { index: true, ...page(() => tech('DashboardPage'), 'DashboardPage') },
+                  { path: 'bookings', ...page(() => tech('JobsPage'), 'JobsPage') },
+                  { path: 'earnings', ...page(() => tech('EarningsPage'), 'EarningsPage') },
+                  { path: 'profile', ...page(() => tech('ProfilePage'), 'ProfilePage') },
+                ],
+              },
+              { path: 'jobs/:id', ...page(() => tech('JobDetailsPage'), 'JobDetailsPage') },
+              { path: 'jobs/:id/chat', ...page(chat, 'TechnicianChatPage') },
+              { path: 'jobs/:id/invoice', ...page(invoice, 'TechnicianInvoicePage') },
+              { path: 'profile/edit', ...page(techAccount, 'ProfileDetailsPage') },
+              { path: 'payout-details', ...page(techAccount, 'PayoutDetailsPage') },
+              { path: 'documents', ...page(techAccount, 'DocumentsPage') },
+              { path: 'reviews', ...page(techAccount, 'ReviewsPage') },
+              { path: 'performance', ...page(techAccount, 'PerformancePage') },
+              { path: 'notifications', ...page(() => customer('NotificationsPage'), 'NotificationsPage') },
+              { path: 'help', ...page(() => customer('InfoPages'), 'HelpPage') },
             ],
           },
-          { path: 'jobs/:id', ...page(() => tech('JobDetailsPage'), 'JobDetailsPage') },
-          { path: 'jobs/:id/chat', ...page(chat, 'TechnicianChatPage') },
-          { path: 'jobs/:id/invoice', ...page(invoice, 'TechnicianInvoicePage') },
-          { path: 'profile/edit', ...page(techAccount, 'ProfileDetailsPage') },
-          { path: 'payout-details', ...page(techAccount, 'PayoutDetailsPage') },
-          { path: 'documents', ...page(techAccount, 'DocumentsPage') },
-          { path: 'reviews', ...page(techAccount, 'ReviewsPage') },
-          { path: 'performance', ...page(techAccount, 'PerformancePage') },
-          { path: 'notifications', ...page(() => customer('NotificationsPage'), 'NotificationsPage') },
-          { path: 'help', ...page(() => customer('InfoPages'), 'HelpPage') },
         ],
       },
 

@@ -187,6 +187,11 @@ operations → technicians, super admin → staff). Every sensitive action is wr
 
 ## Deployment
 
+**Single Node.js app (Hostinger VPS or Node.js hosting):** `npm ci && npm run build:prod && npm run migrate:prod && npm start` —
+the API serves the website too. Step-by-step: `docs/SETUP-HOSTINGER-FIREBASE.md` → Part C.
+
+**Docker:**
+
 `docker-compose.yml` runs MySQL, the API and the web app (nginx serving the SPA and proxying `/api`,
 `/socket.io` and `/uploads` to the API on one origin):
 

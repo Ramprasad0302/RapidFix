@@ -41,7 +41,7 @@ export function Dialog({ open, onClose, title, children, variant = 'sheet', foot
       className={cx(
         'm-0 w-full overflow-hidden bg-white p-0 text-slate-900 backdrop:bg-slate-900/45',
         variant === 'drawer' ? 'ml-auto h-dvh max-h-dvh max-w-2xl shadow-raised' : 'max-h-[88dvh]',
-        variant === 'sheet' && 'mx-auto mt-auto max-w-[480px] rounded-t-3xl',
+        variant === 'sheet' && 'mx-auto mt-auto max-w-[480px] rounded-t-3xl lg:mb-auto lg:max-w-lg lg:rounded-3xl lg:shadow-raised',
         variant === 'center' && 'm-auto max-w-lg rounded-2xl shadow-raised',
         variant === 'wide' && 'm-auto max-w-3xl rounded-2xl shadow-raised',
       )}

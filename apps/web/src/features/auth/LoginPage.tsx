@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, ChevronLeft, Eye, EyeOff, Smartphone } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Clock3, Eye, EyeOff, IndianRupee, ShieldCheck, Smartphone } from 'lucide-react';
 import type { z } from 'zod';
 import { isAdminRole, Role, type AuthSession } from '@fixora/shared-types';
 import { adminLoginSchema, formatIndianPhone, sendOtpSchema, toE164India } from '@fixora/shared-utils';
@@ -65,33 +65,68 @@ export function LoginPage() {
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-white">
-      <header className="px-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        <button onClick={back} aria-label="Go back" className="flex size-11 items-center justify-center rounded-full hover:bg-slate-100">
-          <ChevronLeft className="size-6" />
-        </button>
-      </header>
-      <main className="flex flex-1 flex-col px-6 pb-8">
-        {/* Firebase attaches its invisible reCAPTCHA here (phone sign-in via Firebase). */}
-        <div id={RECAPTCHA_CONTAINER} />
-        {config.isPending && step !== 'password' && <CenteredSpinner />}
-        {!config.isPending && step === 'phone' && (
-          <PhoneStep
-            sender={sender}
-            heading={fromBooking ? 'Login to continue' : 'Login or Sign up'}
-            subheading={fromBooking ? 'Please login to confirm your booking' : 'Enter your mobile number to continue'}
-            onSent={(p, info) => {
-              setPhone(p);
-              setOtpInfo(info);
-              setStep('otp');
-            }}
-            onUsePassword={() => setStep('password')}
-          />
-        )}
-        {step === 'otp' && <OtpStep sender={sender} phone={phone} info={otpInfo} onInfo={setOtpInfo} onVerified={finish} />}
-        {step === 'password' && <PasswordStep onSignedIn={finish} />}
-      </main>
+    <div className="min-h-dvh bg-white lg:grid lg:grid-cols-[1.1fr_1fr]">
+      <BrandPanel />
+      <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-white lg:justify-center">
+        <header className="px-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+          <button onClick={back} aria-label="Go back" className="flex size-11 items-center justify-center rounded-full hover:bg-slate-100">
+            <ChevronLeft className="size-6" />
+          </button>
+        </header>
+        <main className="flex flex-1 flex-col px-6 pb-8">
+          {/* Firebase attaches its invisible reCAPTCHA here (phone sign-in via Firebase). */}
+          <div id={RECAPTCHA_CONTAINER} />
+          {config.isPending && step !== 'password' && <CenteredSpinner />}
+          {!config.isPending && step === 'phone' && (
+            <PhoneStep
+              sender={sender}
+              heading={fromBooking ? 'Login to continue' : 'Login or Sign up'}
+              subheading={fromBooking ? 'Please login to confirm your booking' : 'Enter your mobile number to continue'}
+              onSent={(p, info) => {
+                setPhone(p);
+                setOtpInfo(info);
+                setStep('otp');
+              }}
+              onUsePassword={() => setStep('password')}
+            />
+          )}
+          {step === 'otp' && <OtpStep sender={sender} phone={phone} info={otpInfo} onInfo={setOtpInfo} onVerified={finish} />}
+          {step === 'password' && <PasswordStep onSignedIn={finish} />}
+        </main>
+      </div>
     </div>
+  );
+}
+
+/** Laptop-only left panel: brand, promise and trust points. */
+function BrandPanel() {
+  const points = [
+    { icon: ShieldCheck, title: 'Verified professionals', body: 'Every partner is ID-checked and approved.' },
+    { icon: IndianRupee, title: 'Transparent pricing', body: 'See the estimate before you book.' },
+    { icon: Clock3, title: 'Fast, local service', body: 'Nearby experts, often the same day.' },
+  ];
+  return (
+    <aside className="relative hidden overflow-hidden bg-gradient-to-br from-fixora-navy via-[#12306a] to-fixora-blue p-12 text-white lg:flex lg:flex-col lg:justify-between">
+      <div aria-hidden className="absolute -top-24 -right-24 size-96 rounded-full bg-fixora-cyan/15 blur-3xl" />
+      <Logo tone="light" size="md" />
+      <div className="relative max-w-md">
+        <h2 className="text-4xl leading-tight font-extrabold">Home services you can trust — in every town.</h2>
+        <ul className="mt-8 flex flex-col gap-5">
+          {points.map(({ icon: Icon, title, body }) => (
+            <li key={title} className="flex gap-4">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                <Icon className="size-5.5 text-fixora-cyan" aria-hidden />
+              </span>
+              <span>
+                <span className="block font-semibold">{title}</span>
+                <span className="text-sm text-white/70">{body}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="relative text-sm text-white/60">RapidFix · Developed by Nirmaan Digital</p>
+    </aside>
   );
 }
 

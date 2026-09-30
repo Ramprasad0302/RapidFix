@@ -12,6 +12,9 @@
   "scripts": {
     "dev:api": "npm run dev -w @fixora/backend",
     "build": "npm run build --workspaces --if-present",
+    "build:prod": "npm run build -w @fixora/web && npm run db:generate -w @fixora/backend && npm run build -w @fixora/backend",
+    "migrate:prod": "npm run db:deploy -w @fixora/backend",
+    "start": "npm run start -w @fixora/backend",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "npm run test --workspaces --if-present",

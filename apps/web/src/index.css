@@ -29,3 +29,18 @@
     @apply h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-[15px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-fixora-blue focus:ring-3 focus:ring-fixora-blue/15;
   }
 }
+
+/* Laptop/desktop: carousels marked with data-desktop-cols become grids (unlayered, so it wins over utilities). */
+@media (min-width: 1024px) {
+  .scroll-row[data-desktop-cols] {
+    display: grid;
+    grid-template-columns: repeat(var(--desktop-cols, 4), minmax(0, 1fr));
+    overflow: visible;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+  .scroll-row[data-desktop-cols] > * {
+    width: auto;
+    max-width: none;
+  }
+}

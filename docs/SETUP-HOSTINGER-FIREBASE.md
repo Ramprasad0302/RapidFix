@@ -122,6 +122,67 @@ Keep the quotes and the `\n` sequences exactly as in the JSON file.
 
 ---
 
+## Part C — Hosting RapidFix on Hostinger
+
+RapidFix runs as **one Node.js app**: the API also serves the website (built into `apps/web/dist`), so one
+process on one domain runs everything. Tested locally with the production build.
+
+```bash
+npm ci                 # install
+npm run build:prod     # build website + API
+npm run migrate:prod   # create/upgrade tables (never deletes data)
+npm start              # start (serves website + API on $PORT)
+```
+
+### Production settings (server environment / `backend/.env`)
+```env
+NODE_ENV=production
+PORT=3000                                   # or whatever Hostinger assigns
+DATABASE_URL=mysql://USER:PASSWORD@HOST:3306/DBNAME
+JWT_SECRET=<openssl rand -hex 48>           # NEW values for production
+JWT_REFRESH_SECRET=<openssl rand -hex 48>
+DATA_ENCRYPTION_KEY=<openssl rand -hex 32>  # keep it forever — bank numbers are encrypted with it
+OTP_PROVIDER=firebase
+FIREBASE_PROJECT_ID=<your project id>
+CORS_ORIGINS=https://yourdomain.com
+WEB_APP_URL=https://yourdomain.com
+SEED_ADMIN_EMAIL=...                        # only if you run the seed
+SEED_ADMIN_PASSWORD=...
+```
+The website's `VITE_*` values (Firebase web config, optional Google Maps key) are read **when building**, so put
+`apps/web/.env` in place (or set them as build-time environment variables) before `npm run build:prod`.
+`VITE_API_URL=/api/v1` and an empty `VITE_SOCKET_URL` are correct for this one-app setup.
+
+### Option 1 — Hostinger VPS (recommended)
+Full control, WebSockets for live tracking and chat, and the background workers (job dispatch, notifications)
+run all the time.
+1. hPanel → **VPS** → choose Ubuntu 24.04 (or the "Docker" template) → set a root password / SSH key.
+2. Point your domain's **A record** to the VPS IP (hPanel → Domains → DNS).
+3. Either use the included Docker setup (`docker compose --env-file .env.docker up -d --build`, see README →
+   Deployment), or install Node 22 + PM2 and run the four commands above with `pm2 start "npm start" --name rapidfix`.
+4. HTTPS: Nginx/Caddy in front with a free Let's Encrypt certificate (Caddy does it automatically).
+5. Add the VPS IP in hPanel → Databases → **Remote MySQL** (or run MySQL on the VPS).
+6. Firebase → Authentication → Settings → **Authorized domains** → add `yourdomain.com`.
+
+### Option 2 — Hostinger Node.js Web App (Business / Cloud hosting plans)
+hPanel → **Websites** → **Add website** → **Node.js Apps** → import from GitHub (or upload a zip without
+`node_modules`) → set:
+- **Build command:** `npm ci && npm run build:prod && npm run migrate:prod`
+- **Start command:** `npm start`
+- **Node version:** 22
+- **Environment variables:** everything from "Production settings" above
+
+Then attach your domain + free SSL in hPanel and add the domain to Firebase **Authorized domains**.
+Limits to check with Hostinger for this option: WebSocket support (without it live updates fall back to
+slower polling — the app still works) and whether the app keeps running when idle (the job-dispatch and
+notification workers need a process that stays up).
+
+### After deploying — checklist
+- `https://yourdomain.com/api/v1/health` → `"db":"ok"`
+- Log in with each Firebase test number (super admin → /admin, technician → /technician, customer → /)
+- Book a service as the customer and accept it as the technician
+- On your phone: open the site → browser menu → **Add to Home screen** → allow notifications and location
+
 ## Going live (later)
 Hostinger **shared** hosting runs PHP sites; the RapidFix API is Node.js. For production use a Hostinger **VPS** (or their Node.js hosting if your plan includes it) with the provided Docker setup (`docker-compose.yml`, see README → Deployment), your domain with HTTPS, and:
 - `NODE_ENV=production`, `OTP_PROVIDER=firebase`, `FIREBASE_PROJECT_ID`, a real `DATA_ENCRYPTION_KEY`
