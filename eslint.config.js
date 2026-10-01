@@ -13,7 +13,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['backend/**/*.ts', 'scripts/**/*.mjs'],
+    files: ['backend/**/*.ts', 'scripts/**/*.mjs', 'backend/prisma/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
   {

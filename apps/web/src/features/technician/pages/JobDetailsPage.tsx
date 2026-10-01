@@ -8,6 +8,7 @@ import { Alert, Button } from '@fixora/ui';
 import { Avatar } from '../../../components/Avatar';
 import { Dialog } from '../../../components/Dialog';
 import { PageHeader } from '../../../components/PageHeader';
+import { PinMap } from '../../../components/PinMap';
 import { ProgressSteps } from '../../../components/ProgressSteps';
 import { ServiceArt } from '../../../components/ServiceArt';
 import { CenteredSpinner, ErrorState } from '../../../components/States';
@@ -141,6 +142,8 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
           <Navigation className="size-5 fill-current" />
         </a>
       </section>
+      {/* The customer's exact pin — shown once the job is yours. */}
+      {j.latitude != null && j.longitude != null && !j.actions.includes('ACCEPT') && <PinMap lat={j.latitude} lng={j.longitude} label={`${j.customerName}'s location`} />}
 
       <section>
         <h3 className="text-lg font-semibold text-slate-900">Service Details</h3>

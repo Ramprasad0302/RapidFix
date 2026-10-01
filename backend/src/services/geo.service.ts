@@ -77,7 +77,7 @@ function fromNominatim(r: NomResult): GeoAddress {
   return {
     title,
     formatted: r.display_name.replace(/, India$/, ''),
-    houseNo: a.house_number ?? '',
+    houseNo: [a.house_number, a.building].filter(Boolean).join(', '),
     street: street === area ? '' : street,
     area,
     villageTown: town,
@@ -108,7 +108,8 @@ function fromGoogle(r: GResult): GeoAddress {
   return {
     title: [area || get('route'), town].filter(Boolean).join(', '),
     formatted: r.formatted_address.replace(/, India$/, ''),
-    houseNo: get('street_number', 'premise'),
+    // Door / flat / building number when Google knows it (often present in towns with mapped buildings).
+    houseNo: [get('subpremise'), get('premise'), get('street_number')].filter(Boolean).join(', '),
     street: get('route'),
     area,
     villageTown: town,

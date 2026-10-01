@@ -39,21 +39,47 @@ export const useLocationStore = create<LocationState>()(
   ),
 );
 
-export function requestCurrentPosition(): Promise<{ latitude: number; longitude: number }> {
+/**
+ * Precise GPS fix. Phones often report a rough network position first and
+ * sharpen within seconds, so we listen for up to `maxWaitMs` and keep the most
+ * accurate reading, finishing early once it is within `goodEnoughM` metres.
+ */
+export function requestCurrentPosition(opts: { maxWaitMs?: number; goodEnoughM?: number } = {}): Promise<{ latitude: number; longitude: number; accuracy: number }> {
+  const maxWaitMs = opts.maxWaitMs ?? 12_000;
+  const goodEnoughM = opts.goodEnoughM ?? 15;
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) return reject(new Error('Location is not available on this device.'));
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
-      (err) =>
+    let best: GeolocationPosition | null = null;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      navigator.geolocation.clearWatch(id);
+      clearTimeout(timer);
+      if (best) resolve({ latitude: best.coords.latitude, longitude: best.coords.longitude, accuracy: Math.round(best.coords.accuracy) });
+      else reject(new Error('Could not get your location. Please try again or search for your area.'));
+    };
+    const id = navigator.geolocation.watchPosition(
+      (p) => {
+        if (!best || p.coords.accuracy < best.coords.accuracy) best = p;
+        if (p.coords.accuracy <= goodEnoughM) finish();
+      },
+      (err) => {
+        if (best) return finish();
+        done = true;
+        navigator.geolocation.clearWatch(id);
+        clearTimeout(timer);
         reject(
           new Error(
             err.code === err.PERMISSION_DENIED
               ? 'Location permission is off. Allow it in your browser settings, or search for your area instead.'
               : 'Could not get your location. Please try again or search for your area.',
           ),
-        ),
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
+        );
+      },
+      { enableHighAccuracy: true, timeout: maxWaitMs, maximumAge: 0 },
     );
+    const timer = setTimeout(finish, maxWaitMs);
   });
 }
 

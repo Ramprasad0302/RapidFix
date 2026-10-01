@@ -4,6 +4,7 @@ import { CalendarCheck2, Gavel, MessageSquareText, RotateCcw, UserPlus, XCircle 
 import { BookingStatus, canTransition, hasPermission, Permission, type AdminBookingDetailDto, type AdminBookingRowDto } from '@fixora/shared-types';
 import { formatINR, formatIndianPhone, rupeesToPaise } from '@fixora/shared-utils';
 import { Alert, Button, cx } from '@fixora/ui';
+import { PinMap } from '../../../components/PinMap';
 import { Dialog } from '../../../components/Dialog';
 import { ErrorState, Skeleton } from '../../../components/States';
 import { Pill, StatusBadge } from '../../../components/StatusBadge';
@@ -202,6 +203,11 @@ export function BookingDrawer({ id }: { id: string }) {
             ['Problem', b.description || '—'],
           ]}
         />
+        {b.address.latitude != null && b.address.longitude != null && (
+          <div className="mt-3">
+            <PinMap lat={b.address.latitude} lng={b.address.longitude} label={`${b.customer.name ?? 'Customer'}'s location`} />
+          </div>
+        )}
       </Section>
 
       <Section title="People">

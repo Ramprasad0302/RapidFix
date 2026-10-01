@@ -13,6 +13,7 @@ import { requestCurrentPosition, useLocationStore } from '../../../store/locatio
 import { toast } from '../../../store/toast';
 import { AddressForm } from '../components/AddressForm';
 import { LocationPicker } from '../components/LocationPicker';
+import { NotificationAskDialog, shouldAskNotifications } from '../../../components/NotificationAskDialog';
 import { MobileShell } from '../CustomerTabsLayout';
 import { useLocations } from '../queries';
 
@@ -45,6 +46,8 @@ export function ConfirmLocationPage() {
   const [locating, setLocating] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [askNotif, setAskNotif] = useState(false);
 
   async function locate() {
     setGpsError(null);
@@ -54,6 +57,9 @@ export function ConfirmLocationPage() {
       const c = { lat: p.latitude, lng: p.longitude };
       setCenter(c);
       setPin(c);
+      setAccuracy(p.accuracy);
+      // Location granted → now, separately, the notifications question.
+      if (shouldAskNotifications()) setAskNotif(true);
     } catch (e) {
       setGpsError((e as Error).message);
     } finally {
@@ -154,8 +160,8 @@ export function ConfirmLocationPage() {
 
           <div className="pointer-events-none absolute top-1/2 left-1/2 z-[500] flex -translate-x-1/2 -translate-y-full flex-col items-center">
             <span className="mb-1 rounded-lg bg-fixora-navy px-3 py-1.5 text-center text-xs leading-tight font-semibold text-white shadow-raised">
-              Your service will be here
-              <span className="block font-normal text-white/70">Move the map to adjust</span>
+              Place the pin on your door
+              <span className="block font-normal text-white/70">Zoom in &amp; move the map to adjust</span>
             </span>
             <MapPin className="size-10 fill-danger text-white drop-shadow-lg" strokeWidth={1.5} aria-hidden />
           </div>
@@ -189,6 +195,12 @@ export function ConfirmLocationPage() {
           <section className="z-[600] rounded-t-3xl bg-white px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgb(11_31_58/0.08)]">
             <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Select service location</p>
             {gpsError && <Alert className="mt-3">{gpsError}</Alert>}
+            {accuracy != null && (
+              <p className={cx('mt-2 rounded-lg px-3 py-2 text-xs', accuracy <= 25 ? 'bg-success-soft text-success' : 'bg-warning-soft text-slate-700')}>
+                GPS accuracy ±{accuracy} m.{' '}
+                {accuracy <= 25 ? 'Check the pin is on your building.' : 'Zoom in and drag the map so the pin sits exactly on your gate or door — the technician navigates to this pin.'}
+              </p>
+            )}
             <div className="mt-3 flex min-h-14 items-start gap-3">
               <MapPin className="mt-0.5 size-6 shrink-0 fill-fixora-blue text-white" aria-hidden />
               {geo.isPending || !lookup ? (
@@ -241,6 +253,7 @@ export function ConfirmLocationPage() {
       </div>
 
       <LocationPicker open={searching} onClose={() => setSearching(false)} from={from} />
+      <NotificationAskDialog open={askNotif} onClose={() => setAskNotif(false)} />
     </MobileShell>
   );
 }

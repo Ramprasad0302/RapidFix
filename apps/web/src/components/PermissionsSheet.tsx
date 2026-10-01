@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Bell, CircleCheck, LocateFixed, MapPinned, Search, ShieldAlert } from 'lucide-react';
+import { CircleCheck, LocateFixed, MapPinned, Search, ShieldAlert } from 'lucide-react';
 import { Button, cx } from '@fixora/ui';
 import { geoApi } from '../lib/endpoints';
-import { notificationPermission, notificationsSupported, requestNotificationPermission } from '../lib/notifications';
+import { notificationPermission, notificationsSupported } from '../lib/notifications';
 import { requestCurrentPosition, useLocationStore } from '../store/location';
-import { useAuth } from '../store/auth';
 import { LocationPicker } from '../features/customer/components/LocationPicker';
 import { Dialog } from './Dialog';
+import { NotificationAskDialog } from './NotificationAskDialog';
 
 type State = 'granted' | 'denied' | 'prompt' | 'unsupported';
 const GEO_KEY = 'rapidfix.permissionsAsked';
@@ -53,11 +53,10 @@ export async function locateAndSelect(select: ReturnType<typeof useLocationStore
  * after a tap. Asked again next session while something is still undecided.
  */
 export function PermissionsSheet({ location }: { location: 'customer' | 'technician' | false }) {
-  const authed = useAuth((s) => s.status === 'authenticated');
   const { selected, select, markPromptSeen } = useLocationStore();
   const [geo, setGeo] = useState<State | null>(null);
   const [notif, setNotif] = useState<State>(notifState);
-  const [busy, setBusy] = useState<'geo' | 'notif' | null>(null);
+  const [busy, setBusy] = useState<'geo' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [geoDismissed, setGeoDismissed] = useState(() => sessionFlag(GEO_KEY));
   const [notifDismissed, setNotifDismissed] = useState(() => sessionFlag(NOTIF_KEY));
@@ -78,21 +77,17 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
   // Customers without a location also see it when GPS is blocked, to pick their area by hand.
   const needGeo = !!location && (geo === 'prompt' || (location === 'customer' && !selected && (geo === 'denied' || geo === 'unsupported')));
   const [manual, setManual] = useState(false);
-  const needNotif = authed && notif === 'prompt' && notificationsSupported();
+  // Notifications are asked separately, AFTER the location question (guests too — the device is
+  // linked to the account at login).
+  const needNotif = notif === 'prompt' && notificationsSupported();
   const askGeo = needGeo && !geoDismissed;
   const askNotif = needNotif && !notifDismissed;
-  const open = geo !== null && (askGeo || askNotif);
+  const open = geo !== null && askGeo;
+  const notifOpen = geo !== null && !askGeo && askNotif;
 
   const close = () => {
-    // Only the questions shown now count as asked; the other one can still come up later (e.g. after login).
-    if (askGeo || !needGeo) {
-      sessionFlag(GEO_KEY, true);
-      setGeoDismissed(true);
-    }
-    if (askNotif || !authed) {
-      if (authed) sessionFlag(NOTIF_KEY, true);
-      setNotifDismissed(authed);
-    }
+    sessionFlag(GEO_KEY, true);
+    setGeoDismissed(true);
     markPromptSeen();
   };
 
@@ -103,6 +98,7 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
       if (location === 'customer') await locateAndSelect(select);
       else await requestCurrentPosition();
       setGeo('granted');
+      close(); // location done → the notifications question follows on its own
     } catch (e) {
       setGeo((await geolocationState()) === 'denied' ? 'denied' : 'prompt');
       setError((e as Error).message);
@@ -111,17 +107,10 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
     }
   };
 
-  const allowNotifications = async () => {
-    setBusy('notif');
-    const r = await requestNotificationPermission();
-    setNotif(r === 'default' ? 'prompt' : r);
-    setBusy(null);
-  };
-
   return (
     <>
       <LocationPicker open={manual} onClose={() => setManual(false)} />
-      <Dialog open={open} onClose={close} title="Get the most out of RapidFix">
+      <Dialog open={open} onClose={close} title="Allow location">
         <p className="text-[15px] text-slate-600">
           {location === 'technician'
             ? 'RapidFix needs these to send you nearby jobs and show customers when you are on the way.'
@@ -143,20 +132,6 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
               allowIcon={<LocateFixed className="size-4" />}
             />
           )}
-          {authed && (
-            <PermissionRow
-              icon={<Bell className="size-6" />}
-              title="Notifications"
-              body={
-                location === 'technician'
-                  ? 'New job requests, customer messages and payment updates — even when the app is in the background.'
-                  : 'Technician assigned, on the way, arrived, payment and chat messages.'
-              }
-              state={notif}
-              busy={busy === 'notif'}
-              onAllow={allowNotifications}
-            />
-          )}
         </div>
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
         {location === 'customer' && !selected && geo !== 'granted' && (
@@ -175,9 +150,17 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
           </Button>
         )}
         <Button variant="ghost" size="lg" fullWidth className="mt-3" onClick={close}>
-          {needGeo || needNotif ? 'Not now' : 'Done'}
+          Not now
         </Button>
       </Dialog>
+      <NotificationAskDialog
+        open={notifOpen}
+        technician={location === 'technician'}
+        onClose={() => {
+          setNotif(notifState());
+          setNotifDismissed(true);
+        }}
+      />
     </>
   );
 }

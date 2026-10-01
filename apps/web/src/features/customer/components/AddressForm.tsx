@@ -34,13 +34,14 @@ export const EMPTY_ADDRESS: FormIn = {
   isDefault: false,
 };
 
-function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+function Field({ label, required, error, hint, children }: { label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium text-slate-800">
         {label} {required && <span className="text-danger">*</span>}
       </span>
       {children}
+      {hint && !error && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
       {error && (
         <span role="alert" className="mt-1 block text-xs text-danger">
           {error}
@@ -88,8 +89,8 @@ export function AddressForm({
       onSubmit={form.handleSubmit((v) => onSubmit(coords ? { ...v, latitude: coords.latitude, longitude: coords.longitude } : v))}
       className="flex flex-col gap-4"
     >
-      <Field label="House / Flat / Floor No." required error={e.houseNo?.message}>
-        <input className={input(e.houseNo)} placeholder="e.g. 12A, 2nd floor" autoComplete="address-line1" {...form.register('houseNo')} />
+      <Field label="Door / House / Flat No." required error={e.houseNo?.message} hint="Exactly as on your door or gate, so the technician reaches the right home.">
+        <input className={input(e.houseNo)} placeholder="e.g. 4-12/A, Flat 203, 2nd floor" autoComplete="address-line1" {...form.register('houseNo')} />
       </Field>
       <Field label="Street / Road / Area" required error={e.area?.message}>
         <input className={input(e.area)} placeholder="e.g. Main Street, Sajjapuram" autoComplete="address-line2" {...form.register('area')} />
