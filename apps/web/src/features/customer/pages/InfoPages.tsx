@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Banknote, ChevronDown, CreditCard, Mail, Phone, Share2, Smartphone } from 'lucide-react';
-import { Button, Logo } from '@fixora/ui';
+import { Button } from '@fixora/ui';
 import { SupportArt } from '../../../components/art/Scenes';
 import { PageHeader } from '../../../components/PageHeader';
 import { Skeleton } from '../../../components/States';
-import { APP_VERSION } from '../../../lib/config';
 import { useSupportContacts } from '../queries';
 import { customerApi } from '../../../lib/endpoints';
 import { homeFor, useAuth } from '../../../store/auth';
@@ -61,40 +60,6 @@ export function HelpPage() {
           </details>
         ))}
       </div>
-    </InfoLayout>
-  );
-}
-
-export function AboutPage() {
-  return (
-    <InfoLayout title="About RapidFix">
-      <div className="flex flex-col items-center py-6">
-        <Logo variant="full" size="md" />
-        <p className="mt-3 text-sm text-slate-500">Version {APP_VERSION}</p>
-      </div>
-      <p>
-        RapidFix connects homes in villages, small towns and growing cities with verified local professionals — AC technicians, electricians,
-        plumbers, carpenters, painters, cleaners and appliance experts.
-      </p>
-      <p className="mt-3">Transparent pricing, verified partners and easy booking — so every job simply gets fixed.</p>
-      <p className="mt-6 text-sm text-slate-500">RapidFix is developed by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-fixora-blue hover:underline">Nirmaan Digital</a>.</p>
-    </InfoLayout>
-  );
-}
-
-const LEGAL_NOTE = 'This is a summary for the app preview. The final legal text must be reviewed before public launch.';
-
-export function TermsPage() {
-  return (
-    <InfoLayout title="Terms & Conditions" backTo="/">
-      <p className="rounded-xl bg-warning-soft p-3 text-sm text-slate-700">{LEGAL_NOTE}</p>
-      <ol className="mt-4 list-decimal space-y-3 pl-5">
-        <li>RapidFix is a platform that connects customers with independent, verified service professionals.</li>
-        <li>Prices shown are estimates. Extra work or parts are charged only after you approve them in the app.</li>
-        <li>You can cancel or reschedule free of charge until the technician starts travelling to you.</li>
-        <li>Payment is due after the service is completed, by cash, UPI or online payment.</li>
-        <li>Please treat professionals with respect; abusive behaviour can lead to account suspension.</li>
-      </ol>
     </InfoLayout>
   );
 }

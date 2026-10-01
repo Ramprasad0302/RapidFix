@@ -17,6 +17,7 @@ import { formatBookingCode, haversineKm, type AddressInput } from '@fixora/share
 import { prisma } from '../config/prisma';
 import type { Prisma } from '../generated/prisma/client';
 import { AppError } from '../utils/AppError';
+import { assertServed } from './serviceArea.service';
 import { locality } from '../utils/locality';
 import { transitionBooking } from './bookingState';
 import { buildTimeline } from './bookingTimeline';
@@ -248,6 +249,13 @@ export async function createBooking(customerId: string, userId: string, input: C
       const point = await geocodeAddress(saved);
       if (point) await prisma.address.update({ where: { id: saved.id }, data: point });
     }
+  }
+
+  // Only inside the area we serve (e.g. Tanuku within 10 km).
+  if (input.address) await assertServed(input.address);
+  else if (input.addressId) {
+    const saved = await prisma.address.findFirst({ where: { id: input.addressId, customerId, deletedAt: null }, select: { latitude: true, longitude: true, villageTown: true } });
+    if (saved) await assertServed(saved);
   }
 
   const { service, breakdown, coupon } = await estimatePrice(input.serviceId, input.couponCode, customerId);

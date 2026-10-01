@@ -8,6 +8,8 @@ import { estimatePrice } from '../services/pricing.service';
 import { getSetting } from '../services/settings.service';
 import { env } from '../config/env';
 import { ok } from '../utils/response';
+import * as serviceArea from '../services/serviceArea.service';
+import { indianPhoneSchema, toE164India } from '@fixora/shared-utils';
 
 /** Public, cacheable catalogue — guests can browse, search and price everything. */
 export const catalogRouter = Router();
@@ -67,11 +69,41 @@ catalogRouter.get('/stats/public', cachePublic(300), async (_req, res) => {
   ok(res, await catalog.publicStats());
 });
 
+/** Is this map point inside the area we serve (e.g. Tanuku within 10 km)? */
+catalogRouter.get(
+  '/service-area',
+  validate(z.object({ lat: z.coerce.number().min(-90).max(90), lng: z.coerce.number().min(-180).max(180) }), 'query'),
+  async (_req, res) => {
+    const q = res.locals.query as { lat: number; lng: number };
+    res.set('Cache-Control', 'no-cache');
+    ok(res, await serviceArea.checkPoint(q.lat, q.lng));
+  },
+);
+
+/** "I'm interested" from someone outside the service area. */
+catalogRouter.post(
+  '/service-area/interest',
+  optionalAuthenticate(),
+  validate(
+    z.object({
+      name: z.string().trim().max(120).optional(),
+      phone: indianPhoneSchema.optional(),
+      label: z.string().trim().max(255).optional(),
+      lat: z.number().min(-90).max(90).optional(),
+      lng: z.number().min(-180).max(180).optional(),
+    }),
+  ),
+  async (req, res) => {
+    const b = req.body as { name?: string; phone?: string; label?: string; lat?: number; lng?: number };
+    ok(res, await serviceArea.recordInterest({ userId: req.auth?.userId ?? null, name: b.name, phone: b.phone ? toE164India(b.phone) : null, label: b.label, latitude: b.lat, longitude: b.lng }), 201);
+  },
+);
+
 /** Public contact details (admin-editable in Settings). */
 // Not cached: it tells the app which login method to use, which must switch immediately.
 catalogRouter.get('/app-config', async (_req, res) => {
   res.set('Cache-Control', 'no-cache');
-  const [supportPhone, supportEmail] = await Promise.all([getSetting('support.phone', '+91 94919 63366'), getSetting('support.email', 'support@rapidfix.local')]);
+  const [supportPhone, supportEmail] = await Promise.all([getSetting('support.phone', '+91 94919 63366'), getSetting('support.email', 'support@rapidfix.in')]);
   ok(res, { supportPhone, supportEmail, otpProvider: env.OTP_PROVIDER === 'firebase' ? 'firebase' : 'server' });
 });
 

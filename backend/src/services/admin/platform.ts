@@ -11,6 +11,7 @@ import {
 } from '@fixora/shared-types';
 import { env } from '../../config/env';
 import { prisma } from '../../config/prisma';
+import { DEFAULT_DISPLAY_STATS } from '../catalog.service';
 import type { Prisma } from '../../generated/prisma/client';
 import { AppError } from '../../utils/AppError';
 import { recordAudit } from '../audit.service';
@@ -235,7 +236,17 @@ const SETTINGS: Record<string, { description: string; schema: z.ZodType; default
     default: { skill: 1, distance: 0.5, rating: 0.3, workload: 0.2 },
   },
   'support.phone': { description: 'Support phone shown to users', schema: z.string().min(6).max(20), default: '+91 94919 63366' },
-  'support.email': { description: 'Support email shown to users', schema: z.email(), default: 'support@rapidfix.local' },
+  'support.email': { description: 'Support email shown to users', schema: z.email(), default: 'support@rapidfix.in' },
+  'stats.display': {
+    description: 'Launch figures on the website (the real figure is shown once it is higher)',
+    schema: z.object({
+      verifiedProfessionals: z.number().int().min(0).max(100000),
+      jobsCompleted: z.number().int().min(0).max(10000000),
+      averageRating: z.number().min(0).max(5),
+      townsServed: z.number().int().min(0).max(10000),
+    }),
+    default: DEFAULT_DISPLAY_STATS,
+  },
 };
 
 export async function getSettings(): Promise<SettingDto[]> {

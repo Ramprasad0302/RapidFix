@@ -7,6 +7,7 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  MapPinned,
   Settings,
   Settings2,
   Shapes,
@@ -42,6 +43,7 @@ export const MAIN_NAV: AdminNavItem[] = [
   { slug: 'complaints', label: 'Complaints', icon: CircleAlert, permission: Permission.COMPLAINTS_MANAGE, description: 'Customer and partner complaints.' },
   { slug: 'notifications', label: 'Notifications', icon: Bell, permission: Permission.NOTIFICATIONS_MANAGE, description: 'Announcements to customers and partners.' },
   { slug: 'reports', label: 'Reports', icon: ChartColumn, permission: Permission.REPORTS_VIEW, description: 'Bookings, revenue, commission and performance reports.' },
+  { slug: 'service-area', label: 'Service Area', icon: MapPinned, permission: Permission.SETTINGS_MANAGE, description: 'Towns we serve, radius, and "I\'m interested" requests.' },
   { slug: 'settings', label: 'Settings', icon: Settings, permission: Permission.SETTINGS_MANAGE, description: 'Tax, dispatch and platform settings.' },
 ];
 

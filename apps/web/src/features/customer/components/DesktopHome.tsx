@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, BadgeCheck, Clock3, Headset, IndianRupee, Mail, MapPin, Phone, Search, ShieldCheck, Star, Truck } from 'lucide-react';
 import { Logo } from '@fixora/ui';
 import { HomeScene } from '../../../components/art/Scenes';
-import { APP_VERSION } from '../../../lib/config';
 import { trustApi } from '../../../lib/endpoints';
 import { greeting } from '../../../lib/format';
 import { useCategories, useSupportContacts } from '../queries';
@@ -69,9 +68,10 @@ export function DesktopHero({ name }: { name: string }) {
             ))}
           </div>
 
-          <dl className="mt-10 grid max-w-xl grid-cols-3 gap-6 border-t border-white/10 pt-6">
+          <dl className="mt-10 grid max-w-2xl grid-cols-4 gap-6 border-t border-white/10 pt-6">
             <HeroStat value={stats?.averageRating ? `${stats.averageRating.toFixed(1)}★` : '—'} label="Average rating" />
             <HeroStat value={stats ? `${stats.verifiedProfessionals}+` : '—'} label="Verified professionals" />
+            <HeroStat value={stats ? `${stats.jobsCompleted}+` : '—'} label="Jobs completed" />
             <HeroStat value={stats ? `${stats.townsServed}` : '—'} label="Towns served" />
           </dl>
         </div>
@@ -184,7 +184,7 @@ export function DesktopFooter() {
       </div>
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-5 text-sm text-white/50">
-          <span>© {new Date().getFullYear()} RapidFix · v{APP_VERSION}</span>
+          <span>© {new Date().getFullYear()} RapidFix</span>
           <span>
             Developed by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-white/80 hover:text-white hover:underline">Nirmaan Digital</a>
           </span>

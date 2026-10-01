@@ -32,7 +32,7 @@ export interface GeoPlace {
   longitude: number;
 }
 
-const UA = 'RapidFix/1.0 (support@rapidfix.local)';
+const UA = 'RapidFix/1.0 (support@rapidfix.in)';
 const TIMEOUT_MS = 8000;
 const cache = new Map<string, { at: number; value: unknown }>();
 const CACHE_TTL = 24 * 3_600_000;

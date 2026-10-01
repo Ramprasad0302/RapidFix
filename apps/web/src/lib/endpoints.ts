@@ -105,6 +105,18 @@ export const trustApi = {
 };
 
 // ─── Geocoding (server-side proxy) ───────────────────────────────────────
+export interface ServiceAreaCheckDto {
+  served: boolean;
+  town: string | null;
+  distanceKm: number | null;
+  areas: { name: string; radiusKm: number }[];
+}
+export const serviceAreaApi = {
+  check: (lat: number, lng: number) => unwrap<ServiceAreaCheckDto>(api.get('/service-area', { params: { lat, lng } })),
+  interest: (body: { name?: string; phone?: string; label?: string; lat?: number; lng?: number }) =>
+    unwrap<{ saved: boolean }>(api.post('/service-area/interest', body)),
+};
+
 export const geoApi = {
   reverse: (lat: number, lng: number) => unwrap<GeoAddressDto>(api.get('/geo/reverse', { params: { lat, lng } })),
   search: (q: string, near?: { lat: number; lng: number }) =>
@@ -365,4 +377,11 @@ export const adminModulesApi = {
   auditLogs: (params: { action?: string; q?: string } & PageParams) => unwrap<Paged<AuditLogDto>>(api.get('/admin/audit-logs', { params })),
   auditActions: () => unwrap<string[]>(api.get('/admin/audit-logs/actions')),
   system: () => unwrap<SystemStatusDto>(api.get('/admin/system')),
+  serviceArea: () => unwrap<AdminServiceAreaDto>(api.get('/admin/service-area')),
+  updateServiceArea: (id: string, body: { isActive?: boolean; radiusKm?: number }) => unwrap<unknown>(api.patch(`/admin/service-area/${id}`, body)),
 };
+
+export interface AdminServiceAreaDto {
+  locations: { id: string; name: string; district: string; state: string; latitude: number; longitude: number; radiusKm: number; isActive: boolean }[];
+  interest: { id: string; name: string | null; phone: string | null; label: string; latitude: number | null; longitude: number | null; createdAt: string }[];
+}

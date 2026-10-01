@@ -28,6 +28,7 @@ import {
 import { PermissionsSheet } from '../../../components/PermissionsSheet';
 import { LocationPicker } from '../components/LocationPicker';
 import { DesktopFooter, DesktopHero, DesktopTrustStrip } from '../components/DesktopHome';
+import { ServiceAreaBanner } from '../../../components/ServiceAreaBanner';
 import { useCategories } from '../queries';
 
 const WHY = [
@@ -46,6 +47,7 @@ export function HomePage() {
         <DesktopHero name={firstName(name)} />
         <DesktopTrustStrip />
         <Hero name={firstName(name)} />
+        <ServiceAreaBanner />
         <ActiveBookingStrip />
         <Categories />
         <TrustedBanner />

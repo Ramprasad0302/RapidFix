@@ -24,7 +24,6 @@ import { cx, Logo } from '@fixora/ui';
 import { GuestAvatar } from '../../../components/art/Scenes';
 import { Avatar } from '../../../components/Avatar';
 import { Skeleton } from '../../../components/States';
-import { APP_VERSION } from '../../../lib/config';
 import { customerApi } from '../../../lib/endpoints';
 import { signOut, useAuth } from '../../../store/auth';
 import { useUnreadCount } from '../queries';
@@ -86,7 +85,7 @@ function Guest() {
           { to: '/help', icon: Headset, title: 'Help & Support', subtitle: 'Get help, FAQs and support' },
           { to: '/terms', icon: FileText, title: 'Terms & Conditions' },
           { to: '/privacy', icon: ShieldCheck, title: 'Privacy Policy' },
-          { to: '/about', icon: Info, title: 'About RapidFix', subtitle: `Version ${APP_VERSION}` },
+          { to: '/about', icon: Info, title: 'About RapidFix', subtitle: 'Our story, promise and team' },
         ]}
       />
     </>
@@ -168,7 +167,7 @@ function SignedIn() {
       <Link to="/delete-account" className="mt-4 block text-center text-sm font-medium text-slate-500 hover:text-danger">
         Delete my account
       </Link>
-      <p className="py-4 text-center text-xs text-slate-400">RapidFix v{APP_VERSION} · by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-fixora-blue hover:underline">Nirmaan Digital</a></p>
+      <p className="py-4 text-center text-xs text-slate-400">RapidFix · by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-fixora-blue hover:underline">Nirmaan Digital</a></p>
     </>
   );
 }

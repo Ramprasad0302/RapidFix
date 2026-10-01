@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { cx } from '@fixora/ui';
 import { mediaUrl } from '../lib/api';
-import { CATEGORY_ACCENT, SERVICE_ICONS } from '../lib/serviceIcons';
+import { SERVICE_ART } from './art/ServiceArt3D';
 import { CATEGORY_TINT, CategoryArt } from './art/CategoryArt';
 
 interface Props {
@@ -15,11 +15,12 @@ interface Props {
   artClassName?: string;
 }
 
-/** A service/category photo when one exists, otherwise the service's own icon (or the category illustration) on a soft tint. */
+/** A service/category photo when one exists, otherwise the service's own 3D illustration (or its category's) on a soft tint. */
 export function ServiceArt({ imageUrl, iconKey, slug, alt, className, artClassName = 'w-1/2 max-w-24' }: Props) {
   const [failed, setFailed] = useState(false);
   const src = mediaUrl(imageUrl);
-  const Icon = slug ? SERVICE_ICONS[slug] : undefined;
+  const Art = slug ? SERVICE_ART[slug] : undefined;
+  const artId = useId().replace(/:/g, '');
   if (src && !failed) {
     return (
       <img
@@ -38,8 +39,10 @@ export function ServiceArt({ imageUrl, iconKey, slug, alt, className, artClassNa
       aria-label={alt}
       className={cx('flex items-center justify-center bg-gradient-to-br', CATEGORY_TINT[iconKey] ?? 'from-slate-50 to-blue-100', className)}
     >
-      {Icon ? (
-        <Icon className={cx('h-1/2 max-h-20 w-1/2 max-w-20 drop-shadow-[0_4px_6px_rgb(15_23_42/0.12)]', CATEGORY_ACCENT[iconKey] ?? 'text-fixora-blue')} strokeWidth={1.75} aria-hidden />
+      {Art ? (
+        <svg viewBox="0 0 64 64" className={artClassName} aria-hidden>
+          <Art id={artId} />
+        </svg>
       ) : (
         <CategoryArt iconKey={iconKey} className={artClassName} />
       )}

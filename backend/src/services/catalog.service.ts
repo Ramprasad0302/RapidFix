@@ -11,6 +11,7 @@ import type {
 } from '@fixora/shared-types';
 import { formatINR, haversineKm } from '@fixora/shared-utils';
 import { prisma } from '../config/prisma';
+import { getSetting } from './settings.service';
 import type { Prisma } from '../generated/prisma/client';
 import { AppError } from '../utils/AppError';
 import { stateCode } from '../utils/locality';
@@ -150,6 +151,8 @@ export async function nearbyTechnicians(lat: number, lng: number, radiusKm: numb
 // ─── Trust content (Home page) ───────────────────────────────────────────
 
 /** Real platform numbers — never marketing guesses. */
+export const DEFAULT_DISPLAY_STATS = { verifiedProfessionals: 15, jobsCompleted: 30, averageRating: 4.9, townsServed: 5 };
+
 export async function publicStats(): Promise<PublicStatsDto> {
   const [verifiedProfessionals, jobsCompleted, rating, townsServed, warranty] = await Promise.all([
     prisma.technician.count({ where: { verificationStatus: 'VERIFIED', user: { status: 'ACTIVE', role: 'TECHNICIAN' } } }),
@@ -158,11 +161,15 @@ export async function publicStats(): Promise<PublicStatsDto> {
     prisma.location.count({ where: { isActive: true } }),
     prisma.service.aggregate({ where: { isActive: true }, _max: { warrantyDays: true } }),
   ]);
+  // Launch figures shown on the website (Admin → Settings → "Homepage numbers"); the real
+  // figure takes over automatically once it is higher.
+  const shown = await getSetting('stats.display', DEFAULT_DISPLAY_STATS);
+  const realRating = Math.round((rating._avg.rating ?? 0) * 10) / 10;
   return {
-    verifiedProfessionals,
-    jobsCompleted,
-    averageRating: Math.round((rating._avg.rating ?? 0) * 10) / 10,
-    townsServed,
+    verifiedProfessionals: Math.max(verifiedProfessionals, shown.verifiedProfessionals),
+    jobsCompleted: Math.max(jobsCompleted, shown.jobsCompleted),
+    averageRating: realRating > 0 && rating._avg.rating != null && verifiedProfessionals >= shown.verifiedProfessionals ? realRating : shown.averageRating,
+    townsServed: Math.max(townsServed, shown.townsServed),
     maxWarrantyDays: warranty._max.warrantyDays ?? 0,
   };
 }

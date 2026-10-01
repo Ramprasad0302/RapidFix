@@ -22,7 +22,6 @@ import { CategoryArt } from '../../../components/art/CategoryArt';
 import { SectionHeader } from '../../../components/PageHeader';
 import { ProgressSteps } from '../../../components/ProgressSteps';
 import { Skeleton } from '../../../components/States';
-import { APP_VERSION } from '../../../lib/config';
 import { useSupportContacts } from '../queries';
 import { catalogApi, customerApi, trustApi } from '../../../lib/endpoints';
 import { formatDate } from '../../../lib/format';
@@ -284,7 +283,7 @@ export function HomeFooter() {
         <Link to="/privacy">Privacy</Link>
       </nav>
       <p className="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-400">
-        © {new Date().getFullYear()} RapidFix · v{APP_VERSION} · Developed by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-fixora-blue hover:underline">Nirmaan Digital</a>
+        © {new Date().getFullYear()} RapidFix · Developed by <a href="https://nirmaandigital.com" target="_blank" rel="noopener" className="font-medium text-fixora-blue hover:underline">Nirmaan Digital</a>
       </p>
     </footer>
   );

@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import * as serviceArea from '../services/serviceArea.service';
+import { prisma } from '../config/prisma';
+import { recordAudit } from '../services/audit.service';
 import { z } from 'zod';
 import { Permission } from '@fixora/shared-types';
 import { authOf, requireAnyPermission, requirePermission } from '../middleware/auth';
@@ -231,6 +234,30 @@ r.get('/reports', requirePermission(Permission.REPORTS_VIEW), validate(z.object(
 });
 
 r.get('/settings', requirePermission(Permission.SETTINGS_MANAGE), async (_req, res) => ok(res, await platform.getSettings()));
+
+// ─── Service area (towns served + "I'm interested" requests) ────────────
+r.get('/service-area', requirePermission(Permission.SETTINGS_MANAGE), async (_req, res) => {
+  const [locations, interest] = await Promise.all([
+    prisma.location.findMany({ orderBy: [{ isActive: 'desc' }, { name: 'asc' }] }),
+    serviceArea.interestList(),
+  ]);
+  ok(res, {
+    locations: locations.map((l) => ({ id: l.id, name: l.name, district: l.district, state: l.state, latitude: l.latitude, longitude: l.longitude, radiusKm: l.radiusKm, isActive: l.isActive })),
+    interest: interest.map((i) => ({ id: i.id, name: i.name, phone: i.phone, label: i.label, latitude: i.latitude, longitude: i.longitude, createdAt: i.createdAt.toISOString() })),
+  });
+});
+r.patch(
+  '/service-area/:id',
+  requirePermission(Permission.SETTINGS_MANAGE),
+  validate(z.object({ isActive: z.boolean().optional(), radiusKm: z.number().int().min(1).max(100).optional() })),
+  async (req, res) => {
+    const before = await prisma.location.findUniqueOrThrow({ where: { id: id(req) } });
+    const after = await prisma.location.update({ where: { id: id(req) }, data: req.body });
+    serviceArea.clearServiceAreaCache();
+    await recordAudit({ actorId: authOf(req).userId, actorRole: authOf(req).role, action: 'SERVICE_AREA_UPDATED', entity: 'Location', entityId: after.id, oldValue: { isActive: before.isActive, radiusKm: before.radiusKm }, newValue: req.body, ip: req.ip });
+    ok(res, { id: after.id, isActive: after.isActive, radiusKm: after.radiusKm });
+  },
+);
 r.put('/settings/:key', requirePermission(Permission.SETTINGS_MANAGE), validate(z.object({ value: z.unknown() })), async (req, res) => {
   await platform.updateSetting(authOf(req), String(req.params.key), req.body.value, req.ip);
   ok(res, await platform.getSettings());

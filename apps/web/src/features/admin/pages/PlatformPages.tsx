@@ -491,6 +491,7 @@ const SETTING_LABEL: Record<string, { label: string; unit?: string }> = {
   'dispatch.weights': { label: 'Ranking weights' },
   'support.phone': { label: 'Support phone' },
   'support.email': { label: 'Support email' },
+  'stats.display': { label: 'Homepage numbers' },
 };
 
 export function SettingsPage() {
@@ -499,6 +500,7 @@ export function SettingsPage() {
     { title: 'Pricing & commission', prefix: ['pricing.', 'commission.'] },
     { title: 'Dispatch', prefix: ['dispatch.'] },
     { title: 'Support contacts', prefix: ['support.'] },
+    { title: 'Website', prefix: ['stats.'] },
   ];
   return (
     <div className="mx-auto max-w-[900px]">

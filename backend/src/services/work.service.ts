@@ -128,7 +128,7 @@ export async function invoice(bookingId: string, auth: { userId: string; role: R
   if (!done.includes(b.status)) throw AppError.conflict('The invoice is available once the service is completed.', 'INVOICE_NOT_READY');
   const a = b.addressSnapshot as { houseNo: string; street: string; area: string; villageTown: string; district: string; state: string; pincode: string };
   const subtotal = b.serviceCharge + b.visitCharge + b.additionalChargesTotal;
-  const [supportPhone, supportEmail] = await Promise.all([getSetting('support.phone', '+91 94919 63366'), getSetting('support.email', 'support@rapidfix.local')]);
+  const [supportPhone, supportEmail] = await Promise.all([getSetting('support.phone', '+91 94919 63366'), getSetting('support.email', 'support@rapidfix.in')]);
   return {
     invoiceNumber: b.payment?.invoiceNumber ?? `PRO-${b.code}`,
     issuedAt: (b.payment?.paidAt ?? b.completedAt ?? b.updatedAt).toISOString(),

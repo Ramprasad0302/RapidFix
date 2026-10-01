@@ -7,10 +7,11 @@ import { formatINR } from '@fixora/shared-utils';
 import { Alert, Button, cx } from '@fixora/ui';
 import { ServiceArt } from '../../../components/ServiceArt';
 import { Skeleton } from '../../../components/States';
-import { catalogApi, customerApi, uploadApi } from '../../../lib/endpoints';
+import { catalogApi, customerApi, uploadApi, type ServiceAreaCheckDto } from '../../../lib/endpoints';
 import { addressLines, durationRange, formatDate, slotRange } from '../../../lib/format';
 import { useAuth } from '../../../store/auth';
 import { useBookingDraft } from '../../../store/bookingDraft';
+import { NotServedSheet } from '../../../components/NotServedSheet';
 import { BookingShell, StepTitle } from './BookingShell';
 
 const PAYMENT: { value: PaymentMethod; label: string; icon: typeof Banknote }[] = [
@@ -47,8 +48,10 @@ export function ReviewStepPage() {
   const previews = useMemo(() => draft.photoFiles.map((f) => URL.createObjectURL(f)), [draft.photoFiles]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
+  const [dismissedArea, setDismissedArea] = useState(false);
   const confirm = useMutation({
     mutationFn: async () => {
+      setDismissedArea(false);
       const photos: string[] = [];
       for (const [i, file] of draft.photoFiles.entries()) {
         setProgress(`Uploading photo ${i + 1} of ${draft.photoFiles.length}…`);
@@ -81,6 +84,10 @@ export function ReviewStepPage() {
     },
     onSettled: () => setProgress(null),
   });
+
+  // Outside the service area → "not here yet, I'm interested" instead of a plain error.
+  const err = confirm.error as (Error & { code?: string; details?: unknown }) | null;
+  const outOfArea = err?.code === 'OUT_OF_SERVICE_AREA' ? ((err.details as ServiceAreaCheckDto | undefined) ?? { served: false, town: null, distanceKm: null, areas: [] }) : null;
 
   if (!draft.address && !draft.addressId) return <Navigate to="/book/address" replace />;
   if (draft.scheduleType === 'SCHEDULED' && (!draft.date || !draft.timeSlot)) return <Navigate to="/book/schedule" replace />;
@@ -223,7 +230,14 @@ export function ReviewStepPage() {
         </p>
       </section>
 
-      {confirm.isError && <Alert className="mt-4">{confirm.error.message}</Alert>}
+      {confirm.isError && !outOfArea && <Alert className="mt-4">{confirm.error.message}</Alert>}
+      <NotServedSheet
+        open={!!outOfArea && !dismissedArea}
+        onClose={() => setDismissedArea(true)}
+        check={outOfArea}
+        place={address?.villageTown}
+        point={address?.latitude != null && address.longitude != null ? { lat: address.latitude, lng: address.longitude } : null}
+      />
     </BookingShell>
   );
 }

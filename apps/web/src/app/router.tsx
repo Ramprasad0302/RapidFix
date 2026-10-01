@@ -53,8 +53,8 @@ export const router = createBrowserRouter([
           { path: 'services', element: <Navigate to="/book" replace /> },
           { path: 'offers/:code', ...page(() => customer('OfferDetailsPage'), 'OfferDetailsPage') },
           { path: 'help', ...page(() => customer('InfoPages'), 'HelpPage') },
-          { path: 'about', ...page(() => customer('InfoPages'), 'AboutPage') },
-          { path: 'terms', ...page(() => customer('InfoPages'), 'TermsPage') },
+          { path: 'about', ...page(() => customer('CompanyPages'), 'AboutPage') },
+          { path: 'terms', ...page(() => customer('CompanyPages'), 'TermsPage') },
           { path: 'privacy', ...page(() => customer('InfoPages'), 'PrivacyPage') },
 
           // Booking flow — open to guests until the final confirm step.
@@ -146,6 +146,7 @@ export const router = createBrowserRouter([
               { path: 'notifications', ...page(() => admin('PlatformPages'), 'NotificationsPage') },
               { path: 'reports', ...page(() => admin('PlatformPages'), 'ReportsPage') },
               { path: 'settings', ...page(() => admin('PlatformPages'), 'SettingsPage') },
+              { path: 'service-area', ...page(() => admin('ServiceAreaPage'), 'ServiceAreaPage') },
               { path: 'audit-logs', ...page(() => admin('PlatformPages'), 'AuditLogsPage') },
               { path: 'system-settings', ...page(() => admin('PlatformPages'), 'SystemSettingsPage') },
               { path: '*', element: <Navigate to="/admin" replace /> },

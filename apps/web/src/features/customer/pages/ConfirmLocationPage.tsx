@@ -6,7 +6,8 @@ import type { AddressInput } from '@fixora/shared-utils';
 import { Alert, Button, cx, Spinner } from '@fixora/ui';
 import { FixoraMap, type LatLng } from '../../../components/map/FixoraMap';
 import { Skeleton } from '../../../components/States';
-import { customerApi, geoApi } from '../../../lib/endpoints';
+import { customerApi, geoApi, serviceAreaApi, type ServiceAreaCheckDto } from '../../../lib/endpoints';
+import { NotServedSheet } from '../../../components/NotServedSheet';
 import { useAuth } from '../../../store/auth';
 import { useBookingDraft } from '../../../store/bookingDraft';
 import { requestCurrentPosition, useLocationStore } from '../../../store/location';
@@ -48,6 +49,31 @@ export function ConfirmLocationPage() {
   const [searching, setSearching] = useState(false);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [askNotif, setAskNotif] = useState(false);
+  // Door number is asked right at the pin (GPS can't know it) and carried into the address form.
+  const [doorNo, setDoorNo] = useState('');
+  const [doorError, setDoorError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [notServed, setNotServed] = useState<ServiceAreaCheckDto | null>(null);
+
+  async function confirmPin() {
+    if (!doorNo.trim()) {
+      setDoorError('Enter your door / house / flat number');
+      return;
+    }
+    setDoorError(null);
+    const point = pin ?? effectiveCenter;
+    if (!point) return;
+    setChecking(true);
+    try {
+      const check = await serviceAreaApi.check(point.lat, point.lng);
+      if (!check.served) return setNotServed(check);
+      setStep('details');
+    } catch {
+      setStep('details'); // the booking itself is checked again on the server
+    } finally {
+      setChecking(false);
+    }
+  }
 
   async function locate() {
     setGpsError(null);
@@ -135,7 +161,7 @@ export function ConfirmLocationPage() {
   const g = geo.data;
   const prefill = g
     ? {
-        houseNo: g.houseNo,
+        houseNo: doorNo.trim() || g.houseNo,
         street: g.street,
         area: [g.street, g.area].filter(Boolean).join(', ') || g.villageTown,
         villageTown: g.villageTown,
@@ -217,7 +243,24 @@ export function ConfirmLocationPage() {
                 </div>
               )}
             </div>
-            <Button size="lg" fullWidth className="mt-4" disabled={!effectiveCenter || locating} onClick={() => setStep('details')}>
+            <label className="mt-4 block">
+              <span className="mb-1.5 block text-sm font-semibold text-slate-800">
+                Door / House / Flat No. <span className="text-danger">*</span>
+              </span>
+              <input
+                className="field"
+                value={doorNo}
+                onChange={(e) => {
+                  setDoorNo(e.target.value);
+                  if (doorError) setDoorError(null);
+                }}
+                placeholder={g?.houseNo ? `e.g. ${g.houseNo}` : 'e.g. 4-12/A, Flat 203'}
+                autoComplete="address-line1"
+                aria-invalid={doorError ? true : undefined}
+              />
+              {doorError ? <span role="alert" className="mt-1 block text-xs text-danger">{doorError}</span> : <span className="mt-1 block text-xs text-slate-500">As written on your door or gate — the technician comes to this pin and door.</span>}
+            </label>
+            <Button size="lg" fullWidth className="mt-4" disabled={!effectiveCenter || locating} loading={checking} onClick={() => void confirmPin()}>
               Confirm &amp; enter complete address
             </Button>
           </section>
@@ -234,7 +277,7 @@ export function ConfirmLocationPage() {
             </div>
             <div className="mt-4">
               <AddressForm
-                key={`${lookup?.lat},${lookup?.lng},${g ? 1 : 0}`}
+                key={`${lookup?.lat},${lookup?.lng},${g ? 1 : 0},${step}`}
                 id="confirm-address"
                 defaultValues={prefill}
                 onSubmit={(v) => save.mutate(v)}
@@ -254,6 +297,7 @@ export function ConfirmLocationPage() {
 
       <LocationPicker open={searching} onClose={() => setSearching(false)} from={from} />
       <NotificationAskDialog open={askNotif} onClose={() => setAskNotif(false)} />
+      <NotServedSheet open={!!notServed} onClose={() => setNotServed(null)} check={notServed} place={g?.villageTown || g?.title} point={pin ?? effectiveCenter} />
     </MobileShell>
   );
 }
