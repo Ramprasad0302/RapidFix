@@ -58,6 +58,23 @@ async function toServiceStarted(id: string) {
   for (const a of ['accept', 'en-route', 'arrived', 'start']) await tAct(id, a).expect(200);
 }
 
+describe('starting the trip', () => {
+  it('notifies the customer with an ETA and shows the technician on the live map at once', async () => {
+    const id = await bookAndAssign();
+    await tAct(id, 'accept').expect(200);
+    // The app sends its GPS position with "Start travel" (~2.2 km from the Tanuku address).
+    await request().post(`${API}/technician/jobs/${id}/en-route`).set(bearer(tech.token)).send({ lat: 16.7547 + 0.02, lng: 81.6818 }).expect(200);
+
+    const b = await booking(id);
+    expect(b.status).toBe('TECHNICIAN_EN_ROUTE');
+    expect(b.technician.location).toEqual({ lat: 16.7747, lng: 81.6818 });
+    expect(b.technician.etaMinutes).toBeGreaterThan(0);
+    const notice = await prisma.notification.findFirstOrThrow({ where: { userId: customer.user.id, type: 'TECHNICIAN_EN_ROUTE' } });
+    expect(notice.title).toBe('Technician on the way');
+    expect(notice.body).toMatch(/is on the way — arriving in about \d+ min\. Tap to track live\./);
+  });
+});
+
 describe('full customer ↔ technician journey', () => {
   it('book → assign → travel → extra work approved → complete → cash → invoice → review', async () => {
     const id = await bookAndAssign();

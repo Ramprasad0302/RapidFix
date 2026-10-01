@@ -27,7 +27,7 @@ export function SelectServicePage() {
         {services.data?.map((s) => (
           <li key={s.id}>
             <Link to={`/book/s/${s.slug}${coupon ? `?coupon=${coupon}` : ''}`} className="flex items-center gap-3.5 rounded-2xl border border-slate-100 p-3 shadow-card hover:border-fixora-blue/30">
-              <ServiceArt imageUrl={s.imageUrl} iconKey={s.category.iconKey} alt="" className="size-20 shrink-0 rounded-xl" artClassName="w-3/5" />
+              <ServiceArt imageUrl={s.imageUrl} slug={s.slug} iconKey={s.category.iconKey} alt="" className="size-20 shrink-0 rounded-xl" artClassName="w-3/5" />
               <span className="min-w-0 flex-1">
                 <span className="block text-[16px] font-semibold text-slate-900">{s.name}</span>
                 <span className="line-clamp-2 block text-[13px] text-slate-500">{s.tagline}</span>

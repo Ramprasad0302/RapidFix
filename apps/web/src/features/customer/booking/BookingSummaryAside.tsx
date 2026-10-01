@@ -32,7 +32,7 @@ export function BookingSummaryAside() {
           <Skeleton className="mt-3 h-20" />
         ) : (
           <div className="mt-3 flex items-center gap-3">
-            <ServiceArt imageUrl={s.imageUrl} iconKey={s.category.iconKey} alt="" className="size-16 shrink-0 rounded-2xl" artClassName="w-3/5" />
+            <ServiceArt imageUrl={s.imageUrl} slug={s.slug} iconKey={s.category.iconKey} alt="" className="size-16 shrink-0 rounded-2xl" artClassName="w-3/5" />
             <div className="min-w-0">
               <p className="font-semibold text-slate-900">{s.name}</p>
               <p className="text-sm text-slate-500">{s.category.name}</p>

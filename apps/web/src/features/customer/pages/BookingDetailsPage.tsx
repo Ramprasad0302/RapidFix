@@ -70,6 +70,7 @@ function Details({ b }: { b: BookingDetailDto }) {
           <section className="flex gap-3.5 rounded-2xl border border-slate-100 bg-white p-3.5 shadow-card">
             <ServiceArt
               imageUrl={b.service.imageUrl}
+              slug={b.service.slug}
               iconKey={b.service.iconKey}
               alt={b.service.name}
               className="size-20 shrink-0 rounded-xl min-[380px]:size-24"

@@ -17,7 +17,7 @@ export function BookingCard({ booking: b }: { booking: BookingListItemDto }) {
       className="block rounded-2xl border border-slate-100 bg-white p-3.5 shadow-card transition-shadow hover:shadow-raised"
     >
       <div className="flex gap-3 min-[380px]:gap-3.5">
-        <ServiceArt imageUrl={b.service.imageUrl} iconKey={b.service.iconKey} alt={b.service.name} className="size-[68px] shrink-0 rounded-xl min-[380px]:size-[92px]" artClassName="w-3/5" />
+        <ServiceArt imageUrl={b.service.imageUrl} slug={b.service.slug} iconKey={b.service.iconKey} alt={b.service.name} className="size-[68px] shrink-0 rounded-xl min-[380px]:size-[92px]" artClassName="w-3/5" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
             <h3 className="text-[16px] leading-snug font-semibold text-slate-900 min-[380px]:text-[17px]">{b.service.name}</h3>

@@ -96,7 +96,7 @@ export function SearchPage() {
             results.data?.map((s) => (
               <li key={s.id}>
                 <Link to={`/book/s/${s.slug}`} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3 shadow-card">
-                  <ServiceArt imageUrl={s.imageUrl} iconKey={s.category.iconKey} alt={s.name} className="size-16 shrink-0 rounded-xl" artClassName="w-3/5" />
+                  <ServiceArt imageUrl={s.imageUrl} slug={s.slug} iconKey={s.category.iconKey} alt={s.name} className="size-16 shrink-0 rounded-xl" artClassName="w-3/5" />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-slate-900">{s.name}</p>
                     <p className="truncate text-xs text-slate-500">{s.category.name}</p>

@@ -193,7 +193,7 @@ function PopularServices() {
         {popular.isPending && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-40 w-[44%] shrink-0" />)}
         {popular.data?.map((s) => (
           <Link key={s.id} to={`/book/s/${s.slug}`} className="w-[44%] max-w-[190px] shrink-0 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card">
-            <ServiceArt imageUrl={s.imageUrl} iconKey={s.category.iconKey} alt={s.name} className="h-24 w-full lg:h-36" artClassName="h-[70%] w-auto" />
+            <ServiceArt imageUrl={s.imageUrl} slug={s.slug} iconKey={s.category.iconKey} alt={s.name} className="h-24 w-full lg:h-36" artClassName="h-[70%] w-auto" />
             <div className="flex items-end justify-between gap-1 p-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-slate-900">{s.name}</p>

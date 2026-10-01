@@ -141,7 +141,7 @@ export function ServicesPage() {
       header: 'Service',
       cell: (s) => (
         <span className="flex items-center gap-3">
-          <ServiceArt imageUrl={s.imageUrl} iconKey={categories.data?.find((c) => c.id === s.categoryId)?.iconKey ?? 'more'} alt="" className="size-10 shrink-0 rounded-lg" artClassName="w-3/5" />
+          <ServiceArt imageUrl={s.imageUrl} slug={s.slug} iconKey={categories.data?.find((c) => c.id === s.categoryId)?.iconKey ?? 'more'} alt="" className="size-10 shrink-0 rounded-lg" artClassName="w-3/5" />
           <span>
             <span className="block font-medium text-slate-900">{s.name}</span>
             <span className="text-xs text-slate-500">{s.categoryName}</span>

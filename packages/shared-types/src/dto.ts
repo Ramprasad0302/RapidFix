@@ -327,7 +327,7 @@ export interface TechnicianRequestDto {
   assignmentId: string;
   bookingId: string;
   code: string;
-  service: { name: string; iconKey: string; imageUrl: string | null };
+  service: { name: string; slug: string; iconKey: string; imageUrl: string | null };
   locality: string;
   area: string;
   distanceKm: number | null;

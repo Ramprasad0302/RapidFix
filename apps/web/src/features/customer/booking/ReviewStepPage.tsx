@@ -113,7 +113,7 @@ export function ReviewStepPage() {
       <section className="flex items-center gap-3.5 rounded-2xl border border-slate-100 p-3 shadow-card">
         {s ? (
           <>
-            <ServiceArt imageUrl={s.imageUrl} iconKey={s.category.iconKey} alt="" className="h-16 w-20 shrink-0 rounded-xl" artClassName="h-3/4 w-auto" />
+            <ServiceArt imageUrl={s.imageUrl} slug={s.slug} iconKey={s.category.iconKey} alt="" className="h-16 w-20 shrink-0 rounded-xl" artClassName="h-3/4 w-auto" />
             <div>
               <p className="text-[17px] font-semibold text-slate-900">{s.name}</p>
               <p className="text-sm text-slate-600">From {formatINR(s.basePrice)}</p>

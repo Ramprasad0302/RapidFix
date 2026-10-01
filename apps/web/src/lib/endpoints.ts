@@ -261,8 +261,8 @@ export const technicianApi = {
     ),
   job: (id: string) => unwrap<TechnicianJobDetailDto>(api.get(`/technician/jobs/${id}`)),
   requests: () => unwrap<TechnicianRequestDto[]>(api.get('/technician/requests')),
-  act: (id: string, action: TechnicianJobAction, reason?: string) =>
-    unwrap<TechnicianJobDetailDto | null>(api.post(`/technician/jobs/${id}/${ACTION_PATH[action]}`, { reason })),
+  act: (id: string, action: TechnicianJobAction, reason?: string, position?: { lat: number; lng: number }) =>
+    unwrap<TechnicianJobDetailDto | null>(api.post(`/technician/jobs/${id}/${ACTION_PATH[action]}`, { reason, ...position })),
   saveNotes: (id: string, notes: string) => unwrap<TechnicianJobDetailDto>(api.put(`/technician/jobs/${id}/notes`, { notes })),
   earnings: (month?: string) => unwrap<TechnicianEarningsDto>(api.get('/technician/earnings', { params: { month } })),
   details: () => unwrap<TechnicianDetailsDto>(api.get('/technician/profile/details')),

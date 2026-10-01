@@ -15,7 +15,11 @@ import {
 } from '@fixora/shared-types';
 import { prisma } from '../config/prisma';
 import type { Prisma } from '../generated/prisma/client';
+import { haversineKm } from '@fixora/shared-utils';
 import { AppError } from '../utils/AppError';
+
+/** Average town riding speed used for ETAs. */
+const TOWN_SPEED_KMPH = 20;
 import { locality } from '../utils/locality';
 import { technicianTitle, toChargeDto, toPaymentInfo } from './booking.service';
 import { dispatchBooking } from './assignment.service';
@@ -226,7 +230,7 @@ const CUSTOMER_NOTICE: Partial<Record<TechnicianJobAction, (tech: string, servic
   COMPLETE: (_t, s) => ({ type: 'SERVICE_COMPLETED', title: 'Service completed', body: `Your ${s} is complete. Please complete the payment.` }),
 };
 
-export async function performAction(userId: string, id: string, action: TechnicianJobAction, reason?: string) {
+export async function performAction(userId: string, id: string, action: TechnicianJobAction, reason?: string, position?: { lat: number; lng: number }) {
   const tech = await technicianOf(userId);
   if (tech.verificationStatus !== 'VERIFIED') {
     throw AppError.forbidden('Only verified partners can take jobs.', 'TECHNICIAN_NOT_VERIFIED');
@@ -236,6 +240,19 @@ export async function performAction(userId: string, id: string, action: Technici
     throw AppError.conflict('This action is not available for the job right now.', 'INVALID_TRANSITION');
   }
   const now = new Date();
+
+  // Starting the trip: record where the technician is right now, so the customer's live map and
+  // the "on the way" notification have a real position and ETA from the first second.
+  let trip: { lat: number; lng: number; distanceKm: number | null; etaMinutes: number | null } | null = null;
+  if (action === 'EN_ROUTE') {
+    const fresh = position ?? (tech.lastLatitude != null && tech.lastLongitude != null && tech.lastLocationAt && now.getTime() - tech.lastLocationAt.getTime() < 15 * 60_000 ? { lat: tech.lastLatitude, lng: tech.lastLongitude } : null);
+    if (fresh) {
+      const distanceKm = job.latitude != null && job.longitude != null ? Math.round(haversineKm(fresh.lat, fresh.lng, job.latitude, job.longitude) * 10) / 10 : null;
+      trip = { ...fresh, distanceKm, etaMinutes: distanceKm != null ? Math.max(2, Math.ceil((distanceKm / TOWN_SPEED_KMPH) * 60)) : null };
+      if (position) await prisma.technician.update({ where: { id: tech.id }, data: { lastLatitude: position.lat, lastLongitude: position.lng, lastLocationAt: now } });
+    }
+  }
+
   if (action === 'ACCEPT' || action === 'REJECT') {
     const offerRow = await prisma.bookingAssignment.findFirst({
       where: { bookingId: job.id, technicianId: tech.id, status: 'OFFERED' },
@@ -283,6 +300,9 @@ export async function performAction(userId: string, id: string, action: Technici
     }
 
     const notice = CUSTOMER_NOTICE[action]?.(tech.user.name ?? 'Your technician', job.service.name);
+    if (notice && action === 'EN_ROUTE') {
+      notice.body = `${tech.user.name ?? 'Your technician'} is on the way${trip?.etaMinutes ? ` — arriving in about ${trip.etaMinutes} min` : ''}. Tap to track live.`;
+    }
     if (notice) {
       await tx.notification.create({ data: { userId: job.customer.userId, ...notice, data: { bookingId: job.id } } });
     }
@@ -296,7 +316,7 @@ export async function performAction(userId: string, id: string, action: Technici
   });
 
   const event = CUSTOMER_EVENT[action];
-  if (event) emitToUser(job.customer.userId, event, { bookingId: job.id });
+  if (event) emitToUser(job.customer.userId, event, { bookingId: job.id, ...(action === 'EN_ROUTE' && trip && { lat: trip.lat, lng: trip.lng, distanceKm: trip.distanceKm, etaMinutes: trip.etaMinutes }) });
   if (action === 'REJECT') {
     // Straight to the next best technician.
     await dispatchBooking(job.id).catch((err) => logger.error({ err, bookingId: job.id }, 'redispatch after reject failed'));
@@ -329,7 +349,7 @@ export async function pendingRequests(userId: string): Promise<TechnicianRequest
         assignmentId: o.id,
         bookingId: b.id,
         code: b.code ?? '',
-        service: { name: b.service.name, iconKey: b.service.category.iconKey, imageUrl: b.service.imageUrl },
+        service: { name: b.service.name, slug: b.service.slug, iconKey: b.service.category.iconKey, imageUrl: b.service.imageUrl },
         locality: locality(snap),
         area: [snap.area, snap.villageTown].filter(Boolean).join(', '),
         distanceKm: o.distanceKm,

@@ -160,9 +160,17 @@ const ACTIONS: Record<string, TechnicianJobAction> = {
 for (const [path, action] of Object.entries(ACTIONS)) {
   technicianRouter.post(
     `/jobs/:id/${path}`,
-    validate(z.object({ reason: z.string().trim().max(300).optional() })),
+    validate(
+      z.object({
+        reason: z.string().trim().max(300).optional(),
+        // Starting the trip sends the technician's current GPS position.
+        lat: z.number().min(-90).max(90).optional(),
+        lng: z.number().min(-180).max(180).optional(),
+      }),
+    ),
     async (req, res) => {
-      ok(res, await tech.performAction(authOf(req).userId, String(req.params.id), action, req.body.reason));
+      const { reason, lat, lng } = req.body as { reason?: string; lat?: number; lng?: number };
+      ok(res, await tech.performAction(authOf(req).userId, String(req.params.id), action, reason, lat != null && lng != null ? { lat, lng } : undefined));
     },
   );
 }

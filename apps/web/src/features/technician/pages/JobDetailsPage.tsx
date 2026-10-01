@@ -18,6 +18,7 @@ import { technicianApi } from '../../../lib/endpoints';
 import { addressLines, formatSchedule } from '../../../lib/format';
 import { useBookingRoom } from '../../../lib/socket';
 import { useScreenWakeLock } from '../../../lib/wakeLock';
+import { requestCurrentPosition } from '../../../store/location';
 import { toast } from '../../../store/toast';
 import { MobileShell } from '../../customer/CustomerTabsLayout';
 import { CollectPaymentCard, ExtraWorkSection } from '../components/JobExtras';
@@ -55,7 +56,16 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
   useScreenWakeLock(travelling);
 
   const act = useMutation({
-    mutationFn: (action: TechnicianJobAction) => technicianApi.act(j.id, action),
+    mutationFn: async (action: TechnicianJobAction) => {
+      // Starting the trip: send where we are now, so the customer sees us on the live map at once.
+      const position =
+        action === 'EN_ROUTE'
+          ? await requestCurrentPosition({ maxWaitMs: 6000, goodEnoughM: 50 })
+              .then((p) => ({ lat: p.latitude, lng: p.longitude }))
+              .catch(() => undefined)
+          : undefined;
+      return technicianApi.act(j.id, action, undefined, position);
+    },
     onSuccess: (updated, action) => {
       void qc.invalidateQueries({ queryKey: ['tech'] });
       if (action === 'REJECT' || !updated) {
@@ -87,7 +97,7 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
   return (
     <main className="flex flex-col gap-4 px-4 pb-8">
       <section className="flex gap-3.5 rounded-2xl border border-slate-100 p-3.5 shadow-card">
-        <ServiceArt imageUrl={j.service.imageUrl} iconKey={j.service.iconKey} alt="" className="size-20 shrink-0 rounded-xl" artClassName="w-3/5" />
+        <ServiceArt imageUrl={j.service.imageUrl} slug={j.service.slug} iconKey={j.service.iconKey} alt="" className="size-20 shrink-0 rounded-xl" artClassName="w-3/5" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
             <h2 className="text-lg leading-snug font-semibold text-slate-900">{j.service.name}</h2>

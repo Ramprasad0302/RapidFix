@@ -114,7 +114,7 @@ function RequestCard({ r }: { r: TechnicianRequestDto }) {
         </div>
 
         <div id="req-body" className="mt-4 flex gap-3.5 rounded-2xl bg-slate-50 p-3.5">
-          <ServiceArt imageUrl={r.service.imageUrl} iconKey={r.service.iconKey} alt="" className="size-16 shrink-0 rounded-xl" artClassName="w-3/5" />
+          <ServiceArt imageUrl={r.service.imageUrl} slug={r.service.slug} iconKey={r.service.iconKey} alt="" className="size-16 shrink-0 rounded-xl" artClassName="w-3/5" />
           <div className="min-w-0 flex-1 space-y-1 text-sm text-slate-700">
             <p className="flex items-center gap-1.5">
               <MapPin className="size-4 shrink-0 text-fixora-blue" aria-hidden /> <span className="truncate">{r.area || r.locality}</span>

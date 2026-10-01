@@ -46,6 +46,14 @@ export function useRealtime(queryClient: QueryClient) {
                 : b,
             );
           }
+          // Trip just started (status still "accepted" here): refetch so the page switches to the live map now.
+          if (bookingId) {
+            const cached = queryClient.getQueryData<BookingDetailDto>(['customer', 'booking', bookingId]);
+            if (cached && cached.status !== 'TECHNICIAN_EN_ROUTE' && cached.status !== 'TECHNICIAN_ARRIVED') {
+              void queryClient.invalidateQueries({ queryKey: ['customer', 'booking', bookingId] });
+              void queryClient.invalidateQueries({ queryKey: ['customer', 'bookings'] });
+            }
+          }
           return; // staff live map listens with useSocketEvent
         }
 
