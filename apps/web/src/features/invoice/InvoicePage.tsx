@@ -98,7 +98,7 @@ function Invoice({ inv }: { inv: InvoiceDto }) {
       <dl className="ml-auto mt-4 flex max-w-xs flex-col gap-1.5 text-sm">
         <Line label="Subtotal" value={formatINR(inv.subtotal)} />
         {inv.discount > 0 && <Line label={`Discount${inv.couponCode ? ` (${inv.couponCode})` : ''}`} value={`− ${formatINR(inv.discount)}`} />}
-        <Line label={`GST (${inv.taxPercent}%)`} value={formatINR(inv.tax)} />
+        {inv.tax > 0 && <Line label={`GST (${inv.taxPercent}%)`} value={formatINR(inv.tax)} />}
         <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
           <dt>Total</dt>
           <dd>{formatINR(inv.total)}</dd>

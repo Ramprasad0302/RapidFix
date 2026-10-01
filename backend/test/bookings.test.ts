@@ -47,7 +47,7 @@ describe('public catalogue & estimate', () => {
     expect((await request().get(`${API}/services/categories`).expect(200)).body.data[0]).toMatchObject({ name: 'AC & Cooling', serviceCount: 1 });
     expect((await request().get(`${API}/services?q=AC Tech`).expect(200)).body.data).toHaveLength(1);
     const est = await request().post(`${API}/bookings/estimate`).send({ serviceId }).expect(200);
-    expect(est.body.data).toMatchObject({ subtotal: 39_900, tax: 7182, total: 47_082 });
+    expect(est.body.data).toMatchObject({ subtotal: 39_900, tax: 0, total: 39_900 });
   });
 
   it('applies valid coupons and explains invalid ones', async () => {
@@ -68,7 +68,7 @@ describe('customer bookings', () => {
   it('creates a booking priced on the server, moves it to SEARCHING and notifies the customer', async () => {
     const { token, user } = await otpLogin('9000000001');
     const res = await book(token, { totalAmount: 1, serviceCharge: 1 }).expect(201);
-    expect(res.body.data).toMatchObject({ status: 'SEARCHING', locality: 'Tanuku, AP', totalAmount: 47_082 });
+    expect(res.body.data).toMatchObject({ status: 'SEARCHING', locality: 'Tanuku, AP', totalAmount: 39_900 });
     expect(res.body.data.code).toMatch(/^RF-\d{4}-\d{6}$/);
     const history = await prisma.bookingStatusHistory.findMany({ where: { bookingId: res.body.data.id }, orderBy: { createdAt: 'asc' } });
     expect(history.map((h) => h.toStatus)).toEqual(['PENDING', 'SEARCHING']);

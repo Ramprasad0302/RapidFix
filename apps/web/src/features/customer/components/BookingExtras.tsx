@@ -48,7 +48,7 @@ export function AdditionalChargesCard({ b }: { b: BookingDetailDto }) {
           </p>
           {c.description && <p className="mt-1 text-sm text-slate-600">{c.description}</p>}
           <p className="mt-2 text-2xl font-bold text-slate-900">
-            {formatINR(c.amount)} <span className="text-sm font-normal text-slate-500">+ GST</span>
+            {formatINR(c.amount)}
           </p>
           <p className="mt-1 text-xs text-slate-500">If you decline, the technician continues with the original work only.</p>
           <div className="mt-3 grid grid-cols-2 gap-3">

@@ -65,7 +65,7 @@ const schema = z.object({
   /** Swagger UI at /api/docs. `auto` = on everywhere except production. */
   API_DOCS: z.enum(['auto', 'on', 'off']).default('auto'),
 
-  TAX_PERCENT: z.coerce.number().min(0).max(100).default(18),
+  TAX_PERCENT: z.coerce.number().min(0).max(100).default(0),
   ASSIGNMENT_REQUEST_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(30),
 });
 

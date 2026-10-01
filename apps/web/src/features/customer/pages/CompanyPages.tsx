@@ -325,7 +325,7 @@ function terms(email: string, phone: string): Clause[] {
       id: 'pricing',
       title: '6. Prices, extra work & payment',
       body: [
-        'Prices shown in the app are estimates based on the service selected and include applicable taxes as displayed. A visit/inspection charge applies to some services and is shown before you book.',
+        'Prices shown in the app are based on the service selected, and no GST or other taxes are added on top. A visit/inspection charge applies to some services and is shown before you book.',
         'If the partner finds that additional work or spare parts are needed, they must raise the request in the app with the amount. Extra charges are added only after you approve them. You may decline additional work.',
         'Payment is due after the service is completed, by cash, UPI or online payment through our payment partner (Razorpay). RapidFix does not store your card or UPI PIN details. An invoice is available in the app for every completed booking.',
         'Offers and coupons are subject to their stated conditions, may be withdrawn at any time and cannot be exchanged for cash.',

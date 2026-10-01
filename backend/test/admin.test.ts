@@ -152,7 +152,7 @@ describe('catalogue, offers and settings', () => {
   it('a GST change applies to the next estimate', async () => {
     const admin = await createStaff('ADMIN');
     const before = await request().post(`${API}/bookings/estimate`).send({ serviceId }).expect(200);
-    expect(before.body.data.taxPercent).toBe(18);
+    expect(before.body.data).toMatchObject({ taxPercent: 0, tax: 0 });
 
     await request().put(`${API}/admin/settings/pricing.taxPercent`).set(bearer(admin.token)).send({ value: 12 }).expect(200);
     await request().put(`${API}/admin/settings/pricing.taxPercent`).set(bearer(admin.token)).send({ value: 99 }).expect(400);

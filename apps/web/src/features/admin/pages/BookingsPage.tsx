@@ -228,7 +228,7 @@ export function BookingDrawer({ id }: { id: string }) {
             ['Visit charge', formatINR(b.price.visitCharge)],
             ['Extra work', formatINR(b.price.additionalCharges)],
             [`Discount${b.couponCode ? ` (${b.couponCode})` : ''}`, `− ${formatINR(b.price.discount)}`],
-            ['GST', formatINR(b.price.tax)],
+            ...(b.price.tax > 0 ? [['GST', formatINR(b.price.tax)] as [string, string]] : []),
             ['Total', <b key="t">{formatINR(b.price.total)}</b>],
             ['RapidFix commission', b.commissionAmount == null ? '—' : formatINR(b.commissionAmount)],
             ['Technician earning', b.technicianEarning == null ? '—' : formatINR(b.technicianEarning)],

@@ -218,7 +218,7 @@ export function ReviewStepPage() {
             <Line label="Service Charge" value={formatINR(est.serviceCharge)} />
             {est.visitCharge > 0 && <Line label="Visit Charge" value={formatINR(est.visitCharge)} />}
             {est.discount > 0 && <Line label="Discount" value={`− ${formatINR(est.discount)}`} className="text-success" />}
-            <Line label={`Taxes (GST ${est.taxPercent}%)`} value={formatINR(est.tax)} />
+            {est.tax > 0 && <Line label={`Taxes (GST ${est.taxPercent}%)`} value={formatINR(est.tax)} />}
             <div className="mt-1 flex justify-between border-t border-slate-100 pt-2.5 text-[17px] font-bold text-slate-900">
               <dt>Estimated Total</dt>
               <dd>{formatINR(est.total)}</dd>

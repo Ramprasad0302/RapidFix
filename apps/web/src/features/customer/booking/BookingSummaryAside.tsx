@@ -52,7 +52,7 @@ export function BookingSummaryAside() {
               <Money label="Service" value={e.serviceCharge} />
               {e.visitCharge > 0 && <Money label="Visit charge" value={e.visitCharge} />}
               {e.discount > 0 && <Money label={`Discount${e.coupon?.code ? ` (${e.coupon.code})` : ''}`} value={-e.discount} />}
-              <Money label={`GST (${e.taxPercent}%)`} value={e.tax} />
+              {e.tax > 0 && <Money label={`GST (${e.taxPercent}%)`} value={e.tax} />}
               <div className="mt-2 flex justify-between border-t border-slate-100 pt-3 text-lg font-bold text-slate-900">
                 <dt>Estimated total</dt>
                 <dd>{formatINR(e.total)}</dd>

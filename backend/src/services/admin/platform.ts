@@ -225,7 +225,7 @@ export async function report(from: Date, to: Date): Promise<ReportDto> {
 // ─── Settings (whitelisted, validated) ───────────────────────────────────
 
 const SETTINGS: Record<string, { description: string; schema: z.ZodType; default: unknown }> = {
-  'pricing.taxPercent': { description: 'GST % applied to new bookings and extra work', schema: z.number().min(0).max(28), default: 18 },
+  'pricing.taxPercent': { description: 'GST % applied to new bookings and extra work (0 = no GST)', schema: z.number().min(0).max(28), default: 0 },
   'commission.globalPercent': { description: 'Default RapidFix commission % (overridden by category / service / technician rules)', schema: z.number().min(0).max(50), default: 15 },
   'dispatch.requestTimeoutSeconds': { description: 'Seconds a technician has to accept an automatic job offer', schema: z.number().int().min(10).max(600), default: 60 },
   'dispatch.maxAttempts': { description: 'Automatic offers per booking before handing over to operations', schema: z.number().int().min(1).max(20), default: 5 },

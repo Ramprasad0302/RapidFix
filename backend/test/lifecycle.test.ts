@@ -100,8 +100,8 @@ describe('full customer ↔ technician journey', () => {
     expect(pending.price.total).toBe(before.price.total);
     const charge = pending.additionalChargeItems[0];
     const approved = await request().post(`${API}/customer/bookings/${id}/additional-charges/${charge.id}/approve`).set(bearer(customer.token)).send({}).expect(200);
-    // (299 + 100 + 700) × 1.18
-    expect(approved.body.data.price).toMatchObject({ additionalCharges: 70_000, tax: 19_782, total: 129_682 });
+    // 299 + 100 + 700, no GST
+    expect(approved.body.data.price).toMatchObject({ additionalCharges: 70_000, tax: 0, total: 109_900 });
     await tAct(id, 'complete').expect(200);
 
     const done = await booking(id);
@@ -117,10 +117,10 @@ describe('full customer ↔ technician journey', () => {
     const b = await prisma.booking.findUniqueOrThrow({ where: { id } });
     expect(b).toMatchObject({ commissionAmount: 16_485, technicianEarning: 93_415, paymentStatus: 'SUCCESS' });
     const w = await request().get(`${API}/technician/wallet`).set(bearer(tech.token)).expect(200);
-    expect(w.body.data).toMatchObject({ balance: -(16_485 + 19_782), totalEarned: 93_415 });
+    expect(w.body.data).toMatchObject({ balance: -16_485, totalEarned: 93_415 });
 
     const inv = await request().get(`${API}/bookings/${id}/invoice`).set(bearer(customer.token)).expect(200);
-    expect(inv.body.data).toMatchObject({ status: 'PAID', total: 129_682, paymentMethod: 'CASH' });
+    expect(inv.body.data).toMatchObject({ status: 'PAID', total: 109_900, paymentMethod: 'CASH' });
     expect(inv.body.data.invoiceNumber).toMatch(/^INV-\d{4}-\d{6}$/);
     expect(inv.body.data.items.map((i: { name: string }) => i.name)).toEqual(['AC Repair', 'Visit charge', 'Gas filling']);
 
@@ -175,7 +175,7 @@ describe('Razorpay', () => {
     const id = await payable();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ id: 'order_TEST123' }), { status: 200 }));
     const order = await request().post(`${API}/customer/bookings/${id}/payment/razorpay-order`).set(bearer(customer.token)).send({}).expect(200);
-    expect(order.body.data).toMatchObject({ orderId: 'order_TEST123', keyId: 'rzp_test_fixora', amount: 47_082 });
+    expect(order.body.data).toMatchObject({ orderId: 'order_TEST123', keyId: 'rzp_test_fixora', amount: 39_900 });
     expect(fetchMock).toHaveBeenCalledOnce();
 
     await request()
@@ -199,7 +199,7 @@ describe('Razorpay', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ id: 'order_WH1' }), { status: 200 }));
     await request().post(`${API}/customer/bookings/${id}/payment/razorpay-order`).set(bearer(customer.token)).send({}).expect(200);
 
-    const body = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_WH1', order_id: 'order_WH1', amount: 47_082, status: 'captured' } } } });
+    const body = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_WH1', order_id: 'order_WH1', amount: 39_900, status: 'captured' } } } });
     await request().post(`${API}/payments/razorpay/webhook`).set('Content-Type', 'application/json').set('X-Razorpay-Signature', 'bad').send(body).expect(401);
     for (let i = 0; i < 2; i++) {
       await request()
@@ -221,7 +221,7 @@ describe('Razorpay', () => {
     await request().post(`${API}/admin/payments/${id}/refund`).set(bearer(fin.token)).send({ reason: 'Service not satisfactory' }).expect(200);
     const b = await prisma.booking.findUniqueOrThrow({ where: { id }, include: { payment: true } });
     expect(b.status).toBe('REFUNDED');
-    expect(b.payment).toMatchObject({ status: 'REFUNDED', refundedAmount: 47_082 });
+    expect(b.payment).toMatchObject({ status: 'REFUNDED', refundedAmount: 39_900 });
     expect(await prisma.auditLog.count({ where: { action: 'REFUND', entityId: id } })).toBe(1);
   });
 });

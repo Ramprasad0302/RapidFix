@@ -80,7 +80,7 @@ function RequestChargeDialog({ j, open, onClose }: { j: TechnicianJobDetailDto; 
       <div className="flex flex-col gap-3">
         <TextField label="Work needed" value={title} maxLength={160} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Replace capacitor" />
         <TextField
-          label="Amount (₹, before GST)"
+          label="Amount (₹)"
           inputMode="numeric"
           value={amount}
           onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, '').slice(0, 6))}

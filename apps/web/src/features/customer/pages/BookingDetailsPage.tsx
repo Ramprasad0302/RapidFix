@@ -188,7 +188,7 @@ function Details({ b }: { b: BookingDetailDto }) {
               {b.price.discount > 0 && (
                 <PriceRow label={`Discount${b.couponCode ? ` (${b.couponCode})` : ''}`} value={-b.price.discount} className="text-success" />
               )}
-              <PriceRow label="Taxes (GST)" value={b.price.tax} />
+              {b.price.tax > 0 && <PriceRow label="Taxes (GST)" value={b.price.tax} />}
               <div className="mt-1 flex justify-between border-t border-slate-100 pt-3 text-lg font-bold text-slate-900">
                 <dt>{b.status === 'PAYMENT_COMPLETED' ? 'Total Paid' : 'Estimated Total'}</dt>
                 <dd>{formatINR(b.price.total)}</dd>

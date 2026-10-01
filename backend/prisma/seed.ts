@@ -16,7 +16,7 @@ import { syncCatalog, type Cat } from './catalog';
 const prisma = new PrismaClient({ adapter: new PrismaMariaDb(process.env.DATABASE_URL!) });
 
 const rs = (rupees: number) => rupees * 100;
-const TAX = Number(process.env.TAX_PERCENT ?? 18);
+const TAX = Number(process.env.TAX_PERCENT ?? 0);
 const COMMISSION_PCT = 15;
 const IST = 330 * 60_000;
 
