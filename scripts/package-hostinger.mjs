@@ -171,6 +171,27 @@ rmSync(webOut, { recursive: true, force: true });
 mkdirSync(webOut, { recursive: true });
 cpSync(path.join(root, 'apps/web/dist'), path.join(webOut, 'public'), { recursive: true });
 rmSync(path.join(webOut, 'public', '.htaccess'), { force: true });
+// Hostinger's CDN (hcdn) replaces any Content-Security-Policy *header* with its own one-liner,
+// so the policy is also delivered as a <meta> tag inside the page, which the CDN leaves alone.
+// (frame-ancestors can't be set by meta; X-Frame-Options: DENY from server.js covers that.)
+const META_CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://checkout.razorpay.com https://www.google.com https://www.gstatic.com https://apis.google.com https://maps.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob:",
+  "connect-src 'self' https: wss:" + (process.env.CSP_CONNECT_EXTRA ? ' ' + process.env.CSP_CONNECT_EXTRA : ''),
+  "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  ...(process.env.CSP_CONNECT_EXTRA ? [] : ['upgrade-insecure-requests']),
+].join('; ');
+const htmlPath = path.join(webOut, 'public', 'index.html');
+writeFileSync(htmlPath, readFileSync(htmlPath, 'utf8').replace('<head>', `<head>\n    <meta http-equiv="Content-Security-Policy" content="${META_CSP}" />`));
 const cfgPath = path.join(webOut, 'public', 'config.js');
 writeFileSync(cfgPath, readFileSync(cfgPath, 'utf8').replace("  apiUrl: '',", `  apiUrl: '${apiUrl}',`));
 const webDeps = Object.fromEntries(['express', 'compression'].map((d) => [d, backendPkg.dependencies[d]]));
