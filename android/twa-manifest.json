@@ -22,8 +22,8 @@
     "path": "/Users/ramsmac/Desktop/RapidFix-Android/rapidfix-upload.keystore",
     "alias": "rapidfix"
   },
-  "appVersionName": "1.0.4",
-  "appVersionCode": 5,
+  "appVersionName": "1.0.5",
+  "appVersionCode": 6,
   "shortcuts": [
     {
       "name": "Book a service",
@@ -57,5 +57,5 @@
   "fingerprints": [],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
-  "appVersion": "1.0.4"
+  "appVersion": "1.0.5"
 }
