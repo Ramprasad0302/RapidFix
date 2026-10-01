@@ -49,6 +49,7 @@ cpSync(path.join(root, 'backend/prisma/migrations'), path.join(out, 'prisma/migr
 cpSync(path.join(root, 'backend/prisma/schema.prisma'), path.join(out, 'prisma/schema.prisma'));
 
 const backendPkg = JSON.parse(readFileSync(path.join(root, 'backend/package.json'), 'utf8'));
+const rootPkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const dependencies = Object.fromEntries(Object.entries(backendPkg.dependencies).filter(([name]) => !name.startsWith('@fixora/')));
 
 writeFileSync(
@@ -66,6 +67,8 @@ writeFileSync(
         build: 'echo "Already built — nothing to do"',
       },
       dependencies,
+      // Security: the Prisma adapter pins mariadb 3.4.5 (GHSA-cqhc-2h57-wpxf etc.); force the patched release.
+      overrides: { mariadb: rootPkg.overrides.mariadb },
     },
     null,
     2,
@@ -77,15 +80,34 @@ writeFileSync(
   path.join(out, 'start.js'),
   `// RapidFix entry point (Hostinger runs: npm start, or loads this file directly).
 // Plain CommonJS on purpose: some hosts load the startup file with require().
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+// Uploads (photos, partner ID documents) live OUTSIDE the app folder, in the account's home
+// directory: a redeploy replaces the app folder and would otherwise delete them.
+const DATA_DIR = process.env.RAPIDFIX_DATA_DIR || path.join(os.homedir(), 'rapidfix-data');
 const defaults = {
   NODE_ENV: 'production',
   SERVE_WEB: 'on',
   WEB_DIST_DIR: 'public',
-  UPLOAD_DIR: 'uploads',
-  PRIVATE_UPLOAD_DIR: 'uploads-private',
+  UPLOAD_DIR: path.join(DATA_DIR, 'uploads'),
+  PRIVATE_UPLOAD_DIR: path.join(DATA_DIR, 'uploads-private'),
   API_DOCS: 'off',
 };
 for (const [key, value] of Object.entries(defaults)) process.env[key] ??= value;
+// One-time move of files saved inside the app folder by earlier versions.
+for (const [old, dest] of [['uploads', process.env.UPLOAD_DIR], ['uploads-private', process.env.PRIVATE_UPLOAD_DIR]]) {
+  try {
+    const from = path.join(__dirname, old);
+    if (fs.existsSync(from) && path.resolve(from) !== path.resolve(dest)) {
+      fs.mkdirSync(dest, { recursive: true });
+      fs.cpSync(from, dest, { recursive: true, force: false, errorOnExist: false });
+    }
+  } catch (err) {
+    console.error('Could not move old uploads from ' + old + ':', err.message);
+  }
+}
 // A local .env file is optional; hPanel environment variables are preferred.
 try {
   process.loadEnvFile('.env');
@@ -178,6 +200,29 @@ const compression = require('compression');
 
 const app = express();
 const dir = path.join(__dirname, 'public');
+
+// Content-Security-Policy: only our own code, Firebase sign-in/reCAPTCHA, Razorpay, Google Fonts/Maps.
+// CSP_CONNECT_EXTRA adds API origins for local testing (e.g. http://localhost:4000); not needed live.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://checkout.razorpay.com https://www.google.com https://www.gstatic.com https://apis.google.com https://maps.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob:",
+  "connect-src 'self' https: wss: " + (process.env.CSP_CONNECT_EXTRA || ''),
+  "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  // Live site is HTTPS-only; skipped for plain-http local testing.
+  process.env.CSP_CONNECT_EXTRA ? '' : 'upgrade-insecure-requests',
+]
+  .filter(Boolean)
+  .join('; ');
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(compression());
@@ -188,6 +233,9 @@ app.use((req, res, next) => {
   res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.set('X-Frame-Options', 'DENY');
   res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+  res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.set('Content-Security-Policy', CSP);
   next();
 });
 // Android app link verification (Play Store app). Extra fingerprints: ANDROID_SHA256="AA:BB:…,CC:DD:…".
