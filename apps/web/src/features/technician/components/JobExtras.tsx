@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CircleCheck, FileText, Plus, QrCode, Wrench } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Banknote, CircleCheck, FileText, Loader2, Plus, QrCode, Wrench } from 'lucide-react';
+import { encode } from 'uqr';
 import type { TechnicianJobDetailDto } from '@fixora/shared-types';
 import { formatINR, rupeesToPaise } from '@fixora/shared-utils';
 import { Alert, Button, TextField, cx } from '@fixora/ui';
@@ -103,58 +104,127 @@ function RequestChargeDialog({ j, open, onClose }: { j: TechnicianJobDetailDto; 
   );
 }
 
-/** After completion: record cash / UPI received (online payments settle on their own). */
+/** A QR code drawn as SVG (no network, no images). */
+function QrSvg({ value, size = 220 }: { value: string; size?: number }) {
+  const { data } = encode(value, { ecc: 'M', border: 2 });
+  const n = data.length;
+  let path = '';
+  data.forEach((row, y) => row.forEach((on, x) => on && (path += `M${x} ${y}h1v1h-1z`)));
+  return (
+    <svg viewBox={`0 0 ${n} ${n}`} width={size} height={size} shapeRendering="crispEdges" role="img" aria-label="Payment QR code" className="rounded-lg bg-white">
+      <rect width={n} height={n} fill="#fff" />
+      <path d={path} fill="#0f172a" />
+    </svg>
+  );
+}
+
+/**
+ * After the job: collect what's left. Opens by itself when the job is completed —
+ * a Razorpay QR the customer scans (UPI / card), also texted to their phone; the
+ * job closes automatically the moment they pay. Cash / UPI-to-you stay as options.
+ */
 export function CollectPaymentCard({ j }: { j: TechnicianJobDetailDto }) {
   const qc = useQueryClient();
   const [method, setMethod] = useState<'CASH' | 'UPI' | null>(null);
+  const done = (d?: TechnicianJobDetailDto) => {
+    if (d) qc.setQueryData(['tech', 'job', j.id], d);
+    void qc.invalidateQueries({ queryKey: ['tech'] });
+  };
   const collect = useMutation({
     mutationFn: (m: 'CASH' | 'UPI') => technicianApi.collectPayment(j.id, m),
     onSuccess: (d) => {
-      qc.setQueryData(['tech', 'job', j.id], d);
-      void qc.invalidateQueries({ queryKey: ['tech'] });
+      done(d);
       setMethod(null);
       toast('Payment recorded. Job closed ✓');
     },
   });
 
-  if (j.payment?.status === 'SUCCESS') {
+  const wantsQr = j.canCollectPayment && j.onlinePaymentAvailable && j.amountDue > 0;
+  // One link per amount; re-opening the screen re-uses it.
+  const link = useQuery({
+    queryKey: ['tech', 'job', j.id, 'payment-link', j.amountDue],
+    queryFn: () => technicianApi.paymentLink(j.id),
+    enabled: wantsQr,
+    staleTime: Infinity,
+    retry: 1,
+  });
+  // Watch for the customer's payment (the socket also refreshes the job).
+  const linkId = link.data?.linkId;
+  const status = useQuery({
+    queryKey: ['tech', 'job', j.id, 'payment-link-status', linkId],
+    queryFn: () => technicianApi.checkPaymentLink(j.id, linkId!),
+    enabled: wantsQr && !!linkId,
+    refetchInterval: 4000,
+  });
+  const paidOnline = status.data?.paid === true;
+  useEffect(() => {
+    if (!paidOnline) return;
+    toast('Customer paid online. Job closed ✓');
+    void qc.invalidateQueries({ queryKey: ['tech'] });
+  }, [paidOnline, qc]);
+
+  if (j.payment?.status === 'SUCCESS' && !j.canCollectPayment) {
     return (
       <section className="flex items-center gap-3 rounded-2xl bg-success-soft p-4">
         <CircleCheck className="size-7 shrink-0 text-success" aria-hidden />
         <div className="flex-1 text-sm">
           <p className="font-semibold text-slate-900">
-            {formatINR(j.payment.amount)} received · {j.payment.method === 'RAZORPAY' ? 'Online' : j.payment.method}
+            {formatINR(j.payment.status === 'SUCCESS' && j.status === 'PAYMENT_COMPLETED' ? j.payment.amount : j.payment.paidOnline)}{' '}
+            {j.status === 'PAYMENT_COMPLETED' ? 'received' : 'paid online in advance'} · {j.payment.method === 'RAZORPAY' ? 'Online' : j.payment.method}
           </p>
-          {j.payment.invoiceNumber && <p className="text-slate-600">Invoice {j.payment.invoiceNumber}</p>}
+          {j.payment.invoiceNumber ? (
+            <p className="text-slate-600">Invoice {j.payment.invoiceNumber}</p>
+          ) : (
+            <p className="text-slate-600">Nothing to collect for the booked work.</p>
+          )}
         </div>
-        <InvoiceButton id={j.id} />
+        {j.status === 'PAYMENT_COMPLETED' && <InvoiceButton id={j.id} />}
       </section>
     );
   }
   if (!j.canCollectPayment) return null;
 
+  const advance = j.payment?.paidOnline ?? 0;
   return (
     <section className="rounded-2xl border-2 border-fixora-blue/30 bg-fixora-blue-soft/50 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-slate-600">Collect from customer</p>
-          <p className="text-3xl font-bold text-slate-900">{formatINR(j.price.total)}</p>
+          <p className="text-3xl font-bold text-slate-900">{formatINR(j.amountDue)}</p>
+          {advance > 0 && <p className="text-xs font-medium text-success">{formatINR(advance)} already paid online</p>}
         </div>
         <InvoiceButton id={j.id} />
       </div>
-      <p className="mt-1 text-xs text-slate-500">If the customer pays online in the app, this job closes automatically.</p>
-      <div className="mt-3 grid grid-cols-2 gap-3">
+
+      {wantsQr && (
+        <div className="mt-4 flex flex-col items-center rounded-2xl bg-white p-4 text-center shadow-card">
+          <p className="text-sm font-semibold text-slate-900">Customer scans to pay — UPI, card or net banking</p>
+          <div className="mt-3 flex size-[236px] items-center justify-center">
+            {link.data ? <QrSvg value={link.data.shortUrl} /> : link.isError ? null : <Loader2 className="size-8 animate-spin text-fixora-blue" aria-label="Loading QR" />}
+          </div>
+          {link.isError ? (
+            <Alert className="mt-2 w-full">{link.error.message}</Alert>
+          ) : (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+              <Loader2 className="size-3.5 animate-spin" aria-hidden /> Waiting for payment — the job closes automatically. A payment link was also sent to the customer by SMS.
+            </p>
+          )}
+        </div>
+      )}
+
+      <p className="mt-4 text-xs font-medium text-slate-600">{wantsQr ? 'Customer paid you directly instead?' : 'How did the customer pay?'}</p>
+      <div className="mt-2 grid grid-cols-2 gap-3">
         <Button variant="outline" size="lg" className="bg-white" leftIcon={<Banknote className="size-5" />} onClick={() => setMethod('CASH')}>
           Cash
         </Button>
         <Button variant="outline" size="lg" className="bg-white" leftIcon={<QrCode className="size-5" />} onClick={() => setMethod('UPI')}>
-          UPI
+          UPI to me
         </Button>
       </div>
       <Dialog
         open={!!method}
         onClose={() => setMethod(null)}
-        title={`Received ${formatINR(j.price.total)} by ${method === 'CASH' ? 'cash' : 'UPI'}?`}
+        title={`Received ${formatINR(j.amountDue)} by ${method === 'CASH' ? 'cash' : 'UPI'}?`}
         footer={
           <Button size="lg" fullWidth loading={collect.isPending} onClick={() => method && collect.mutate(method)}>
             Yes, I received it

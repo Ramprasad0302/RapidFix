@@ -1,24 +1,24 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Banknote, CalendarDays, CreditCard, FileText, Info, MapPin, Smartphone, TicketPercent, X } from 'lucide-react';
-import type { PaymentMethod } from '@fixora/shared-types';
+import { ArrowRight, Banknote, CalendarDays, CreditCard, FileText, Info, MapPin, ShieldCheck, TicketPercent, X } from 'lucide-react';
 import { formatINR } from '@fixora/shared-utils';
 import { Alert, Button, cx } from '@fixora/ui';
 import { ServiceArt } from '../../../components/ServiceArt';
 import { Skeleton } from '../../../components/States';
-import { catalogApi, customerApi, uploadApi, type ServiceAreaCheckDto } from '../../../lib/endpoints';
+import { catalogApi, customerApi, trustApi, uploadApi, type ServiceAreaCheckDto } from '../../../lib/endpoints';
+import { payWithRazorpay } from '../../../lib/razorpay';
+import { toast } from '../../../store/toast';
 import { addressLines, durationRange, formatDate, slotRange } from '../../../lib/format';
 import { useAuth } from '../../../store/auth';
 import { useBookingDraft } from '../../../store/bookingDraft';
 import { NotServedSheet } from '../../../components/NotServedSheet';
 import { BookingShell, StepTitle } from './BookingShell';
 
-const PAYMENT: { value: PaymentMethod; label: string; icon: typeof Banknote }[] = [
-  { value: 'CASH', label: 'Cash', icon: Banknote },
-  { value: 'UPI', label: 'UPI', icon: Smartphone },
-  { value: 'RAZORPAY', label: 'Online', icon: CreditCard },
-];
+const PAYMENT = [
+  { value: 'RAZORPAY', title: 'Pay online now', sub: 'UPI · Cards · Net banking', icon: CreditCard },
+  { value: 'CASH', title: 'Pay after service', sub: 'Cash, or scan the technician’s QR', icon: Banknote },
+] as const;
 
 /** Step 5 — review, coupon, payment preference, server-side estimate; login happens here if needed. */
 export function ReviewStepPage() {
@@ -37,6 +37,10 @@ export function ReviewStepPage() {
     enabled: !!draft.serviceId,
   });
   const est = estimate.data;
+  const config = useQuery({ queryKey: ['app-config'], queryFn: trustApi.appConfig, staleTime: 10 * 60_000 });
+  const onlineOk = config.data?.onlinePayments === true;
+  // "Pay online" only when the gateway is on; UPI-to-technician counts as paying after service.
+  const method = draft.paymentMethod === 'RAZORPAY' && onlineOk ? 'RAZORPAY' : 'CASH';
 
   const updateDraft = draft.update;
   const estimatedTotal = est?.total;
@@ -63,7 +67,7 @@ export function ReviewStepPage() {
         videoUrl = (await uploadApi.upload(draft.videoFile)).path;
       }
       setProgress('Confirming booking…');
-      return customerApi.createBooking({
+      const booking = await customerApi.createBooking({
         serviceId: draft.serviceId!,
         description: draft.description,
         photos,
@@ -73,14 +77,30 @@ export function ReviewStepPage() {
         scheduleType: draft.scheduleType,
         ...(draft.scheduleType === 'SCHEDULED' ? { date: draft.date!, timeSlot: draft.timeSlot! } : draft.timeSlot ? { timeSlot: draft.timeSlot } : {}),
         couponCode: est?.coupon?.valid ? draft.couponCode! : undefined,
-        paymentMethod: draft.paymentMethod,
+        paymentMethod: method,
       });
+      if (method !== 'RAZORPAY') return { booking, paid: true as const };
+      // Pay online: Razorpay opens right away; the booking is sent to technicians once it's paid.
+      try {
+        setProgress('Opening secure payment…');
+        const signed = await payWithRazorpay(await customerApi.razorpayOrder(booking.id));
+        setProgress('Confirming payment…');
+        return { booking: await customerApi.razorpayVerify(booking.id, signed), paid: true as const };
+      } catch (e) {
+        return { booking, paid: false as const, reason: (e as Error).message };
+      }
     },
-    onSuccess: (booking) => {
+    onSuccess: ({ booking, ...r }) => {
       // The confirmation page clears the draft; clearing here would trip this step's guard first.
       void qc.invalidateQueries({ queryKey: ['customer'] });
       void qc.invalidateQueries({ queryKey: ['notifications'] });
-      navigate(`/book/confirmed/${booking.id}`, { replace: true });
+      if (r.paid) {
+        navigate(`/book/confirmed/${booking.id}`, { replace: true });
+        return;
+      }
+      // Not paid (closed / failed): the booking page offers "Pay now" or "Pay after service".
+      toast(r.reason === 'Payment cancelled' ? 'Payment not completed — pay now or choose pay after service.' : r.reason, r.reason === 'Payment cancelled' ? 'default' : 'error');
+      navigate(`/bookings/${booking.id}`, { replace: true });
     },
     onSettled: () => setProgress(null),
   });
@@ -105,7 +125,7 @@ export function ReviewStepPage() {
       action={
         authed ? (
           <Button size="lg" fullWidth loading={confirm.isPending} onClick={() => confirm.mutate()} disabled={!est}>
-            {progress ?? 'Confirm Booking'} {!progress && <ArrowRight className="size-4.5" aria-hidden />}
+            {progress ?? (method === 'RAZORPAY' && est ? `Pay ${formatINR(est.total)} & Book` : 'Confirm Booking')} {!progress && <ArrowRight className="size-4.5" aria-hidden />}
           </Button>
         ) : (
           // Guest: log in first. The draft (and photos) are kept, and login returns here.
@@ -187,25 +207,34 @@ export function ReviewStepPage() {
         </Link>
       </section>
 
-      {/* Payment preference — payment itself happens after the service. */}
+      {/* Payment: online now (Razorpay opens on "Pay & Book"), or after the service. */}
       <section className="mt-5">
-        <h2 className="text-[17px] font-semibold text-slate-900">Pay after service</h2>
-        <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Payment method">
-          {PAYMENT.map(({ value, label, icon: Icon }) => (
+        <h2 className="text-[17px] font-semibold text-slate-900">Payment</h2>
+        <div className={cx('mt-2 grid gap-2', onlineOk ? 'grid-cols-2' : 'grid-cols-1')} role="radiogroup" aria-label="Payment method">
+          {PAYMENT.filter((o) => onlineOk || o.value === 'CASH').map(({ value, title, sub, icon: Icon }) => (
             <button
               key={value}
               role="radio"
-              aria-checked={draft.paymentMethod === value}
+              aria-checked={method === value}
               onClick={() => draft.update({ paymentMethod: value })}
               className={cx(
-                'flex h-12 items-center justify-center gap-1.5 rounded-xl border text-sm font-medium',
-                draft.paymentMethod === value ? 'border-fixora-blue bg-fixora-blue-soft text-fixora-blue' : 'border-slate-200 text-slate-700',
+                'flex items-start gap-2.5 rounded-xl border p-3 text-left',
+                method === value ? 'border-fixora-blue bg-fixora-blue-soft' : 'border-slate-200',
               )}
             >
-              <Icon className="size-4" aria-hidden /> {label}
+              <Icon className={cx('mt-0.5 size-5 shrink-0', method === value ? 'text-fixora-blue' : 'text-slate-500')} aria-hidden />
+              <span className="min-w-0">
+                <span className={cx('block text-sm font-semibold', method === value ? 'text-fixora-blue' : 'text-slate-900')}>{title}</span>
+                <span className="block text-xs text-slate-500">{sub}</span>
+              </span>
             </button>
           ))}
         </div>
+        {method === 'RAZORPAY' && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+            <ShieldCheck className="size-4 text-success" aria-hidden /> Secured by Razorpay. Refunded automatically if the booking is cancelled.
+          </p>
+        )}
       </section>
 
       {/* Price estimate — always computed on the server. */}

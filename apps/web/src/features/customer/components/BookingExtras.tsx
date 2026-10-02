@@ -83,7 +83,12 @@ export function AdditionalChargesCard({ b }: { b: BookingDetailDto }) {
   );
 }
 
-/** Pay online (Razorpay) or settle with the technician in cash / UPI. */
+/**
+ * Payment on the booking page:
+ *  - "Pay online" chosen at booking but not paid yet → pay now, or switch to paying after the service.
+ *  - Job finished with something left to pay → pay online, or pay the technician (who can also show a QR).
+ *  - Paid → receipt line.
+ */
 export function PaymentCard({ b }: { b: BookingDetailDto }) {
   const setBooking = useSetBooking(b.id);
   const pay = useMutation({
@@ -94,48 +99,83 @@ export function PaymentCard({ b }: { b: BookingDetailDto }) {
     },
     onSuccess: (d) => {
       setBooking(d);
-      toast('Payment successful. Thank you!');
+      toast(d.status === 'SEARCHING' ? 'Payment successful — booking confirmed!' : 'Payment successful. Thank you!');
     },
     onError: (e) => toast(e.message, e.message === 'Payment cancelled' ? 'default' : 'error'),
   });
+  const later = useMutation({
+    mutationFn: () => customerApi.payLater(b.id),
+    onSuccess: (d) => {
+      setBooking(d);
+      toast('Booking confirmed — pay after the service');
+    },
+    onError: (e) => toast(e.message, 'error'),
+  });
 
   const p = b.payment;
+  const awaitingPrepay = b.status === 'PENDING' && b.paymentMethod === 'RAZORPAY';
+
+  if (awaitingPrepay) {
+    return (
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <p className="text-[15px] font-semibold text-slate-900">Complete your payment to confirm this booking</p>
+        <p className="mt-1 text-3xl font-bold text-slate-900">{formatINR(b.amountDue)}</p>
+        <Button size="lg" fullWidth className="mt-4" loading={pay.isPending} onClick={() => pay.mutate()} leftIcon={<CreditCard className="size-5" />}>
+          Pay now (UPI, card, netbanking)
+        </Button>
+        <Button size="lg" variant="outline" fullWidth className="mt-2.5" loading={later.isPending} disabled={pay.isPending} onClick={() => later.mutate()} leftIcon={<Banknote className="size-5" />}>
+          Pay after service instead
+        </Button>
+        <p className="mt-3 text-xs text-slate-500">Unpaid online bookings are cancelled automatically after 30 minutes.</p>
+      </section>
+    );
+  }
+
+  if (b.status === 'PAYMENT_PENDING' && b.amountDue > 0) {
+    const advance = p?.paidOnline ?? 0;
+    return (
+      <section className="rounded-2xl border border-slate-100 p-4 shadow-card">
+        <p className="text-[15px] font-semibold text-slate-900">{advance > 0 ? 'Balance to pay' : 'Amount to pay'}</p>
+        <p className="mt-1 text-3xl font-bold text-slate-900">{formatINR(b.amountDue)}</p>
+        {advance > 0 && <p className="mt-1 text-sm text-success">{formatINR(advance)} already paid online</p>}
+        {b.onlinePaymentAvailable && (
+          <Button size="lg" fullWidth className="mt-4" loading={pay.isPending} onClick={() => pay.mutate()} leftIcon={<CreditCard className="size-5" />}>
+            Pay online (UPI, card, netbanking)
+          </Button>
+        )}
+        <p className={cx('flex items-start gap-2 rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-slate-600', b.onlinePaymentAvailable ? 'mt-3' : 'mt-4')}>
+          <Banknote className="mt-0.5 size-4.5 shrink-0 text-fixora-blue" aria-hidden />
+          {b.onlinePaymentAvailable ? 'Or scan the QR on your technician’s phone, or pay them' : 'Please pay your technician'} in cash. Your invoice is ready the moment it’s paid.
+        </p>
+      </section>
+    );
+  }
+
   if (p?.status === 'SUCCESS' || p?.status === 'REFUNDED') {
+    const advanceOnly = b.status !== 'PAYMENT_COMPLETED' && b.status !== 'REFUNDED' && p.status === 'SUCCESS';
     return (
       <section className="flex items-center gap-3 rounded-2xl bg-success-soft p-4">
         <ReceiptText className="size-7 shrink-0 text-success" aria-hidden />
         <div className="min-w-0 flex-1 text-sm">
           <p className="font-semibold text-slate-900">
-            {formatINR(p.amount)} paid {p.method === 'RAZORPAY' ? 'online' : p.method === 'CASH' ? 'in cash' : 'by UPI'}
+            {formatINR(advanceOnly ? p.paidOnline : p.amount)} paid {p.method === 'RAZORPAY' ? 'online' : p.method === 'CASH' ? 'in cash' : 'by UPI'}
           </p>
-          {p.paidAt && (
-            <p className="text-slate-600">
-              {formatDate(p.paidAt)}, {formatTime(p.paidAt)}
-              {p.invoiceNumber && ` · ${p.invoiceNumber}`}
-            </p>
+          {advanceOnly ? (
+            <p className="text-slate-600">Nothing to pay after the service{b.price.total > p.paidOnline ? ' except approved extra work' : ''}.</p>
+          ) : (
+            p.paidAt && (
+              <p className="text-slate-600">
+                {formatDate(p.paidAt)}, {formatTime(p.paidAt)}
+                {p.invoiceNumber && ` · ${p.invoiceNumber}`}
+              </p>
+            )
           )}
           {p.refundedAmount > 0 && <p className="mt-0.5 font-medium text-fixora-blue">{formatINR(p.refundedAmount)} refunded to you</p>}
         </div>
       </section>
     );
   }
-  if (b.status !== 'PAYMENT_PENDING') return null;
-
-  return (
-    <section className="rounded-2xl border border-slate-100 p-4 shadow-card">
-      <p className="text-[15px] font-semibold text-slate-900">Amount to pay</p>
-      <p className="mt-1 text-3xl font-bold text-slate-900">{formatINR(b.price.total)}</p>
-      {b.onlinePaymentAvailable && (
-        <Button size="lg" fullWidth className="mt-4" loading={pay.isPending} onClick={() => pay.mutate()} leftIcon={<CreditCard className="size-5" />}>
-          Pay online (UPI, card, netbanking)
-        </Button>
-      )}
-      <p className={cx('flex items-start gap-2 rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-slate-600', b.onlinePaymentAvailable ? 'mt-3' : 'mt-4')}>
-        <Banknote className="mt-0.5 size-4.5 shrink-0 text-fixora-blue" aria-hidden />
-        {b.onlinePaymentAvailable ? 'Or pay' : 'Please pay'} your technician in cash or by UPI. They'll mark it received and your invoice will be ready instantly.
-      </p>
-    </section>
-  );
+  return null;
 }
 
 export function InvoiceLink({ b }: { b: BookingDetailDto }) {

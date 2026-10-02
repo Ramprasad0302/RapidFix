@@ -126,6 +126,9 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
         </p>
       )}
 
+      {/* Job done: payment collection (Razorpay QR) comes first on the screen. */}
+      {j.canCollectPayment && <CollectPaymentCard j={j} />}
+
       <section className="py-1">
         <ProgressSteps steps={j.timeline} showTimes />
       </section>
@@ -182,7 +185,7 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
       </section>
 
       <ExtraWorkSection j={j} />
-      <CollectPaymentCard j={j} />
+      {!j.canCollectPayment && <CollectPaymentCard j={j} />}
 
       <section>
         <label htmlFor="notes" className="flex items-center gap-2 text-lg font-semibold text-slate-900">

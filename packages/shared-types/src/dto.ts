@@ -209,6 +209,8 @@ export interface BookingDetailDto extends BookingListItemDto {
   review: ReviewInfoDto | null;
   /** Razorpay keys are configured on the server. */
   onlinePaymentAvailable: boolean;
+  /** Still to be paid (total minus what was already paid online); 0 once settled or cancelled. */
+  amountDue: number;
 }
 
 export interface CustomerBookingStatsDto {
@@ -278,6 +280,10 @@ export interface TechnicianJobDetailDto extends TechnicianJobDto {
   payment: PaymentInfoDto | null;
   canRequestAdditionalCharge: boolean;
   canCollectPayment: boolean;
+  /** Left to collect from the customer (0 when the customer prepaid online). */
+  amountDue: number;
+  /** The technician can show a Razorpay QR / send a payment link. */
+  onlinePaymentAvailable: boolean;
 }
 
 export interface TechnicianProfileSummary {
@@ -504,6 +510,8 @@ export interface PaymentInfoDto {
   paidAt: string | null;
   invoiceNumber: string | null;
   refundedAmount: number;
+  /** Paid online through Razorpay so far (booking advance and/or balance). */
+  paidOnline: number;
 }
 
 export interface ReviewInfoDto {
@@ -519,6 +527,14 @@ export interface RazorpayOrderDto {
   currency: 'INR';
   bookingCode: string;
   prefill: { name: string; contact: string; email: string };
+}
+
+/** A Razorpay payment link the technician shows as a QR code (also texted to the customer). */
+export interface PaymentLinkDto {
+  linkId: string;
+  shortUrl: string;
+  amount: number;
+  expiresAt: string | null;
 }
 
 export interface InvoiceDto {

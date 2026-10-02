@@ -21,7 +21,8 @@ import { AppError } from '../utils/AppError';
 /** Average town riding speed used for ETAs. */
 const TOWN_SPEED_KMPH = 20;
 import { locality } from '../utils/locality';
-import { technicianTitle, toChargeDto, toPaymentInfo } from './booking.service';
+import { ONLINE_CHARGE, razorpayConfigured, settleIfPrepaid } from './payment.service';
+import { amountDueOf, technicianTitle, toChargeDto, toPaymentInfo } from './booking.service';
 import { dispatchBooking } from './assignment.service';
 import { transitionBooking } from './bookingState';
 import { estimateTechnicianEarning } from './commission.service';
@@ -46,7 +47,7 @@ const jobInclude = {
   customer: { include: { user: { select: { name: true, phone: true } } } },
   statusHistory: { select: { toStatus: true, createdAt: true } },
   additionalCharges: { orderBy: { requestedAt: 'asc' } },
-  payment: true,
+  payment: { include: { transactions: { where: ONLINE_CHARGE, select: { amount: true } } } },
 } as const satisfies Prisma.BookingInclude;
 type JobRow = Prisma.BookingGetPayload<{ include: typeof jobInclude }>;
 
@@ -210,6 +211,8 @@ export async function getJob(userId: string, id: string): Promise<TechnicianJobD
     payment: toPaymentInfo(b.payment),
     canRequestAdditionalCharge: b.status === B.SERVICE_STARTED || b.status === B.ADDITIONAL_CHARGE_APPROVED,
     canCollectPayment: b.status === B.PAYMENT_PENDING,
+    amountDue: amountDueOf(b),
+    onlinePaymentAvailable: razorpayConfigured(),
   };
 }
 
@@ -227,7 +230,7 @@ const CUSTOMER_NOTICE: Partial<Record<TechnicianJobAction, (tech: string, servic
   EN_ROUTE: (t) => ({ type: 'TECHNICIAN_EN_ROUTE', title: 'Technician on the way', body: `${t} is heading to your location.` }),
   ARRIVED: (t) => ({ type: 'TECHNICIAN_ARRIVED', title: 'Technician arrived', body: `${t} has arrived at your address.` }),
   START: (_t, s) => ({ type: 'SERVICE_STARTED', title: 'Service started', body: `Work on your ${s} has started.` }),
-  COMPLETE: (_t, s) => ({ type: 'SERVICE_COMPLETED', title: 'Service completed', body: `Your ${s} is complete. Please complete the payment.` }),
+  COMPLETE: (_t, s) => ({ type: 'SERVICE_COMPLETED', title: 'Service completed', body: `Your ${s} is complete.` }),
 };
 
 export async function performAction(userId: string, id: string, action: TechnicianJobAction, reason?: string, position?: { lat: number; lng: number }) {
@@ -314,6 +317,9 @@ export async function performAction(userId: string, id: string, action: Technici
       });
     }
   });
+
+  // Paid online in advance? The job settles itself the moment it's completed.
+  if (action === 'COMPLETE') await settleIfPrepaid(job.id, userId).catch((err) => logger.error({ err, bookingId: job.id }, 'prepaid settlement failed'));
 
   const event = CUSTOMER_EVENT[action];
   if (event) emitToUser(job.customer.userId, event, { bookingId: job.id, ...(action === 'EN_ROUTE' && trip && { lat: trip.lat, lng: trip.lng, distanceKm: trip.distanceKm, etaMinutes: trip.etaMinutes }) });

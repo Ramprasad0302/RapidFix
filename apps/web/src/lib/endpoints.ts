@@ -21,6 +21,7 @@ import type {
   MessageDto,
   Paged,
   PayoutDetailsDto,
+  PaymentLinkDto,
   RazorpayOrderDto,
   ReportDto,
   SettingDto,
@@ -101,7 +102,7 @@ export const catalogApi = {
 export const trustApi = {
   stats: () => unwrap<PublicStatsDto>(api.get('/stats/public')),
   reviews: () => unwrap<FeaturedReviewDto[]>(api.get('/reviews/featured')),
-  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string; otpProvider: 'server' | 'firebase' }>(api.get('/app-config')),
+  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string; otpProvider: 'server' | 'firebase'; onlinePayments?: boolean }>(api.get('/app-config')),
 };
 
 // ─── Geocoding (server-side proxy) ───────────────────────────────────────
@@ -169,6 +170,7 @@ export const customerApi = {
   createAddress: (body: AddressInput) => unwrap<AddressDto>(api.post('/customer/addresses', body)),
   updateAddress: (id: string, body: AddressInput) => unwrap<AddressDto>(api.put(`/customer/addresses/${id}`, body)),
   deleteAddress: (id: string) => unwrap<{ deleted: boolean }>(api.delete(`/customer/addresses/${id}`)),
+  payLater: (id: string) => unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/payment/pay-later`)),
   razorpayOrder: (id: string) => unwrap<RazorpayOrderDto>(api.post(`/customer/bookings/${id}/payment/razorpay-order`)),
   razorpayVerify: (id: string, body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
     unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/payment/razorpay-verify`, body)),
@@ -293,6 +295,8 @@ export const technicianApi = {
   performance: () => unwrap<TechnicianPerformanceDto>(api.get('/technician/performance')),
   requestCharge: (id: string, body: { title: string; description?: string; amount: number }) =>
     unwrap<TechnicianJobDetailDto>(api.post(`/technician/jobs/${id}/additional-charges`, body)),
+  paymentLink: (id: string) => unwrap<PaymentLinkDto>(api.post(`/technician/jobs/${id}/payment-link`)),
+  checkPaymentLink: (id: string, linkId: string) => unwrap<{ paid: boolean }>(api.get(`/technician/jobs/${id}/payment-link/${encodeURIComponent(linkId)}`)),
   collectPayment: (id: string, method: 'CASH' | 'UPI') => unwrap<TechnicianJobDetailDto>(api.post(`/technician/jobs/${id}/collect-payment`, { method })),
 };
 

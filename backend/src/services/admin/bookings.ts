@@ -18,7 +18,7 @@ import { recordAudit } from '../audit.service';
 import { toChargeDto, toPaymentInfo } from '../booking.service';
 import { transitionBooking } from '../bookingState';
 import { buildTimeline } from '../bookingTimeline';
-import { refundPayment } from '../payment.service';
+import { refundOnlineCharges, refundPayment } from '../payment.service';
 import { emitBookingEvent } from '../realtime.service';
 import { complaintInclude, toComplaint } from '../work.service';
 
@@ -121,7 +121,7 @@ export async function bookingDetail(id: string): Promise<AdminBookingDetailDto> 
     review: b.review ? { rating: b.review.rating, comment: b.review.comment } : null,
     timeline: buildTimeline('customer', b.status, b.statusHistory, b.createdAt),
     cancellationReason: b.cancellationReason,
-    canCancel: canTransition(b.status, B.ADMIN_CANCELLED) && b.payment?.status !== 'SUCCESS',
+    canCancel: canTransition(b.status, B.ADMIN_CANCELLED),
     canAssign: [B.SEARCHING, B.TECHNICIAN_ASSIGNED, B.TECHNICIAN_ACCEPTED, B.TECHNICIAN_EN_ROUTE].includes(b.status as never),
     canResolveDispute: b.status === B.DISPUTED,
     canRefund: b.payment?.status === 'SUCCESS',
@@ -131,7 +131,7 @@ export async function bookingDetail(id: string): Promise<AdminBookingDetailDto> 
 export async function adminCancel(id: string, actor: Actor, reason: string, ip?: string) {
   const b = await prisma.booking.findUnique({ where: { id }, include: { payment: true, customer: { select: { userId: true } }, technician: { select: { id: true, userId: true } } } });
   if (!b) throw AppError.notFound('Booking not found', 'BOOKING_NOT_FOUND');
-  if (b.payment?.status === 'SUCCESS') throw AppError.conflict('This booking is paid — issue a refund instead.', 'USE_REFUND');
+  // Finished jobs can't be cancelled (refund instead); an advance paid at booking is refunded automatically below.
   if (!canTransition(b.status, B.ADMIN_CANCELLED)) throw AppError.conflict('This booking can no longer be cancelled.', 'NOT_CANCELLABLE');
   const wasActive = ([B.TECHNICIAN_ACCEPTED, B.TECHNICIAN_EN_ROUTE, B.TECHNICIAN_ARRIVED] as BookingStatus[]).includes(b.status);
   await prisma.$transaction(async (tx) => {
@@ -147,6 +147,7 @@ export async function adminCancel(id: string, actor: Actor, reason: string, ip?:
     await tx.notification.createMany({ data: notify.map((userId) => ({ userId, type: 'BOOKING_CANCELLED', title: 'Booking cancelled', body: `${b.code} was cancelled by RapidFix: ${reason}`, data: { bookingId: id } })) });
   });
   emitBookingEvent(id, [b.customer.userId, b.technician?.userId].filter((x): x is string => !!x), SocketEvent.BOOKING_CANCELLED, {}, { staff: true });
+  await refundOnlineCharges(id, `Cancelled by RapidFix: ${reason}`);
   await recordAudit({ actorId: actor.userId, actorRole: actor.role as never, action: 'BOOKING_CANCELLED', entity: 'Booking', entityId: id, oldValue: { status: b.status }, newValue: { reason }, ip });
 }
 

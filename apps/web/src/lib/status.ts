@@ -9,7 +9,8 @@ interface Meta {
 
 /** How each status reads to a customer. */
 const CUSTOMER: Record<BookingStatus, Meta> = {
-  [B.PENDING]: { label: 'Booked', tone: 'blue' },
+  // Only "pay online" bookings wait in PENDING (until Razorpay confirms the payment).
+  [B.PENDING]: { label: 'Awaiting Payment', tone: 'amber' },
   [B.SEARCHING]: { label: 'Finding Technician', tone: 'purple' },
   [B.TECHNICIAN_ASSIGNED]: { label: 'Upcoming', tone: 'amber' },
   [B.TECHNICIAN_ACCEPTED]: { label: 'Upcoming', tone: 'amber' },
@@ -31,7 +32,7 @@ const CUSTOMER: Record<BookingStatus, Meta> = {
 
 /** Technician / admin wording. */
 const STAFF: Partial<Record<BookingStatus, Meta>> = {
-  [B.PENDING]: { label: 'Booked', tone: 'blue' },
+  [B.PENDING]: { label: 'Awaiting Payment', tone: 'amber' },
   [B.SEARCHING]: { label: 'Booked', tone: 'blue' },
   [B.TECHNICIAN_ASSIGNED]: { label: 'Assigned', tone: 'amber' },
   [B.TECHNICIAN_ACCEPTED]: { label: 'Upcoming', tone: 'amber' },

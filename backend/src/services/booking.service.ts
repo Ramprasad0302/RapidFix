@@ -26,7 +26,7 @@ import { geocodeAddress } from './geo.service';
 import { estimatePrice } from './pricing.service';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
-import { razorpayConfigured } from './payment.service';
+import { ONLINE_CHARGE, razorpayConfigured, refundOnlineCharges } from './payment.service';
 import { emitBookingEvent } from './realtime.service';
 import { isOwnUploadPath } from './storage.service';
 
@@ -45,7 +45,7 @@ export const bookingInclude = {
   coupon: { select: { code: true } },
   statusHistory: { select: { toStatus: true, createdAt: true } },
   additionalCharges: { orderBy: { requestedAt: 'asc' } },
-  payment: true,
+  payment: { include: { transactions: { where: ONLINE_CHARGE, select: { amount: true } } } },
   review: true,
 } as const satisfies Prisma.BookingInclude;
 
@@ -59,9 +59,25 @@ export const toChargeDto = (c: ChargeRow) => ({
   requestedAt: c.requestedAt.toISOString(),
   respondedAt: c.respondedAt?.toISOString() ?? null,
 });
-type PaymentRow = { status: PaymentInfoDto['status']; method: PaymentInfoDto['method']; amount: number; paidAt: Date | null; invoiceNumber: string | null; refundedAmount: number } | null;
+type PaymentRow = {
+  status: PaymentInfoDto['status'];
+  method: PaymentInfoDto['method'];
+  amount: number;
+  paidAt: Date | null;
+  invoiceNumber: string | null;
+  refundedAmount: number;
+  transactions?: { amount: number }[];
+} | null;
+const paidOnlineOf = (p: PaymentRow) => (p?.transactions ?? []).reduce((sum, t) => sum + t.amount, 0);
 export const toPaymentInfo = (p: PaymentRow): PaymentInfoDto | null =>
-  p ? { status: p.status, method: p.method, amount: p.amount, paidAt: p.paidAt?.toISOString() ?? null, invoiceNumber: p.invoiceNumber, refundedAmount: p.refundedAmount } : null;
+  p
+    ? { status: p.status, method: p.method, amount: p.amount, paidAt: p.paidAt?.toISOString() ?? null, invoiceNumber: p.invoiceNumber, refundedAmount: p.refundedAmount, paidOnline: paidOnlineOf(p) }
+    : null;
+
+const SETTLED: readonly BookingStatus[] = [B.PAYMENT_COMPLETED, B.REFUNDED, B.CUSTOMER_CANCELLED, B.ADMIN_CANCELLED, B.TECHNICIAN_CANCELLED, B.NO_SHOW];
+/** What the customer still owes: the bill minus anything already paid online. */
+export const amountDueOf = (b: { status: BookingStatus; totalAmount: number; payment: PaymentRow }) =>
+  SETTLED.includes(b.status) ? 0 : Math.max(0, b.totalAmount - paidOnlineOf(b.payment));
 
 type BookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 
@@ -157,6 +173,7 @@ export function toCustomerDetail(b: BookingRow): BookingDetailDto {
     payment: toPaymentInfo(b.payment),
     review: b.review ? { rating: b.review.rating, comment: b.review.comment, createdAt: b.review.createdAt.toISOString() } : null,
     onlinePaymentAvailable: razorpayConfigured(),
+    amountDue: amountDueOf(b),
   };
 }
 
@@ -256,6 +273,12 @@ export async function createBooking(customerId: string, userId: string, input: C
   else if (input.addressId) {
     const saved = await prisma.address.findFirst({ where: { id: input.addressId, customerId, deletedAt: null }, select: { latitude: true, longitude: true, villageTown: true } });
     if (saved) await assertServed(saved);
+  }
+
+  // "Pay online" is paid right away (Razorpay Checkout); it needs the gateway to be set up.
+  const payNow = input.paymentMethod === 'RAZORPAY';
+  if (payNow && !razorpayConfigured()) {
+    throw new AppError(503, 'ONLINE_PAYMENT_UNAVAILABLE', 'Online payment is not available right now. Please choose cash or UPI.');
   }
 
   const { service, breakdown, coupon } = await estimatePrice(input.serviceId, input.couponCode, customerId);
@@ -365,7 +388,9 @@ export async function createBooking(customerId: string, userId: string, input: C
         data: { couponId: coupon.id, customerId, bookingId: created.id, discountAmount: breakdown.discount },
       });
     }
-    // Hand over to dispatch (TechnicianAssignmentService arrives in Phase 6).
+    // Paying online: the booking waits (PENDING) until Razorpay confirms the payment,
+    // then payment.service confirms it and starts dispatch. Otherwise dispatch now.
+    if (payNow) return created.id;
     await transitionBooking(tx, created, B.SEARCHING, { actorId: userId, note: 'Looking for a professional' });
 
     await tx.notification.create({
@@ -381,7 +406,7 @@ export async function createBooking(customerId: string, userId: string, input: C
   });
 
   // Start finding a technician right away (tests drive dispatch explicitly).
-  if (env.NODE_ENV !== 'test') {
+  if (!payNow && env.NODE_ENV !== 'test') {
     void dispatchBooking(bookingId).catch((err) => logger.error({ err, bookingId }, 'initial dispatch failed'));
   }
   const full = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId }, include: bookingInclude });
@@ -467,6 +492,8 @@ export async function cancelCustomerBooking(customerId: string, userId: string, 
   });
   const techUserId = await technicianUserId(prisma, booking.technicianId);
   emitBookingEvent(booking.id, [userId, techUserId].filter((x): x is string => !!x), SocketEvent.BOOKING_CANCELLED, {});
+  // Paid online? Give it back automatically.
+  await refundOnlineCharges(booking.id, reason ?? 'Cancelled by customer').catch((err) => logger.error({ err, bookingId: booking.id }, 'automatic refund failed'));
   return getCustomerBooking(customerId, id);
 }
 

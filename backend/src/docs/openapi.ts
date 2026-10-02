@@ -90,7 +90,8 @@ export const ROUTES: RouteDoc[] = [
   R('get', '/customer/bookings/{id}', 'Customer', 'Booking detail with timeline, technician, live location, charges, payment and review', 'customer'),
   R('post', '/customer/bookings/{id}/cancel', 'Customer', 'Cancel (allowed until the technician arrives)', 'customer', { body: obj({ reason: str }, []) }),
   R('post', '/customer/bookings/{id}/reschedule', 'Customer', 'Reschedule before the technician starts travelling', 'customer'),
-  R('post', '/customer/bookings/{id}/payment/razorpay-order', 'Payments', 'Create a Razorpay order for the amount due', 'customer'),
+  R('post', '/customer/bookings/{id}/payment/razorpay-order', 'Payments', 'Create a Razorpay order for the amount due (at booking for "pay online", or the balance after the job)', 'customer'),
+  R('post', '/customer/bookings/{id}/payment/pay-later', 'Payments', 'Switch an unpaid "pay online" booking to pay after service; dispatch starts', 'customer'),
   R('post', '/customer/bookings/{id}/payment/razorpay-verify', 'Payments', 'Verify the Checkout signature (HMAC) and settle the booking', 'customer', {
     body: obj({ razorpay_order_id: str, razorpay_payment_id: str, razorpay_signature: str }),
   }),
@@ -134,6 +135,8 @@ export const ROUTES: RouteDoc[] = [
   ),
   R('put', '/technician/jobs/{id}/notes', 'Technician', 'Save private job notes', 'technician', { body: obj({ notes: str }) }),
   R('post', '/technician/jobs/{id}/additional-charges', 'Technician', 'Request approval for extra work', 'technician', { body: obj({ title: str, description: str, amount: paise }, ['title', 'amount']) }),
+  R('post', '/technician/jobs/{id}/payment-link', 'Payments', 'Razorpay payment link (shown as QR, texted to the customer) for the amount due', 'technician'),
+  R('get', '/technician/jobs/{id}/payment-link/{linkId}', 'Payments', 'Check the payment link; settles the job once paid', 'technician'),
   R('post', '/technician/jobs/{id}/collect-payment', 'Payments', 'Record cash / UPI received; closes the job and posts commission', 'technician', { body: obj({ method: { enum: ['CASH', 'UPI'] } }) }),
   R('get', '/technician/earnings', 'Technician', 'Earnings summary and ledger', 'technician', { query: ['month'] }),
   R('get', '/technician/wallet', 'Technician', 'Wallet balance and transactions', 'technician'),

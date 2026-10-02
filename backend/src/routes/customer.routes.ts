@@ -199,6 +199,13 @@ customerRouter.post('/bookings/:id/reschedule', validate(scheduleSchema), async 
 
 // ─── Payment, extra work, review ─────────────────────────────────────────
 
+/** Chose "pay online" at booking but would rather pay after the service. */
+customerRouter.post('/bookings/:id/payment/pay-later', async (req, res) => {
+  const { customerId, userId } = await customerOf(req);
+  await payments.switchToPayAfterService(customerId, userId, String(req.params.id));
+  ok(res, await bookings.getCustomerBooking(customerId, String(req.params.id)));
+});
+
 customerRouter.post('/bookings/:id/payment/razorpay-order', async (req, res) => {
   ok(res, await payments.createRazorpayOrder((await customerOf(req)).customerId, String(req.params.id)));
 });

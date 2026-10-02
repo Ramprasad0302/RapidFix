@@ -111,6 +111,16 @@ technicianRouter.post(
   },
 );
 
+/** Razorpay QR / link for the amount still due (also texted to the customer). */
+technicianRouter.post('/jobs/:id/payment-link', async (req, res) => {
+  ok(res, await payments.createCollectLink(authOf(req).userId, String(req.params.id)));
+});
+
+/** Polled while the QR is on screen: settles the job as soon as the customer pays. */
+technicianRouter.get('/jobs/:id/payment-link/:linkId', async (req, res) => {
+  ok(res, await payments.checkCollectLink(authOf(req).userId, String(req.params.id), String(req.params.linkId)));
+});
+
 technicianRouter.post('/jobs/:id/collect-payment', validate(z.object({ method: z.enum(['CASH', 'UPI']) })), async (req, res) => {
   await payments.collectOffline(authOf(req).userId, String(req.params.id), req.body.method);
   ok(res, await tech.getJob(authOf(req).userId, String(req.params.id)));
