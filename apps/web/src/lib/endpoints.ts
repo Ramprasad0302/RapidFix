@@ -102,7 +102,7 @@ export const catalogApi = {
 export const trustApi = {
   stats: () => unwrap<PublicStatsDto>(api.get('/stats/public')),
   reviews: () => unwrap<FeaturedReviewDto[]>(api.get('/reviews/featured')),
-  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string; otpProvider: 'server' | 'firebase'; onlinePayments?: boolean }>(api.get('/app-config')),
+  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string; otpProvider: 'server' | 'firebase'; onlinePayments?: boolean; bookingAdvance?: number }>(api.get('/app-config')),
 };
 
 // ─── Geocoding (server-side proxy) ───────────────────────────────────────

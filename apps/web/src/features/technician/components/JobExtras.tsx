@@ -170,12 +170,14 @@ export function CollectPaymentCard({ j }: { j: TechnicianJobDetailDto }) {
         <div className="flex-1 text-sm">
           <p className="font-semibold text-slate-900">
             {formatINR(j.payment.status === 'SUCCESS' && j.status === 'PAYMENT_COMPLETED' ? j.payment.amount : j.payment.paidOnline)}{' '}
-            {j.status === 'PAYMENT_COMPLETED' ? 'received' : 'paid online in advance'} · {j.payment.method === 'RAZORPAY' ? 'Online' : j.payment.method}
+            {j.status === 'PAYMENT_COMPLETED' ? 'received' : 'advance paid online'} · {j.payment.method === 'RAZORPAY' ? 'Online' : j.payment.method}
           </p>
           {j.payment.invoiceNumber ? (
             <p className="text-slate-600">Invoice {j.payment.invoiceNumber}</p>
           ) : (
-            <p className="text-slate-600">Nothing to collect for the booked work.</p>
+            <p className="text-slate-600">
+              {j.price.total > (j.payment.paidOnline ?? 0) ? `Collect ${formatINR(j.price.total - j.payment.paidOnline)} after the job.` : 'Nothing to collect for the booked work.'}
+            </p>
           )}
         </div>
         {j.status === 'PAYMENT_COMPLETED' && <InvoiceButton id={j.id} />}

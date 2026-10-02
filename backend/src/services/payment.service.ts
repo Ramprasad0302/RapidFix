@@ -9,6 +9,7 @@ import { hmacSha256, safeEqual } from '../utils/crypto';
 import { recordAudit } from './audit.service';
 import { transitionBooking } from './bookingState';
 import { resolveCommissionRule } from './commission.service';
+import { getSetting } from './settings.service';
 import { emitBookingEvent } from './realtime.service';
 import { postWalletTxn } from './wallet.service';
 
@@ -68,6 +69,21 @@ export async function paidOnline(db: Db, bookingId: string) {
   return r._sum.amount ?? 0;
 }
 
+/**
+ * Advance (paise) every booking pays online before it goes to technicians
+ * (admin setting, ₹100 by default). 0 when switched off or Razorpay isn't set up.
+ */
+export async function bookingAdvance(): Promise<number> {
+  if (!razorpayConfigured()) return 0;
+  const rupees = await getSetting<number>('pricing.bookingAdvanceRupees', env.BOOKING_ADVANCE_RUPEES);
+  return Math.max(0, Math.round(Number(rupees) * 100));
+}
+
+/** What a waiting booking must pay before dispatch: the full bill ("pay full now") or the advance. */
+export async function prepayTarget(b: { paymentMethod: PaymentMethod; totalAmount: number }) {
+  return b.paymentMethod === 'RAZORPAY' ? b.totalAmount : Math.min(await bookingAdvance(), b.totalAmount);
+}
+
 const unavailable = () =>
   new AppError(503, 'ONLINE_PAYMENT_UNAVAILABLE', 'Online payment is not available right now. Please choose cash or UPI to your technician.');
 
@@ -87,9 +103,10 @@ export async function createRazorpayOrder(customerId: string, bookingId: string)
     include: { payment: true, customer: { include: { user: true } } },
   });
   if (!b) throw AppError.notFound('Booking not found', 'BOOKING_NOT_FOUND');
-  const prepay = b.status === B.PENDING && b.paymentMethod === 'RAZORPAY';
+  const prepay = b.status === B.PENDING;
   if (!prepay && b.status !== B.PAYMENT_PENDING) throw AppError.conflict('This booking is not awaiting payment.', 'NOT_PAYABLE');
-  const due = b.totalAmount - (await paidOnline(prisma, b.id));
+  // Waiting booking: the advance (or the full bill); after the job: whatever is left.
+  const due = (prepay ? await prepayTarget(b) : b.totalAmount) - (await paidOnline(prisma, b.id));
   if (due <= 0) throw AppError.conflict('This booking is already paid.', 'ALREADY_PAID');
 
   // Re-use the open order for the same amount (a retried checkout).
@@ -134,17 +151,27 @@ export async function verifyRazorpayCheckout(
   return recordOnlinePayment(bookingId, { paymentId: p.razorpay_payment_id, amount: payment.amount });
 }
 
-/** Customer chose "pay online" at booking but prefers to pay after the service. */
+/**
+ * Customer chose "pay full amount now" but would rather pay just the advance
+ * now and the rest after the service. With no advance configured, the booking
+ * is confirmed straight away (pay after service).
+ */
 export async function switchToPayAfterService(customerId: string, userId: string, bookingId: string) {
   const b = await prisma.booking.findFirst({ where: { id: bookingId, customerId } });
   if (!b) throw AppError.notFound('Booking not found', 'BOOKING_NOT_FOUND');
   if (b.status !== B.PENDING || b.paymentMethod !== 'RAZORPAY') throw AppError.conflict('This booking is already confirmed.', 'NOT_PENDING_PAYMENT');
   if ((await paidOnline(prisma, b.id)) > 0) throw AppError.conflict('This booking is already paid.', 'ALREADY_PAID');
+  const advance = await bookingAdvance();
   await prisma.$transaction(async (tx) => {
-    await transitionBooking(tx, b, B.SEARCHING, { actorId: userId, note: 'Pay after service (cash / UPI)', data: { paymentMethod: 'CASH' } });
-    await tx.payment.deleteMany({ where: { bookingId: b.id, status: { not: 'SUCCESS' } } });
+    if (advance > 0) {
+      await tx.booking.update({ where: { id: b.id }, data: { paymentMethod: 'CASH' } });
+      await tx.payment.updateMany({ where: { bookingId: b.id, status: { not: 'SUCCESS' } }, data: { status: 'PENDING', amount: Math.min(advance, b.totalAmount), razorpayOrderId: null } });
+    } else {
+      await transitionBooking(tx, b, B.SEARCHING, { actorId: userId, note: 'Pay after service (cash / UPI)', data: { paymentMethod: 'CASH' } });
+      await tx.payment.deleteMany({ where: { bookingId: b.id, status: { not: 'SUCCESS' } } });
+    }
   });
-  startDispatch(b.id);
+  if (advance === 0) startDispatch(b.id);
 }
 
 // ─── Technician: Razorpay QR / payment link at the customer's door ───────
@@ -289,7 +316,7 @@ export async function recordOnlinePayment(bookingId: string, p: ConfirmedPayment
   const due = b.totalAmount - (await paidOnline(prisma, bookingId));
 
   try {
-    if (b.status === B.PENDING && b.paymentMethod === 'RAZORPAY' && p.amount === due) {
+    if (b.status === B.PENDING && p.amount === (await prepayTarget(b)) - (b.totalAmount - due)) {
       await confirmPrepaidBooking(bookingId, p);
       return { alreadyProcessed: false };
     }
@@ -332,19 +359,27 @@ async function recordCharge(bookingId: string, p: ConfirmedPayment, db: Db = pri
   return payment;
 }
 
-/** Paid in full at booking → confirmed and sent to technicians. */
+/** Advance (or full bill) paid at booking → confirmed and sent to technicians. */
 async function confirmPrepaidBooking(bookingId: string, p: ConfirmedPayment) {
   const userId = await prisma.$transaction(async (tx) => {
     const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { customer: { select: { userId: true } }, service: { select: { name: true } } } });
     const payment = await recordCharge(bookingId, p, tx);
-    await tx.payment.update({ where: { id: payment.id }, data: { status: 'SUCCESS', amount: p.amount, razorpayPaymentId: p.paymentId, paidAt: new Date() } });
-    await transitionBooking(tx, b, B.SEARCHING, { actorId: null, note: `Paid online ${formatINR(p.amount)} — looking for a professional`, data: { paymentStatus: 'SUCCESS' } });
+    const paid = await paidOnline(tx, bookingId);
+    const full = paid >= b.totalAmount;
+    await tx.payment.update({ where: { id: payment.id }, data: { status: 'SUCCESS', amount: paid, razorpayPaymentId: p.paymentId, paidAt: new Date() } });
+    await transitionBooking(tx, b, B.SEARCHING, {
+      actorId: null,
+      note: `${full ? 'Paid online' : 'Advance paid'} ${formatINR(p.amount)} — looking for a professional`,
+      data: { paymentStatus: full ? 'SUCCESS' : 'PENDING' },
+    });
     await tx.notification.create({
       data: {
         userId: b.customer.userId,
         type: 'BOOKING_CONFIRMED',
-        title: 'Payment received — booking confirmed',
-        body: `${formatINR(p.amount)} paid for ${b.service.name}. We're finding the right professional for you.`,
+        title: full ? 'Payment received — booking confirmed' : 'Advance received — booking confirmed',
+        body: full
+          ? `${formatINR(p.amount)} paid for ${b.service.name}. We're finding the right professional for you.`
+          : `${formatINR(p.amount)} advance paid for ${b.service.name}. We're finding the right professional for you. Pay the rest (${formatINR(b.totalAmount - paid)}) after the service.`,
         data: { bookingId },
       },
     });
@@ -616,7 +651,7 @@ export async function refundPayment(bookingId: string, actor: { userId: string; 
  */
 export async function expireUnpaidBookings(now = Date.now()) {
   const stale = await prisma.booking.findMany({
-    where: { status: B.PENDING, paymentMethod: 'RAZORPAY', createdAt: { lt: new Date(now - UNPAID_BOOKING_TTL_MS) } },
+    where: { status: B.PENDING, createdAt: { lt: new Date(now - UNPAID_BOOKING_TTL_MS) } },
     include: { payment: true, customer: { select: { userId: true } }, service: { select: { name: true } } },
     take: 20,
   });

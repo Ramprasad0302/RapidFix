@@ -26,7 +26,7 @@ import { geocodeAddress } from './geo.service';
 import { estimatePrice } from './pricing.service';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
-import { ONLINE_CHARGE, razorpayConfigured, refundOnlineCharges } from './payment.service';
+import { bookingAdvance, ONLINE_CHARGE, razorpayConfigured, refundOnlineCharges } from './payment.service';
 import { emitBookingEvent } from './realtime.service';
 import { isOwnUploadPath } from './storage.service';
 
@@ -174,6 +174,7 @@ export function toCustomerDetail(b: BookingRow): BookingDetailDto {
     review: b.review ? { rating: b.review.rating, comment: b.review.comment, createdAt: b.review.createdAt.toISOString() } : null,
     onlinePaymentAvailable: razorpayConfigured(),
     amountDue: amountDueOf(b),
+    payNow: b.status === B.PENDING && b.payment ? Math.max(0, b.payment.amount - paidOnlineOf(b.payment)) : 0,
   };
 }
 
@@ -275,11 +276,14 @@ export async function createBooking(customerId: string, userId: string, input: C
     if (saved) await assertServed(saved);
   }
 
-  // "Pay online" is paid right away (Razorpay Checkout); it needs the gateway to be set up.
-  const payNow = input.paymentMethod === 'RAZORPAY';
-  if (payNow && !razorpayConfigured()) {
+  // Every booking pays online before it goes to technicians: the advance (₹100 by default),
+  // or the full bill when "pay full amount now" was chosen. Needs the gateway to be set up.
+  const payFull = input.paymentMethod === 'RAZORPAY';
+  if (payFull && !razorpayConfigured()) {
     throw new AppError(503, 'ONLINE_PAYMENT_UNAVAILABLE', 'Online payment is not available right now. Please choose cash or UPI.');
   }
+  const advance = await bookingAdvance();
+  const payNow = payFull || advance > 0;
 
   const { service, breakdown, coupon } = await estimatePrice(input.serviceId, input.couponCode, customerId);
   if (breakdown.coupon && !breakdown.coupon.valid) {
@@ -390,7 +394,12 @@ export async function createBooking(customerId: string, userId: string, input: C
     }
     // Paying online: the booking waits (PENDING) until Razorpay confirms the payment,
     // then payment.service confirms it and starts dispatch. Otherwise dispatch now.
-    if (payNow) return created.id;
+    if (payNow) {
+      await tx.payment.create({
+        data: { bookingId: created.id, method: 'RAZORPAY', status: 'PENDING', amount: payFull ? breakdown.total : Math.min(advance, breakdown.total) },
+      });
+      return created.id;
+    }
     await transitionBooking(tx, created, B.SEARCHING, { actorId: userId, note: 'Looking for a professional' });
 
     await tx.notification.create({

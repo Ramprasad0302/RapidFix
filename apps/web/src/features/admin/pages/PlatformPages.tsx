@@ -483,6 +483,7 @@ function RankCard({ title, rows }: { title: string; rows: { name: string; bookin
 // ─── Settings ────────────────────────────────────────────────────────────
 
 const SETTING_LABEL: Record<string, { label: string; unit?: string }> = {
+  'pricing.bookingAdvanceRupees': { label: 'Booking advance (paid online before dispatch)', unit: '₹' },
   'pricing.taxPercent': { label: 'GST', unit: '%' },
   'commission.globalPercent': { label: 'Default commission', unit: '%' },
   'dispatch.requestTimeoutSeconds': { label: 'Offer timeout', unit: 'seconds' },

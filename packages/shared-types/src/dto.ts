@@ -211,6 +211,8 @@ export interface BookingDetailDto extends BookingListItemDto {
   onlinePaymentAvailable: boolean;
   /** Still to be paid (total minus what was already paid online); 0 once settled or cancelled. */
   amountDue: number;
+  /** To pay now, before the booking goes to technicians (the advance or the full bill); 0 once paid. */
+  payNow: number;
 }
 
 export interface CustomerBookingStatsDto {

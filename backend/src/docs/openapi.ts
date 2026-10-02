@@ -91,7 +91,7 @@ export const ROUTES: RouteDoc[] = [
   R('post', '/customer/bookings/{id}/cancel', 'Customer', 'Cancel (allowed until the technician arrives)', 'customer', { body: obj({ reason: str }, []) }),
   R('post', '/customer/bookings/{id}/reschedule', 'Customer', 'Reschedule before the technician starts travelling', 'customer'),
   R('post', '/customer/bookings/{id}/payment/razorpay-order', 'Payments', 'Create a Razorpay order for the amount due (at booking for "pay online", or the balance after the job)', 'customer'),
-  R('post', '/customer/bookings/{id}/payment/pay-later', 'Payments', 'Switch an unpaid "pay online" booking to pay after service; dispatch starts', 'customer'),
+  R('post', '/customer/bookings/{id}/payment/pay-later', 'Payments', 'Switch a "pay full now" booking to the advance only (or straight to dispatch when no advance is set)', 'customer'),
   R('post', '/customer/bookings/{id}/payment/razorpay-verify', 'Payments', 'Verify the Checkout signature (HMAC) and settle the booking', 'customer', {
     body: obj({ razorpay_order_id: str, razorpay_payment_id: str, razorpay_signature: str }),
   }),

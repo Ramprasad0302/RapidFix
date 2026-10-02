@@ -6,6 +6,8 @@ process.env.NODE_ENV = 'test';
 // Tests never depend on the developer's .env choices (Firebase OTP, push); suites that need them set them.
 process.env.OTP_PROVIDER = 'console';
 process.env.PUSH_PROVIDER = 'none';
+// Most suites book and dispatch straight away; the advance flow is tested in autopay.test.ts.
+process.env.BOOKING_ADVANCE_RUPEES = '0';
 
 // Deterministic fake gateway credentials — outbound calls are mocked in tests.
 process.env.RAZORPAY_KEY_ID = 'rzp_test_fixora';

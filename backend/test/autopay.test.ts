@@ -1,8 +1,9 @@
 import { createHmac } from 'node:crypto';
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prisma } from '../src/config/prisma';
 import { dispatchBooking } from '../src/services/assignment.service';
 import { expireUnpaidBookings, UNPAID_BOOKING_TTL_MS } from '../src/services/payment.service';
+import { clearSettingsCache } from '../src/services/settings.service';
 import { signAccessToken } from '../src/services/token.service';
 import { API, bearer, otpLogin, request, resetDb, sampleAddress, seedCatalog } from './helpers';
 
@@ -229,5 +230,58 @@ describe('technician background location (Android app on-duty service)', () => {
     // Gone offline → the app is told to stop its service.
     await prisma.technician.update({ where: { id: tech.techId }, data: { isOnline: false } });
     expect((await ping().expect(200)).body.data).toMatchObject({ accepted: false, online: false });
+  });
+});
+
+describe('₹100 advance on every booking', () => {
+  beforeEach(async () => {
+    await prisma.setting.upsert({ where: { key: 'pricing.bookingAdvanceRupees' }, update: { value: 100 }, create: { key: 'pricing.bookingAdvanceRupees', value: 100 } });
+    clearSettingsCache();
+  });
+  afterEach(() => clearSettingsCache());
+
+  it('waits for the ₹100 advance, then dispatches; the technician collects only the balance', async () => {
+    const b = await book('CASH');
+    expect(b).toMatchObject({ status: 'PENDING', payNow: 10_000 });
+    expect(await dispatchBooking(b.id)).toBe('skipped');
+
+    fakeRazorpay({ 'POST /orders': { id: 'order_ADV' } });
+    const order = await request().post(`${API}/customer/bookings/${b.id}/payment/razorpay-order`).set(bearer(customer.token)).send({}).expect(200);
+    expect(order.body.data.amount).toBe(10_000);
+    const paid = await request()
+      .post(`${API}/customer/bookings/${b.id}/payment/razorpay-verify`)
+      .set(bearer(customer.token))
+      .send({ razorpay_order_id: 'order_ADV', razorpay_payment_id: 'pay_ADV', razorpay_signature: sign('order_ADV|pay_ADV', 'test_key_secret_123') })
+      .expect(200);
+    expect(paid.body.data).toMatchObject({ status: 'SEARCHING', payNow: 0, amountDue: 29_900 });
+
+    await workTheJob(b.id);
+    expect(await job(b.id)).toMatchObject({ amountDue: 29_900, canCollectPayment: true });
+    await request().post(`${API}/technician/jobs/${b.id}/collect-payment`).set(bearer(tech.token)).send({ method: 'CASH' }).expect(200);
+    const done = await booking(b.id);
+    expect(done).toMatchObject({ status: 'PAYMENT_COMPLETED', amountDue: 0 });
+    expect(done.payment).toMatchObject({ method: 'RAZORPAY', amount: 39_900, status: 'SUCCESS' });
+    // Share 33,915; kept 29,900 cash → RapidFix owes them the difference (they keep the advance's share).
+    expect((await wallet()).balance).toBe(33_915 - 29_900);
+  });
+
+  it('cancelling refunds the advance; "pay full" can switch to the advance', async () => {
+    const full = await book('RAZORPAY');
+    expect(full.payNow).toBe(39_900);
+    const switched = await request().post(`${API}/customer/bookings/${full.id}/payment/pay-later`).set(bearer(customer.token)).send({}).expect(200);
+    expect(switched.body.data).toMatchObject({ status: 'PENDING', paymentMethod: 'CASH', payNow: 10_000 });
+
+    fakeRazorpay({ 'POST /orders': { id: 'order_ADV2' } });
+    await request().post(`${API}/customer/bookings/${full.id}/payment/razorpay-order`).set(bearer(customer.token)).send({}).expect(200);
+    await request()
+      .post(`${API}/customer/bookings/${full.id}/payment/razorpay-verify`)
+      .set(bearer(customer.token))
+      .send({ razorpay_order_id: 'order_ADV2', razorpay_payment_id: 'pay_ADV2', razorpay_signature: sign('order_ADV2|pay_ADV2', 'test_key_secret_123') })
+      .expect(200);
+
+    const calls = fakeRazorpay({ 'POST /payments/pay_ADV2/refund': { id: 'rfnd_adv' } });
+    await request().post(`${API}/customer/bookings/${full.id}/cancel`).set(bearer(customer.token)).send({ reason: 'Not needed' }).expect(200);
+    expect(calls).toEqual([expect.objectContaining({ path: '/payments/pay_ADV2/refund', body: expect.objectContaining({ amount: 10_000 }) })]);
+    expect((await prisma.booking.findUniqueOrThrow({ where: { id: full.id } })).status).toBe('REFUNDED');
   });
 });

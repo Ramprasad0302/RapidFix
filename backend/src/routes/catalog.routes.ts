@@ -1,4 +1,4 @@
-import { razorpayConfigured } from '../services/payment.service';
+import { bookingAdvance, razorpayConfigured } from '../services/payment.service';
 import { Router } from 'express';
 import { z } from 'zod';
 import { optionalAuthenticate } from '../middleware/auth';
@@ -105,7 +105,7 @@ catalogRouter.post(
 catalogRouter.get('/app-config', async (_req, res) => {
   res.set('Cache-Control', 'no-cache');
   const [supportPhone, supportEmail] = await Promise.all([getSetting('support.phone', '+91 94919 63366'), getSetting('support.email', 'support@rapidfix.in')]);
-  ok(res, { supportPhone, supportEmail, otpProvider: env.OTP_PROVIDER === 'firebase' ? 'firebase' : 'server', onlinePayments: razorpayConfigured() });
+  ok(res, { supportPhone, supportEmail, otpProvider: env.OTP_PROVIDER === 'firebase' ? 'firebase' : 'server', onlinePayments: razorpayConfigured(), bookingAdvance: await bookingAdvance() });
 });
 
 catalogRouter.get('/reviews/featured', cachePublic(300), async (_req, res) => {

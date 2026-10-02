@@ -15,10 +15,6 @@ import { useBookingDraft } from '../../../store/bookingDraft';
 import { NotServedSheet } from '../../../components/NotServedSheet';
 import { BookingShell, StepTitle } from './BookingShell';
 
-const PAYMENT = [
-  { value: 'RAZORPAY', title: 'Pay online now', sub: 'PhonePe · GPay · Paytm · Cards', icon: CreditCard },
-  { value: 'CASH', title: 'Pay after service', sub: 'Cash, or scan the technician’s QR', icon: Banknote },
-] as const;
 
 /** Step 5 — review, coupon, payment preference, server-side estimate; login happens here if needed. */
 export function ReviewStepPage() {
@@ -41,6 +37,15 @@ export function ReviewStepPage() {
   const onlineOk = config.data?.onlinePayments === true;
   // "Pay online" only when the gateway is on; UPI-to-technician counts as paying after service.
   const method = draft.paymentMethod === 'RAZORPAY' && onlineOk ? 'RAZORPAY' : 'CASH';
+  // Every booking pays an advance online (₹100 by default) before it goes to technicians.
+  const advance = onlineOk ? (config.data?.bookingAdvance ?? 0) : 0;
+  const payNow = method === 'RAZORPAY' ? (est?.total ?? 0) : Math.min(advance, est?.total ?? advance);
+  const options = [
+    advance > 0
+      ? { value: 'CASH' as const, title: `Pay ${formatINR(advance)} advance`, sub: 'Rest after the service — cash, UPI or card', icon: Banknote }
+      : { value: 'CASH' as const, title: 'Pay after service', sub: 'Cash, or scan the technician’s QR', icon: Banknote },
+    { value: 'RAZORPAY' as const, title: 'Pay full amount now', sub: 'PhonePe · GPay · Paytm · Cards', icon: CreditCard },
+  ].filter((o) => onlineOk || o.value === 'CASH');
 
   const updateDraft = draft.update;
   const estimatedTotal = est?.total;
@@ -79,7 +84,7 @@ export function ReviewStepPage() {
         couponCode: est?.coupon?.valid ? draft.couponCode! : undefined,
         paymentMethod: method,
       });
-      if (method !== 'RAZORPAY') return { booking, paid: true as const };
+      if (booking.payNow <= 0) return { booking, paid: true as const };
       // Pay online: Razorpay opens right away; the booking is sent to technicians once it's paid.
       try {
         setProgress('Opening secure payment…');
@@ -125,7 +130,7 @@ export function ReviewStepPage() {
       action={
         authed ? (
           <Button size="lg" fullWidth loading={confirm.isPending} onClick={() => confirm.mutate()} disabled={!est}>
-            {progress ?? (method === 'RAZORPAY' && est ? `Pay ${formatINR(est.total)} & Book` : 'Confirm Booking')} {!progress && <ArrowRight className="size-4.5" aria-hidden />}
+            {progress ?? (payNow > 0 && est ? `Pay ${formatINR(payNow)} & Book` : 'Confirm Booking')} {!progress && <ArrowRight className="size-4.5" aria-hidden />}
           </Button>
         ) : (
           // Guest: log in first. The draft (and photos) are kept, and login returns here.
@@ -211,7 +216,7 @@ export function ReviewStepPage() {
       <section className="mt-5">
         <h2 className="text-[17px] font-semibold text-slate-900">Payment</h2>
         <div className={cx('mt-2 grid gap-2', onlineOk ? 'grid-cols-2' : 'grid-cols-1')} role="radiogroup" aria-label="Payment method">
-          {PAYMENT.filter((o) => onlineOk || o.value === 'CASH').map(({ value, title, sub, icon: Icon }) => (
+          {options.map(({ value, title, sub, icon: Icon }) => (
             <button
               key={value}
               role="radio"
@@ -230,9 +235,12 @@ export function ReviewStepPage() {
             </button>
           ))}
         </div>
-        {method === 'RAZORPAY' && (
+        {payNow > 0 && (
           <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-            <ShieldCheck className="size-4 text-success" aria-hidden /> Secured by Razorpay. Refunded automatically if the booking is cancelled.
+            <ShieldCheck className="size-4 shrink-0 text-success" aria-hidden />
+            {method === 'RAZORPAY'
+              ? 'Secured by Razorpay. Refunded automatically if the booking is cancelled.'
+              : `Your booking goes to technicians once the ${formatINR(payNow)} advance is paid — it's deducted from your bill and refunded if you cancel.`}
           </p>
         )}
       </section>

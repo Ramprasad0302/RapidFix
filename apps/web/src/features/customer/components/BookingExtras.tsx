@@ -107,26 +107,34 @@ export function PaymentCard({ b }: { b: BookingDetailDto }) {
     mutationFn: () => customerApi.payLater(b.id),
     onSuccess: (d) => {
       setBooking(d);
-      toast('Booking confirmed — pay after the service');
+      toast(d.status === 'PENDING' ? 'Pay the advance now — the rest after the service' : 'Booking confirmed — pay after the service');
     },
     onError: (e) => toast(e.message, 'error'),
   });
 
   const p = b.payment;
-  const awaitingPrepay = b.status === 'PENDING' && b.paymentMethod === 'RAZORPAY';
+  const awaitingPrepay = b.status === 'PENDING' && b.payNow > 0;
+  const advanceOnly = b.paymentMethod !== 'RAZORPAY';
 
   if (awaitingPrepay) {
     return (
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-        <p className="text-[15px] font-semibold text-slate-900">Complete your payment to confirm this booking</p>
-        <p className="mt-1 text-3xl font-bold text-slate-900">{formatINR(b.amountDue)}</p>
+        <p className="text-[15px] font-semibold text-slate-900">
+          {advanceOnly ? 'Pay the advance to confirm this booking' : 'Complete your payment to confirm this booking'}
+        </p>
+        <p className="mt-1 text-3xl font-bold text-slate-900">{formatINR(b.payNow)}</p>
+        {advanceOnly && b.price.total > b.payNow && (
+          <p className="mt-1 text-sm text-slate-600">The rest ({formatINR(b.price.total - b.payNow)}) is paid after the service.</p>
+        )}
         <Button size="lg" fullWidth className="mt-4" loading={pay.isPending} onClick={() => pay.mutate()} leftIcon={<CreditCard className="size-5" />}>
           Pay now — PhonePe, GPay, Paytm or card
         </Button>
-        <Button size="lg" variant="outline" fullWidth className="mt-2.5" loading={later.isPending} disabled={pay.isPending} onClick={() => later.mutate()} leftIcon={<Banknote className="size-5" />}>
-          Pay after service instead
-        </Button>
-        <p className="mt-3 text-xs text-slate-500">Unpaid online bookings are cancelled automatically after 30 minutes.</p>
+        {!advanceOnly && (
+          <Button size="lg" variant="outline" fullWidth className="mt-2.5" loading={later.isPending} disabled={pay.isPending} onClick={() => later.mutate()} leftIcon={<Banknote className="size-5" />}>
+            Pay only the advance now
+          </Button>
+        )}
+        <p className="mt-3 text-xs text-slate-500">Your booking goes to technicians as soon as this is paid. Unpaid bookings are cancelled automatically after 30 minutes.</p>
       </section>
     );
   }
@@ -152,16 +160,19 @@ export function PaymentCard({ b }: { b: BookingDetailDto }) {
   }
 
   if (p?.status === 'SUCCESS' || p?.status === 'REFUNDED') {
-    const advanceOnly = b.status !== 'PAYMENT_COMPLETED' && b.status !== 'REFUNDED' && p.status === 'SUCCESS';
+    const paidAhead = b.status !== 'PAYMENT_COMPLETED' && b.status !== 'REFUNDED' && p.status === 'SUCCESS';
+    const balance = b.price.total - p.paidOnline;
     return (
       <section className="flex items-center gap-3 rounded-2xl bg-success-soft p-4">
         <ReceiptText className="size-7 shrink-0 text-success" aria-hidden />
         <div className="min-w-0 flex-1 text-sm">
           <p className="font-semibold text-slate-900">
-            {formatINR(advanceOnly ? p.paidOnline : p.amount)} paid {p.method === 'RAZORPAY' ? 'online' : p.method === 'CASH' ? 'in cash' : 'by UPI'}
+            {formatINR(paidAhead ? p.paidOnline : p.amount)} paid {paidAhead && balance > 0 ? 'as advance' : p.method === 'RAZORPAY' ? 'online' : p.method === 'CASH' ? 'in cash' : 'by UPI'}
           </p>
-          {advanceOnly ? (
-            <p className="text-slate-600">Nothing to pay after the service{b.price.total > p.paidOnline ? ' except approved extra work' : ''}.</p>
+          {paidAhead ? (
+            <p className="text-slate-600">
+              {balance > 0 ? `Pay the rest (${formatINR(balance)}) after the service — cash, UPI or card.` : 'Nothing more to pay after the service.'}
+            </p>
           ) : (
             p.paidAt && (
               <p className="text-slate-600">

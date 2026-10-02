@@ -66,6 +66,8 @@ const schema = z.object({
   API_DOCS: z.enum(['auto', 'on', 'off']).default('auto'),
 
   TAX_PERCENT: z.coerce.number().min(0).max(100).default(0),
+  /** Advance (₹) paid online at booking before it goes to technicians; admin setting pricing.bookingAdvanceRupees overrides. */
+  BOOKING_ADVANCE_RUPEES: z.coerce.number().min(0).max(5000).default(100),
   ASSIGNMENT_REQUEST_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(30),
 });
 
