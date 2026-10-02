@@ -55,7 +55,7 @@ export function JobsPage() {
 
         <div className="mt-4 flex flex-col gap-5">
           {jobs.isPending && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-28" />)}
-          {jobs.isError && <ErrorState error={jobs.error} onRetry={() => void jobs.refetch()} />}
+          {jobs.isError && !jobs.data && <ErrorState error={jobs.error} onRetry={() => void jobs.refetch()} />}
           {jobs.isSuccess && jobs.data.items.length === 0 && <EmptyState art={<CalendarCheck2 className="size-10 text-slate-300" />} title="No bookings here" />}
           {[...groups.entries()].map(([k, items]) => (
             <section key={k}>

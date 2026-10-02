@@ -33,7 +33,7 @@ export function BookingConfirmedPage() {
     <MobileShell>
       <PageHeader backTo="/bookings" />
       {booking.isPending && <CenteredSpinner />}
-      {booking.isError && <ErrorState error={booking.error} onRetry={() => void booking.refetch()} />}
+      {booking.isError && !booking.data && <ErrorState error={booking.error} onRetry={() => void booking.refetch()} />}
       {b && (
         <main className="flex flex-col items-center px-5 pb-10 text-center">
           <div className="relative mt-2 flex size-28 items-center justify-center">

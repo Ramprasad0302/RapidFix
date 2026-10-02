@@ -173,7 +173,7 @@ function LiveMap({ onOpen }: { onOpen(id: string): void }) {
     [techs],
   );
 
-  if (live.isError) return <ErrorState error={live.error} onRetry={() => void live.refetch()} />;
+  if (live.isError && !live.data) return <ErrorState error={live.error} onRetry={() => void live.refetch()} />;
   return (
     <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
       <Card className="overflow-hidden p-0">
@@ -238,7 +238,7 @@ function TechnicianDrawer({ id }: { id: string }) {
   });
 
   if (detail.isPending) return <Skeleton className="h-96" />;
-  if (detail.isError) return <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />;
+  if (detail.isError && !detail.data) return <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />;
   const t = detail.data;
   const pendingDocs = t.documents.filter((d) => d.status === 'PENDING').length;
 

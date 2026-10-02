@@ -108,7 +108,7 @@ export function UsersRolesPage() {
           </select>
         </div>
 
-        {users.isError && <ErrorState error={users.error} onRetry={() => void users.refetch()} />}
+        {users.isError && !users.data && <ErrorState error={users.error} onRetry={() => void users.refetch()} />}
         {users.isPending && <Skeleton className="mt-4 h-72" />}
         {users.data && users.data.items.length === 0 && <EmptyState title="No users found" body="Try a different name, number or role." />}
 

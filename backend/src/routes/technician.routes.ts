@@ -8,11 +8,33 @@ import * as tech from '../services/technician.service';
 import * as account from '../services/technicianAccount.service';
 import * as payments from '../services/payment.service';
 import * as work from '../services/work.service';
+import { signLocationToken, verifyLocationToken } from '../services/token.service';
 import { ok } from '../utils/response';
 
 /** Technicians see and act on only their own profile and assigned jobs. */
 export const technicianRouter = Router();
+
+/**
+ * The Android app's background "on duty" service: GPS while the app is closed.
+ * Authorised by a location-only key (POST /technician/location-key), not a login.
+ * `online: false` tells the service to stop.
+ */
+technicianRouter.post(
+  '/device/location',
+  validate(z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })),
+  async (req, res) => {
+    const header = req.get('authorization') ?? '';
+    const userId = verifyLocationToken(header.startsWith('Bearer ') ? header.slice(7).trim() : '');
+    ok(res, await account.updateDeviceLocation(userId, req.body.lat, req.body.lng));
+  },
+);
+
 technicianRouter.use(authenticate(), authorize(Role.TECHNICIAN));
+
+/** A fresh background-location key for this technician's phone (re-issued every app start). */
+technicianRouter.post('/location-key', (req, res) => {
+  ok(res, signLocationToken(authOf(req).userId));
+});
 
 technicianRouter.get('/profile', async (req, res) => {
   ok(res, tech.toProfileSummary(await tech.technicianOf(authOf(req).userId)));

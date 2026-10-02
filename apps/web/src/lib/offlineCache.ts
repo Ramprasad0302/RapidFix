@@ -1,6 +1,7 @@
 import { dehydrate, hydrate, type Query, type QueryClient } from '@tanstack/react-query';
 import type { CategoryDto, ServiceSummaryDto } from '@fixora/shared-types';
 import { catalogApi, trustApi } from './endpoints';
+import { isNativeApp, nativeCatalogSnapshot } from './nativeApp';
 
 /**
  * Offline support for app data.
@@ -43,6 +44,27 @@ function read(): { buster: string; at: number; state: unknown } | null {
   }
 }
 
+/**
+ * Android app, first launch: the service catalogue built into the app fills
+ * anything not saved yet, so services show even before the first connection.
+ * Marked as old, so it's replaced with live data as soon as we're online.
+ */
+async function seedFromApp(qc: QueryClient) {
+  const raw = await nativeCatalogSnapshot().catch(() => null);
+  if (!raw) return;
+  try {
+    const { entries } = JSON.parse(raw) as { entries: [unknown[], unknown][] };
+    for (const [queryKey, data] of entries) {
+      if (qc.getQueryData(queryKey) !== undefined) continue;
+      // A request already failing offline mustn't overwrite the snapshot with its error.
+      await qc.cancelQueries({ queryKey, exact: true });
+      qc.setQueryData(queryKey, data, { updatedAt: 1 });
+    }
+  } catch {
+    /* snapshot unreadable — the app still works online */
+  }
+}
+
 /** Restore saved data (call before the first render) and keep saving changes. */
 export function persistQueryCache(qc: QueryClient) {
   const saved = read();
@@ -53,6 +75,7 @@ export function persistQueryCache(qc: QueryClient) {
       /* corrupt or outdated — start fresh */
     }
   }
+  if (isNativeApp()) void seedFromApp(qc);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const save = () => {

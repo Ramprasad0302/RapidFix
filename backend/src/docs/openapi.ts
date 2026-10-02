@@ -135,6 +135,8 @@ export const ROUTES: RouteDoc[] = [
   ),
   R('put', '/technician/jobs/{id}/notes', 'Technician', 'Save private job notes', 'technician', { body: obj({ notes: str }) }),
   R('post', '/technician/jobs/{id}/additional-charges', 'Technician', 'Request approval for extra work', 'technician', { body: obj({ title: str, description: str, amount: paise }, ['title', 'amount']) }),
+  R('post', '/technician/location-key', 'Technician', 'Background-location key for the Android app (location pings only; 7 days)', 'technician'),
+  R('post', '/technician/device/location', 'Technician', 'GPS ping from the app background service (Bearer location key); online:false means stop', 'public', { body: obj({ lat: { type: 'number' }, lng: { type: 'number' } }) }),
   R('post', '/technician/jobs/{id}/payment-link', 'Payments', 'Razorpay payment link (shown as QR, texted to the customer) for the amount due', 'technician'),
   R('get', '/technician/jobs/{id}/payment-link/{linkId}', 'Payments', 'Check the payment link; settles the job once paid', 'technician'),
   R('post', '/technician/jobs/{id}/collect-payment', 'Payments', 'Record cash / UPI received; closes the job and posts commission', 'technician', { body: obj({ method: { enum: ['CASH', 'UPI'] } }) }),

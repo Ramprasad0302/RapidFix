@@ -1,23 +1,51 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { technicianApi } from '../../lib/endpoints';
+import { isNativeApp, startNativeDuty, stopNativeDuty } from '../../lib/nativeApp';
+import { RUNTIME } from '../../lib/runtimeConfig';
 import { toast } from '../../store/toast';
 
 /** Every 5 s while travelling to a customer (they watch it live), every 30 s otherwise. */
 const TRAVEL_INTERVAL_MS = 5_000;
 const IDLE_INTERVAL_MS = 30_000;
 
+/** Absolute API address for the Android service (config may hold a relative "/api/v1"). */
+const apiBase = () => new URL(RUNTIME.apiUrl, location.origin).toString().replace(/\/$/, '');
+
 /**
- * While the partner is online, stream their GPS position to the server
- * (every 5 s while travelling to a job, otherwise every 30 s). The server forwards it to customers whose
- * technician is on the way and to the operations live map.
+ * While the partner is online, their GPS position goes to the server (every 5 s
+ * while travelling to a job, otherwise every 30 s); the server forwards it to
+ * customers whose technician is on the way and to the operations live map.
+ *
+ * In the Android app this runs in a background service ("You're online for jobs")
+ * that keeps going after the app is closed — and keeps job alerts ringing. In a
+ * browser the open page shares it.
  */
 export function useLocationSharing() {
   const profile = useQuery({ queryKey: ['tech', 'profile'], queryFn: technicianApi.profile, staleTime: 60_000 });
   const online = profile.data?.isOnline ?? false;
+  const loaded = profile.isSuccess;
 
+  // Android app: start / stop the background service with the online switch.
   useEffect(() => {
-    if (!online || !('geolocation' in navigator)) return;
+    if (!isNativeApp() || !loaded) return;
+    if (!online) {
+      void stopNativeDuty();
+      return;
+    }
+    let cancelled = false;
+    void technicianApi
+      .locationKey()
+      .then(({ token }) => (cancelled ? false : startNativeDuty(apiBase(), token)))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [online, loaded]);
+
+  // Browser: share from the open page.
+  useEffect(() => {
+    if (isNativeApp() || !online || !('geolocation' in navigator)) return;
     let last = 0;
     let travelling = true; // until the server says otherwise
     let warned = false;

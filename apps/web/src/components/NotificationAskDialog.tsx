@@ -3,11 +3,11 @@ import { BellRing } from 'lucide-react';
 import { Button } from '@fixora/ui';
 import { notificationPermission, notificationsSupported, requestNotificationPermission } from '../lib/notifications';
 import { Dialog } from './Dialog';
-import { NOTIFICATIONS_ASKED_KEY, sessionFlag } from './PermissionsSheet';
+import { askedOnce, NOTIFICATIONS_ASKED_KEY } from './PermissionsSheet';
 
 /** True when it's worth asking: supported, undecided, and not already asked this session. */
 export function shouldAskNotifications() {
-  return notificationsSupported() && notificationPermission() === 'default' && !sessionFlag(NOTIFICATIONS_ASKED_KEY);
+  return notificationsSupported() && notificationPermission() === 'default' && !askedOnce(NOTIFICATIONS_ASKED_KEY);
 }
 
 /**
@@ -17,7 +17,7 @@ export function shouldAskNotifications() {
 export function NotificationAskDialog({ open, onClose, technician = false }: { open: boolean; onClose(): void; technician?: boolean }) {
   const [busy, setBusy] = useState(false);
   const close = () => {
-    sessionFlag(NOTIFICATIONS_ASKED_KEY, true);
+    askedOnce(NOTIFICATIONS_ASKED_KEY, true);
     onClose();
   };
   return (

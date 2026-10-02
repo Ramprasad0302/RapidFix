@@ -124,7 +124,7 @@ function Hero({ name }: { name: string }) {
 
 function Categories() {
   const categories = useCategories();
-  if (categories.isError) return <ErrorState error={categories.error} onRetry={() => void categories.refetch()} className="py-6" />;
+  if (categories.isError && !categories.data) return <ErrorState error={categories.error} onRetry={() => void categories.refetch()} className="py-6" />;
   const items = (categories.data ?? []).slice(0, 9);
   return (
     <section aria-labelledby="cat-heading">
@@ -190,7 +190,7 @@ function PopularServices() {
           </Link>
         }
       />
-      {popular.isError && <ErrorState error={popular.error} onRetry={() => void popular.refetch()} className="py-6" />}
+      {popular.isError && !popular.data && <ErrorState error={popular.error} onRetry={() => void popular.refetch()} className="py-6" />}
       <div className="scroll-row -mx-4 mt-3 gap-3 px-4 pb-1 lg:gap-5" data-desktop-cols style={{ '--desktop-cols': 6 } as React.CSSProperties}>
         {popular.isPending && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-40 w-[44%] shrink-0" />)}
         {popular.data?.map((s) => (
@@ -269,7 +269,7 @@ function NearbyProfessionals() {
           <Skeleton className="h-28 w-[82%] shrink-0" />
         </div>
       )}
-      {nearby.isError && <ErrorState error={nearby.error} onRetry={() => void nearby.refetch()} className="py-6" />}
+      {nearby.isError && !nearby.data && <ErrorState error={nearby.error} onRetry={() => void nearby.refetch()} className="py-6" />}
       {nearby.isSuccess && nearby.data.length === 0 && (
         <div className="mt-3 rounded-2xl bg-slate-50 p-5 text-center">
           <p className="font-semibold text-slate-900">We couldn’t find a professional nearby.</p>

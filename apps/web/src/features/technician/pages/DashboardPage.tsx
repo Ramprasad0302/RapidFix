@@ -28,7 +28,7 @@ export function DashboardPage() {
             <Skeleton className="h-40" />
           </>
         )}
-        {dash.isError && <ErrorState error={dash.error} onRetry={() => void dash.refetch()} />}
+        {dash.isError && !dash.data && <ErrorState error={dash.error} onRetry={() => void dash.refetch()} />}
         {dash.data && <Dashboard d={dash.data} />}
       </main>
     </>

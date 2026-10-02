@@ -47,7 +47,7 @@ export function BookingDetailsPage() {
         }
       />
       {booking.isPending && <CenteredSpinner />}
-      {booking.isError && <ErrorState error={booking.error} onRetry={() => void booking.refetch()} />}
+      {booking.isError && !booking.data && <ErrorState error={booking.error} onRetry={() => void booking.refetch()} />}
       {booking.data && <Details b={booking.data} />}
     </MobileShell>
   );

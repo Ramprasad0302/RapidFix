@@ -20,7 +20,7 @@ export function SelectServicePage() {
   return (
     <BookingShell requireService={false} backTo="/book">
       <StepTitle title={category?.name ?? 'Choose a service'} subtitle={category?.tagline ?? 'Pick what you need'} />
-      {services.isError && <ErrorState error={services.error} onRetry={() => void services.refetch()} />}
+      {services.isError && !services.data && <ErrorState error={services.error} onRetry={() => void services.refetch()} />}
       {services.isSuccess && services.data.length === 0 && <EmptyState title="No services here yet" body="We’re adding professionals in this category soon." />}
       <ul className="flex flex-col gap-3">
         {services.isPending && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-24" />)}

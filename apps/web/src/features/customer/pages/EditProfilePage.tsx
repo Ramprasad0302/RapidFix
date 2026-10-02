@@ -85,7 +85,7 @@ export function EditProfilePage() {
     <MobileShell>
       <PageHeader title="Edit Profile" backTo="/account" />
       {profile.isPending && <CenteredSpinner />}
-      {profile.isError && <ErrorState error={profile.error} onRetry={() => void profile.refetch()} />}
+      {profile.isError && !profile.data && <ErrorState error={profile.error} onRetry={() => void profile.refetch()} />}
       {p && (
         <form
           noValidate

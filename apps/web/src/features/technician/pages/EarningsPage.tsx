@@ -20,7 +20,7 @@ export function EarningsPage() {
       <main className="flex flex-col gap-5 px-4 lg:mx-auto lg:max-w-5xl lg:px-8 lg:py-10">
         <h1 className="text-[28px] font-bold text-slate-900">Earnings</h1>
         {earnings.isPending && <Skeleton className="h-40" />}
-        {earnings.isError && <ErrorState error={earnings.error} onRetry={() => void earnings.refetch()} />}
+        {earnings.isError && !earnings.data && <ErrorState error={earnings.error} onRetry={() => void earnings.refetch()} />}
         {e && (
           <>
             <EarningsCard e={e} month={month} onMonth={setMonth} />

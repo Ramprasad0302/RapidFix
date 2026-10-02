@@ -59,7 +59,7 @@ export function ProfilePage() {
       <TechHeader />
       <main className="flex flex-col gap-4 px-4 lg:mx-auto lg:max-w-5xl lg:px-8 lg:py-10">
         {profile.isPending && <Skeleton className="h-24" />}
-        {profile.isError && <ErrorState error={profile.error} onRetry={() => void profile.refetch()} />}
+        {profile.isError && !profile.data && <ErrorState error={profile.error} onRetry={() => void profile.refetch()} />}
         {p && (
           <Link to="/technician/profile/edit" className="flex items-center gap-3.5 rounded-2xl bg-fixora-blue-soft/70 p-3.5">
             <Avatar name={p.name} src={p.avatarUrl} size={64} online={p.isOnline} />

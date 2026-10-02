@@ -53,7 +53,7 @@ export function NotificationsPage() {
       <main className="px-4 pb-10">
         <EnableNotificationsCard />
         {list.isPending && Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="mb-3 h-20" />)}
-        {list.isError && <ErrorState error={list.error} onRetry={() => void list.refetch()} />}
+        {list.isError && !list.data && <ErrorState error={list.error} onRetry={() => void list.refetch()} />}
         {list.isSuccess && list.data.length === 0 && (
           <EmptyState art={<Bell className="size-10 text-slate-300" />} title="No notifications yet" body="Booking updates and offers will appear here." />
         )}

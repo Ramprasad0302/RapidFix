@@ -22,7 +22,7 @@ const TYPE_LABEL: Record<WalletTxnDto['type'], string> = {
 export function WalletSection() {
   const wallet = useQuery({ queryKey: ['tech', 'wallet'], queryFn: technicianApi.wallet });
   if (wallet.isPending) return <Skeleton className="h-40" />;
-  if (wallet.isError) return <ErrorState error={wallet.error} onRetry={() => void wallet.refetch()} />;
+  if (wallet.isError && !wallet.data) return <ErrorState error={wallet.error} onRetry={() => void wallet.refetch()} />;
   const w = wallet.data;
   const owes = w.balance < 0;
 

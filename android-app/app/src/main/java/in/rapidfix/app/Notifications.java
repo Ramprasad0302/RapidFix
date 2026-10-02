@@ -57,7 +57,7 @@ final class Notifications {
 
         // Channels left over from the earlier Play Store build (web app shell).
         for (NotificationChannel c : nm.getNotificationChannels()) {
-            if (!c.getId().equals(jobsId) && !c.getId().equals(updatesId) && !c.getId().equals(NotificationChannel.DEFAULT_CHANNEL_ID)) {
+            if (!c.getId().equals(jobsId) && !c.getId().equals(updatesId) && !c.getId().startsWith("rapidfix_on_duty") && !c.getId().equals(NotificationChannel.DEFAULT_CHANNEL_ID)) {
                 nm.deleteNotificationChannel(c.getId());
             }
         }

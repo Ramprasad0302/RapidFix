@@ -46,6 +46,36 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   }
 }
 
+/**
+ * Background location key for the technician's Android app (the "on duty"
+ * service posts GPS while the app is closed). It can do nothing else: its own
+ * audience, so it is never accepted as a login, and it only works while the
+ * account is an active technician who is online.
+ */
+const LOCATION_AUDIENCE = 'fixora-location';
+export const LOCATION_TOKEN_TTL_S = 7 * 86_400;
+
+export function signLocationToken(userId: string) {
+  const token = jwt.sign({ scope: 'technician-location' }, env.JWT_SECRET, {
+    subject: userId,
+    issuer: ISSUER,
+    audience: LOCATION_AUDIENCE,
+    algorithm: 'HS256',
+    expiresIn: LOCATION_TOKEN_TTL_S,
+  });
+  return { token, expiresIn: LOCATION_TOKEN_TTL_S };
+}
+
+export function verifyLocationToken(token: string): string {
+  try {
+    const payload = jwt.verify(token, env.JWT_SECRET, { issuer: ISSUER, audience: LOCATION_AUDIENCE, algorithms: ['HS256'] }) as jwt.JwtPayload;
+    if (typeof payload.sub !== 'string' || payload.scope !== 'technician-location') throw new Error('bad claims');
+    return payload.sub;
+  } catch {
+    throw AppError.unauthorized('Invalid location key', 'INVALID_TOKEN');
+  }
+}
+
 export const refreshTtlMs = () => env.JWT_REFRESH_TTL_DAYS * 86_400_000;
 
 export async function issueRefreshToken(userId: string, meta: ClientMeta, familyId: string = randomUUID()) {

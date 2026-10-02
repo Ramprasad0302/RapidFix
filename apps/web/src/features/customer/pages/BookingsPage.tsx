@@ -98,7 +98,7 @@ export function BookingsPage() {
 
           <section className="mt-5 flex flex-col gap-3.5 lg:grid lg:grid-cols-2 lg:gap-5 xl:grid-cols-3" aria-live="polite">
             {bookings.isPending && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-32" />)}
-            {bookings.isError && <ErrorState error={bookings.error} onRetry={() => void bookings.refetch()} />}
+            {bookings.isError && !bookings.data && <ErrorState error={bookings.error} onRetry={() => void bookings.refetch()} />}
             {bookings.isSuccess && visible.length === 0 && (
               <EmptyState
                 art={

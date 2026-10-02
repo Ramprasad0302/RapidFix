@@ -258,7 +258,7 @@ export function NotificationsPage() {
         </Card>
         <Card title="Sent">
           {history.isPending && <Skeleton className="h-40" />}
-          {history.isError && <ErrorState error={history.error} onRetry={() => void history.refetch()} />}
+          {history.isError && !history.data && <ErrorState error={history.error} onRetry={() => void history.refetch()} />}
           {history.data?.length === 0 && <p className="text-sm text-slate-500">Nothing sent yet.</p>}
           <ul className="flex flex-col gap-3">
             {history.data?.map((b) => (
@@ -380,7 +380,7 @@ export function ReportsPage() {
           </>
         }
       />
-      {report.isError && <ErrorState error={report.error} onRetry={() => void report.refetch()} />}
+      {report.isError && !report.data && <ErrorState error={report.error} onRetry={() => void report.refetch()} />}
       {report.isPending && <Skeleton className="mt-6 h-96" />}
       {r && (
         <div className={cx('mt-6 flex flex-col gap-4', report.isFetching && 'opacity-70')}>
@@ -506,7 +506,7 @@ export function SettingsPage() {
     <div className="mx-auto max-w-[900px]">
       <PageTitle icon={Settings} title="Settings" subtitle="Platform rules. Every change applies immediately and is recorded in the audit log." />
       {settings.isPending && <Skeleton className="mt-6 h-96" />}
-      {settings.isError && <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />}
+      {settings.isError && !settings.data && <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />}
       {settings.data &&
         groups.map((g) => (
           <Card key={g.title} title={g.title} className="mt-5">
@@ -600,7 +600,7 @@ export function AuditLogsPage() {
           <SearchBox value={q} onSearch={(v) => set({ q: v })} placeholder="Search by person or record id" />
           <FilterSelect label="All actions" value={action} options={(actions.data ?? []).map((a) => ({ value: a, label: humanize(a) }))} onChange={(v) => set({ action: v })} />
         </div>
-        {logs.isError && <ErrorState error={logs.error} onRetry={() => void logs.refetch()} />}
+        {logs.isError && !logs.data && <ErrorState error={logs.error} onRetry={() => void logs.refetch()} />}
         {logs.isPending && <Skeleton className="mt-4 h-72" />}
         {logs.data && (
           <div className="-mx-5 mt-4 overflow-x-auto">
@@ -682,7 +682,7 @@ export function SystemSettingsPage() {
     <div className="mx-auto max-w-[1000px]">
       <PageTitle icon={Settings2} title="System Settings" subtitle="Integration health. Keys and secrets live in the server environment and are never shown here." />
       {status.isPending && <Skeleton className="mt-6 h-72" />}
-      {status.isError && <ErrorState error={status.error} onRetry={() => void status.refetch()} />}
+      {status.isError && !status.data && <ErrorState error={status.error} onRetry={() => void status.refetch()} />}
       {s && (
         <>
           <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">

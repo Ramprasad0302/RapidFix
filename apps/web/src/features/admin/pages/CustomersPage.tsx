@@ -100,7 +100,7 @@ function CustomerDrawer({ id }: { id: string }) {
   });
 
   if (detail.isPending) return <Skeleton className="h-96" />;
-  if (detail.isError) return <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />;
+  if (detail.isError && !detail.data) return <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />;
   const c = detail.data;
   return (
     <div>

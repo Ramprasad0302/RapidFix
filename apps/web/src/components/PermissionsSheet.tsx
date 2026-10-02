@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { CircleCheck, LocateFixed, MapPinned, Search, ShieldAlert } from 'lucide-react';
 import { Button, cx } from '@fixora/ui';
 import { geoApi } from '../lib/endpoints';
+import { isNativeApp, nativeReady, nativeState } from '../lib/nativeApp';
 import { notificationPermission, notificationsSupported } from '../lib/notifications';
 import { requestCurrentPosition, useLocationStore } from '../store/location';
 import { LocationPicker } from '../features/customer/components/LocationPicker';
@@ -13,6 +14,12 @@ const GEO_KEY = 'rapidfix.permissionsAsked';
 const NOTIF_KEY = 'rapidfix.notificationsAsked';
 
 async function geolocationState(): Promise<State> {
+  // Android app: the WebView can't report it, so ask the app (Android's own permission).
+  if (isNativeApp()) {
+    await nativeReady;
+    const p = nativeState()?.location;
+    return p === 'granted' ? 'granted' : p === 'denied' ? 'denied' : 'prompt';
+  }
   if (!('geolocation' in navigator)) return 'unsupported';
   try {
     const s = await navigator.permissions.query({ name: 'geolocation' });
@@ -27,7 +34,17 @@ const notifState = (): State => {
   return p === 'default' ? 'prompt' : p;
 };
 
-/** Each question is asked at most once per session — separately, so logging in still brings up notifications. */
+/** Remembered on this device: each permission question is asked only the first time. */
+export function askedOnce(key: string, set?: boolean) {
+  try {
+    if (set) localStorage.setItem(key, '1');
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return sessionFlag(key, set);
+  }
+}
+
+/** For this visit only (e.g. a dismissed reminder bar). */
 export function sessionFlag(key: string, set?: boolean) {
   try {
     if (set) sessionStorage.setItem(key, '1');
@@ -50,7 +67,7 @@ export async function locateAndSelect(select: ReturnType<typeof useLocationStore
  * First-run permissions: location (customers — to show nearby professionals and
  * fill the address; technicians — live tracking) and notifications (booking
  * updates, job requests, chat). Our explanation first; the browser prompt only
- * after a tap. Asked again next session while something is still undecided.
+ * after a tap. Each question is asked only once on a device; once allowed, location is picked up silently.
  */
 export function PermissionsSheet({ location }: { location: 'customer' | 'technician' | false }) {
   const { selected, select, markPromptSeen } = useLocationStore();
@@ -58,8 +75,8 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
   const [notif, setNotif] = useState<State>(notifState);
   const [busy, setBusy] = useState<'geo' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [geoDismissed, setGeoDismissed] = useState(() => sessionFlag(GEO_KEY));
-  const [notifDismissed, setNotifDismissed] = useState(() => sessionFlag(NOTIF_KEY));
+  const [geoDismissed, setGeoDismissed] = useState(() => askedOnce(GEO_KEY));
+  const [notifDismissed, setNotifDismissed] = useState(() => askedOnce(NOTIF_KEY));
 
   useEffect(() => {
     let alive = true;
@@ -86,7 +103,7 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
   const notifOpen = geo !== null && !askGeo && askNotif;
 
   const close = () => {
-    sessionFlag(GEO_KEY, true);
+    askedOnce(GEO_KEY, true);
     setGeoDismissed(true);
     markPromptSeen();
   };

@@ -29,7 +29,7 @@ export function AddressesPage() {
       <PageHeader title="Saved Addresses" backTo="/account" />
       <main className="flex flex-col gap-3 px-4 pb-10">
         {addresses.isPending && Array.from({ length: 2 }, (_, i) => <Skeleton key={i} className="h-28" />)}
-        {addresses.isError && <ErrorState error={addresses.error} onRetry={() => void addresses.refetch()} />}
+        {addresses.isError && !addresses.data && <ErrorState error={addresses.error} onRetry={() => void addresses.refetch()} />}
         {addresses.isSuccess && addresses.data.length === 0 && (
           <EmptyState art={<MapPin className="size-10 text-slate-300" />} title="No saved addresses" body="Save your home or work address for faster booking." />
         )}

@@ -40,7 +40,7 @@ export function JobDetailsPage() {
     <MobileShell>
       <PageHeader title="Booking Details" backTo="/technician/bookings" />
       {job.isPending && <CenteredSpinner />}
-      {job.isError && <ErrorState error={job.error} onRetry={() => void job.refetch()} />}
+      {job.isError && !job.data && <ErrorState error={job.error} onRetry={() => void job.refetch()} />}
       {job.data && <Details key={job.data.id} j={job.data} />}
     </MobileShell>
   );

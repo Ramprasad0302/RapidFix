@@ -68,7 +68,7 @@ export function DashboardPage() {
         </label>
       </div>
 
-      {dash.isError && <ErrorState error={dash.error} onRetry={() => void dash.refetch()} />}
+      {dash.isError && !dash.data && <ErrorState error={dash.error} onRetry={() => void dash.refetch()} />}
       {dash.isPending && (
         <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 8 }, (_, i) => (

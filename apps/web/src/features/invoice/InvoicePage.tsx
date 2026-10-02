@@ -34,7 +34,7 @@ export function InvoicePage({ backTo }: { backTo: (id: string) => string }) {
         />
       </div>
       {inv.isPending && <CenteredSpinner />}
-      {inv.isError && <ErrorState error={inv.error} onRetry={() => void inv.refetch()} />}
+      {inv.isError && !inv.data && <ErrorState error={inv.error} onRetry={() => void inv.refetch()} />}
       {inv.data && <Invoice inv={inv.data} />}
     </div>
   );

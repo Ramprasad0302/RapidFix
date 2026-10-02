@@ -141,7 +141,7 @@ const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 
 export function TrustNumbers() {
   const stats = useQuery({ queryKey: ['stats', 'public'], queryFn: trustApi.stats, staleTime: 10 * 60_000 });
   const s = stats.data;
-  if (stats.isError) return null;
+  if (stats.isError && !stats.data) return null;
   const items = s
     ? [
         { value: compact(s.verifiedProfessionals), label: 'Verified professionals' },

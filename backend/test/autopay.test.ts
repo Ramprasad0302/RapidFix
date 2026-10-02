@@ -210,3 +210,24 @@ describe('cash booking, paid online at the door', () => {
     expect((await wallet()).balance).toBe(-(39_900 - 33_915));
   });
 });
+
+describe('technician background location (Android app on-duty service)', () => {
+  it('location key posts GPS only while online, and is never accepted as a login', async () => {
+    const key = (await request().post(`${API}/technician/location-key`).set(bearer(tech.token)).send({}).expect(200)).body.data.token as string;
+    const ping = () => request().post(`${API}/technician/device/location`).set(bearer(key)).send({ lat: 16.7601, lng: 81.6802 });
+
+    expect((await ping().expect(200)).body.data).toMatchObject({ accepted: true, online: true });
+    const row = await prisma.technician.findUniqueOrThrow({ where: { id: tech.techId } });
+    expect(row).toMatchObject({ lastLatitude: 16.7601, lastLongitude: 81.6802 });
+
+    // The key can't open any normal screen.
+    await request().get(`${API}/technician/profile`).set(bearer(key)).expect(401);
+    // Without a key / with a login token instead of a key: refused.
+    await request().post(`${API}/technician/device/location`).send({ lat: 1, lng: 1 }).expect(401);
+    await request().post(`${API}/technician/device/location`).set(bearer(tech.token)).send({ lat: 1, lng: 1 }).expect(401);
+
+    // Gone offline → the app is told to stop its service.
+    await prisma.technician.update({ where: { id: tech.techId }, data: { isOnline: false } });
+    expect((await ping().expect(200)).body.data).toMatchObject({ accepted: false, online: false });
+  });
+});

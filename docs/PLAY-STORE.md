@@ -10,6 +10,15 @@
 > Website changes go live in the app immediately (it loads https://rapidfix.in);
 > rebuild only for app-level changes. Firebase Android app: `in.rapidfix.app`
 > (google-services.json in `android-app/app/`).
+>
+> **From 1.2.0 (code 10):** the website and a snapshot of every service are built
+> into the app (opens with no internet, even on first launch). Technicians who are
+> online run a foreground service ("You're online for jobs") that keeps job alerts
+> ringing after the app is swiped away and sends GPS to the server
+> (`FOREGROUND_SERVICE_LOCATION`). **Play Console → App content → Foreground service
+> permissions**: declare *Location* — "Technicians share live location with the
+> customer while online for jobs and travelling to them" — with a short screen
+> recording (go online → swipe the app away → notification stays).
 
 # RapidFix — publishing on Google Play
 

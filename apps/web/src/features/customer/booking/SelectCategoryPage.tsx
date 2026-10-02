@@ -22,7 +22,7 @@ export function SelectCategoryPage() {
         <Search className="size-5 text-slate-600" aria-hidden />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search services..." aria-label="Search services" className="h-full flex-1 bg-transparent text-[15px] outline-none" />
       </div>
-      {categories.isError && <ErrorState error={categories.error} onRetry={() => void categories.refetch()} />}
+      {categories.isError && !categories.data && <ErrorState error={categories.error} onRetry={() => void categories.refetch()} />}
       <ul className="flex flex-col gap-2.5">
         {categories.isPending && Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[68px]" />)}
         {list.map((c) => (

@@ -1,6 +1,7 @@
 import { ADMIN_ROLES, isAdminRole, Role } from '@fixora/shared-types';
 import { createAuthStore } from '@fixora/web-core';
 import { api } from '../lib/api';
+import { isNativeApp, stopNativeDuty } from '../lib/nativeApp';
 import { disablePush } from '../lib/notifications';
 
 /**
@@ -20,8 +21,9 @@ export function homeFor(role: Role | null | undefined): string {
   return '/';
 }
 
-/** Sign out and stop push notifications to this device for the old account. */
+/** Sign out and stop push notifications (and the technician background service) on this device. */
 export async function signOut() {
+  if (isNativeApp()) await stopNativeDuty().catch(() => undefined);
   await disablePush();
   await authActions.logout();
 }

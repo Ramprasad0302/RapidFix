@@ -59,6 +59,14 @@ export async function updateLocation(userId: string, lat: number, lng: number) {
   return { accepted: true, travelling: travelling.length > 0 };
 }
 
+/** Background ping from the app's "on duty" service: only for an active technician who is online. */
+export async function updateDeviceLocation(userId: string, lat: number, lng: number) {
+  const tech = await prisma.technician.findUnique({ where: { userId }, select: { isOnline: true, user: { select: { role: true, status: true } } } });
+  if (!tech || tech.user.role !== 'TECHNICIAN' || tech.user.status !== 'ACTIVE') throw AppError.unauthorized('Invalid location key', 'INVALID_TOKEN');
+  if (!tech.isOnline) return { accepted: false, travelling: false, online: false };
+  return { ...(await updateLocation(userId, lat, lng)), online: true };
+}
+
 // ─── Profile & service area ──────────────────────────────────────────────
 
 export interface ProfileInput {

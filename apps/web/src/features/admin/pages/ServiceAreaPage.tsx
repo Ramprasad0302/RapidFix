@@ -22,7 +22,7 @@ export function ServiceAreaPage() {
     <div className="mx-auto max-w-[1000px]">
       <PageTitle icon={MapPinned} title="Service Area" subtitle="Bookings are accepted only inside active towns' radius. Everyone else can tap “I'm interested”." />
       {data.isPending && <Skeleton className="mt-6 h-96" />}
-      {data.isError && <ErrorState error={data.error} onRetry={() => void data.refetch()} />}
+      {data.isError && !data.data && <ErrorState error={data.error} onRetry={() => void data.refetch()} />}
       {data.data && (
         <>
           <Card title="Towns" className="mt-5">

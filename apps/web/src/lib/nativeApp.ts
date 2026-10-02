@@ -15,6 +15,10 @@ export interface NativeState {
   permission: NativePermission;
   token: string | null;
   batteryRestricted: boolean;
+  /** Android location permission: granted, blocked ("denied"), or not asked yet. */
+  location?: NativePermission;
+  /** Technician "online for jobs" background service is running. */
+  onDuty?: boolean;
 }
 
 interface NativeChannel {
@@ -130,6 +134,20 @@ export async function nativePushToken(): Promise<string | null> {
     });
   });
 }
+
+/** Technician online: start the background service (job alerts + GPS while the app is closed). */
+export async function startNativeDuty(api: string, key: string) {
+  const on = await nativeCall<boolean>('startDuty', { api, key });
+  setState({ onDuty: !!on });
+  return !!on;
+}
+export async function stopNativeDuty() {
+  await nativeCall('stopDuty');
+  setState({ onDuty: false });
+}
+
+/** Every service, bundled into the app at build time (for the first launch without internet). */
+export const nativeCatalogSnapshot = () => nativeCall<string>('catalogSnapshot');
 
 export const openNativeNotificationSettings = () => void nativeCall('openNotificationSettings');
 export const openNativeAppSettings = () => void nativeCall('openAppSettings');

@@ -147,7 +147,7 @@ export function BookingDrawer({ id }: { id: string }) {
   const dispute = useMutation({ mutationFn: (note: string) => adminModulesApi.openDispute(id, note), onSuccess: (d) => done(d, 'Marked as disputed') });
 
   if (detail.isPending) return <Skeleton className="h-96" />;
-  if (detail.isError) return <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />;
+  if (detail.isError && !detail.data) return <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />;
   const b = detail.data;
   const canRefund = b.canRefund && !!role && hasPermission(role, Permission.PAYMENTS_MANAGE);
   // Finance / support open this drawer read-only; booking actions belong to operations.

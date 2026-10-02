@@ -83,7 +83,7 @@ export function SearchPage() {
             ))}
           </div>
         )}
-        {q && results.isError && <ErrorState error={results.error} onRetry={() => void results.refetch()} />}
+        {q && results.isError && !results.data && <ErrorState error={results.error} onRetry={() => void results.refetch()} />}
         {q && results.isSuccess && results.data.length === 0 && (
           <EmptyState
             art={<Search className="size-10 text-slate-300" />}

@@ -38,6 +38,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -50,6 +51,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
 import androidx.webkit.JavaScriptReplyProxy;
+import androidx.webkit.ServiceWorkerClientCompat;
+import androidx.webkit.ServiceWorkerControllerCompat;
 import androidx.webkit.WebMessageCompat;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
@@ -102,8 +105,17 @@ public class MainActivity extends Activity {
     private String failedUrl;
     private ConnectivityManager.NetworkCallback networkCallback;
 
+    /**
+     * The app is on screen right now. Checked with Android too: when the app is swiped
+     * away from recents it can be destroyed without onPause, and a stale flag would
+     * swallow job alerts.
+     */
     static boolean isInForeground() {
-        return foreground;
+        MainActivity a = current.get();
+        if (!foreground || a == null || a.isFinishing() || a.isDestroyed()) return false;
+        android.app.ActivityManager.RunningAppProcessInfo info = new android.app.ActivityManager.RunningAppProcessInfo();
+        android.app.ActivityManager.getMyMemoryState(info);
+        return info.importance == android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
     }
 
     /** Push received while the app is open: let the page refresh its lists. */
@@ -258,12 +270,27 @@ public class MainActivity extends Activity {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(web, "RapidFixNative", bridgeOrigins, this::onBridgeMessage);
         }
+        // The service worker's own fetches can be answered from the built-in copy too.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)
+                && WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_SHOULD_INTERCEPT_REQUEST)) {
+            ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(new ServiceWorkerClientCompat() {
+                @Override
+                public WebResourceResponse shouldInterceptRequest(@NonNull WebResourceRequest request) {
+                    return BundledWeb.respond(getApplicationContext(), appHosts, request);
+                }
+            });
+        }
 
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 if (!request.isForMainFrame()) return false;
                 return route(request.getUrl());
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                return BundledWeb.respond(MainActivity.this, appHosts, request);
             }
 
             @Override
@@ -297,11 +324,12 @@ public class MainActivity extends Activity {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
                 if (hasLocationPermission()) {
-                    callback.invoke(origin, true, false);
+                    callback.invoke(origin, true, true); // allowed once in Android → never asked again
                     return;
                 }
                 geoOrigin = origin;
                 geoCallback = callback;
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("locationAsked", true).apply();
                 requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
             }
 
@@ -461,6 +489,26 @@ public class MainActivity extends Activity {
                 openBatterySettings();
                 respond(id, null);
                 break;
+            case "startDuty": {
+                // Technician went online: keep the app alive for job alerts and share GPS in the background.
+                JSONObject v = msg.optJSONObject("value");
+                if (v != null && hasLocationPermission()) {
+                    try {
+                        DutyService.start(this, v.optString("api"), v.optString("key"));
+                    } catch (RuntimeException ignored) {
+                        // Background start not allowed right now; the page asks again when visible.
+                    }
+                }
+                respond(id, DutyService.isOnDuty(this));
+                break;
+            }
+            case "stopDuty":
+                DutyService.stop(this);
+                respond(id, false);
+                break;
+            case "catalogSnapshot":
+                respond(id, BundledWeb.catalogSnapshot(this));
+                break;
             case "print":
                 PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
                 if (pm != null) {
@@ -482,6 +530,8 @@ public class MainActivity extends Activity {
             s.put("permission", notificationState());
             s.put("token", getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_TOKEN, null));
             s.put("batteryRestricted", batteryRestricted());
+            s.put("location", hasLocationPermission() ? "granted" : locationAsked() ? "denied" : "default");
+            s.put("onDuty", DutyService.isOnDuty(this));
         } catch (JSONException ignored) {
         }
         return s;
@@ -583,6 +633,12 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Asked before and Android won't show the dialog again ("Don't allow" twice / "Don't ask again"). */
+    private boolean locationAsked() {
+        boolean asked = getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("locationAsked", false);
+        return asked && !shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION);
+    }
+
     private boolean hasLocationPermission() {
         return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                 || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
@@ -595,7 +651,7 @@ public class MainActivity extends Activity {
             respond(pendingPermissionId, notificationState());
             pendingPermissionId = null;
         } else if (requestCode == REQ_LOCATION && geoCallback != null) {
-            geoCallback.invoke(geoOrigin, hasLocationPermission(), false);
+            geoCallback.invoke(geoOrigin, hasLocationPermission(), hasLocationPermission());
             geoCallback = null;
             geoOrigin = null;
         }
@@ -653,7 +709,14 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onStop() {
+        foreground = false;
+        super.onStop();
+    }
+
+    @Override
     protected void onDestroy() {
+        foreground = false;
         if (current.get() == this) current = new WeakReference<>(null);
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm != null && networkCallback != null) cm.unregisterNetworkCallback(networkCallback);

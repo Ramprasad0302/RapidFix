@@ -15,6 +15,14 @@ export RAPIDFIX_KEYSTORE="$KEYDIR/rapidfix-upload.keystore"
 RAPIDFIX_KEYSTORE_PASSWORD=$(sed -n 's/^Keystore password: //p' "$KEYDIR/KEYSTORE-PASSWORD.txt")
 export RAPIDFIX_KEYSTORE_PASSWORD RAPIDFIX_VERSION_CODE=$CODE RAPIDFIX_VERSION_NAME=$NAME
 unset RAPIDFIX_DEBUG_URL
+
+# The whole website inside the app (same files as rapidfix-frontend.zip) + every service,
+# so it opens and shows services even on the first launch without internet.
+( cd .. && npm run --silent package:hostinger >/dev/null )
+WEB=app/src/main/assets/web
+rm -rf "${WEB:?}"; mkdir -p "$WEB"
+rsync -a --exclude '.htaccess' --exclude '*.map' ../build/hostinger-frontend/public/ "$WEB/"
+node ../scripts/catalog-snapshot.mjs > "$WEB/catalog-snapshot.json"
 ./gradlew --quiet clean bundleRelease assembleRelease
 AAB=app/build/outputs/bundle/release/app-release.aab
 "$JAVA_HOME/bin/jarsigner" -verify "$AAB" >/dev/null

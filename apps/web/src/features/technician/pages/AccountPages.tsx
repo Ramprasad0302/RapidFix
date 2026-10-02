@@ -29,7 +29,7 @@ export function ProfileDetailsPage() {
   return (
     <Shell title="Profile & Service Area">
       {details.isPending && <CenteredSpinner />}
-      {details.isError && <ErrorState error={details.error} onRetry={() => void details.refetch()} />}
+      {details.isError && !details.data && <ErrorState error={details.error} onRetry={() => void details.refetch()} />}
       {details.data && <ProfileForm d={details.data} />}
     </Shell>
   );
@@ -116,7 +116,7 @@ export function PayoutDetailsPage() {
   return (
     <Shell title="Bank & UPI Details">
       {details.isPending && <CenteredSpinner />}
-      {details.isError && <ErrorState error={details.error} onRetry={() => void details.refetch()} />}
+      {details.isError && !details.data && <ErrorState error={details.error} onRetry={() => void details.refetch()} />}
       {d && (
         <>
           <p className="flex items-start gap-2 rounded-xl bg-fixora-blue-soft px-3.5 py-3 text-sm text-slate-700">
@@ -230,7 +230,7 @@ export function DocumentsPage() {
         </Button>
       </div>
       {docs.isPending && <CenteredSpinner />}
-      {docs.isError && <ErrorState error={docs.error} onRetry={() => void docs.refetch()} />}
+      {docs.isError && !docs.data && <ErrorState error={docs.error} onRetry={() => void docs.refetch()} />}
       {docs.data?.length === 0 && <EmptyState title="No documents yet" body="Start with your Aadhaar card and a skill certificate." />}
       <ul className="flex flex-col gap-2.5">
         {docs.data?.map((d) => {
@@ -296,7 +296,7 @@ export function ReviewsPage() {
   return (
     <Shell title="My Reviews">
       {reviews.isPending && <CenteredSpinner />}
-      {reviews.isError && <ErrorState error={reviews.error} onRetry={() => void reviews.refetch()} />}
+      {reviews.isError && !reviews.data && <ErrorState error={reviews.error} onRetry={() => void reviews.refetch()} />}
       {reviews.data?.length === 0 && <EmptyState art={<Star className="size-10 text-slate-300" />} title="No reviews yet" body="Customers can rate you after each paid job." />}
       <ul className="flex flex-col gap-3">
         {reviews.data?.map((r) => (
@@ -324,7 +324,7 @@ export function PerformancePage() {
   return (
     <Shell title="Performance">
       {perf.isPending && <CenteredSpinner />}
-      {perf.isError && <ErrorState error={perf.error} onRetry={() => void perf.refetch()} />}
+      {perf.isError && !perf.data && <ErrorState error={perf.error} onRetry={() => void perf.refetch()} />}
       {p && (
         <>
           <section className="grid grid-cols-2 gap-2.5">

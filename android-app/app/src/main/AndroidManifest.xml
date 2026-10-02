@@ -8,6 +8,9 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Technician "online for jobs": keeps the app alive for job alerts and shares GPS while online. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <!-- No ads: keep the advertising ID permission out (Play Console "Advertising ID: No"). -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
@@ -42,6 +45,12 @@
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
+
+        <service
+            android:name=".DutyService"
+            android:exported="false"
+            android:foregroundServiceType="location"
+            android:stopWithTask="false" />
 
         <service
             android:name=".PushService"

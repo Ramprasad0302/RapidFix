@@ -27,7 +27,7 @@ export function OfferDetailsPage() {
     <MobileShell>
       <PageHeader title="Offer Details" backTo="/offers" />
       {offer.isPending && <CenteredSpinner />}
-      {offer.isError && <ErrorState error={offer.error} onRetry={() => void offer.refetch()} />}
+      {offer.isError && !offer.data && <ErrorState error={offer.error} onRetry={() => void offer.refetch()} />}
       {o && (
         <main className="flex flex-col gap-5 px-4 pb-8">
           <section className="relative overflow-hidden rounded-[22px]">
