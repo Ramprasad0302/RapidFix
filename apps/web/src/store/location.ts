@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AddressInput } from '@fixora/shared-utils';
+import { isNativeApp } from '../lib/nativeApp';
 import { safeStorage } from './safeStorage';
 
 export interface SelectedLocation {
@@ -72,7 +73,9 @@ export function requestCurrentPosition(opts: { maxWaitMs?: number; goodEnoughM?:
         reject(
           new Error(
             err.code === err.PERMISSION_DENIED
-              ? 'Location permission is off. Allow it in your browser settings, or search for your area instead.'
+              ? isNativeApp()
+                ? 'Location permission is off. Turn it on in phone Settings → Apps → RapidFix → Permissions → Location, or search for your area instead.'
+                : 'Location permission is off. Allow it in your browser settings, or search for your area instead.'
               : 'Could not get your location. Please try again or search for your area.',
           ),
         );

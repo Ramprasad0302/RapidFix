@@ -4,6 +4,7 @@ import { createQueryClient } from '@fixora/web-core';
 import { router } from './app/router';
 import { useRealtime } from './app/useRealtime';
 import { ToastHost } from './components/ToastHost';
+import { onNativeEvent } from './lib/nativeApp';
 import { enablePush, registerServiceWorker } from './lib/notifications';
 import { unlockAudio } from './lib/ringtone';
 import { authStore } from './store/auth';
@@ -12,6 +13,13 @@ export const queryClient = createQueryClient();
 
 // Service worker: installable app, offline page, system notifications; taps route inside the app.
 registerServiceWorker((path) => void router.navigate(path));
+
+// Android app: a tapped notification opens its page here.
+onNativeEvent((e) => {
+  if (e.event !== 'navigate' || !e.url) return;
+  const u = new URL(e.url, location.origin);
+  void router.navigate(u.pathname + u.search);
+});
 
 // Browsers allow sound only after a tap: unlock it on the first one so a job request can ring.
 window.addEventListener('pointerdown', unlockAudio, { capture: true, passive: true });

@@ -46,10 +46,39 @@ async function fcmAccessToken(): Promise<string> {
 export const pushEnabled = () =>
   env.PUSH_PROVIDER === 'fcm' && !!env.FIREBASE_PROJECT_ID && !!env.FIREBASE_CLIENT_EMAIL && !!env.FIREBASE_PRIVATE_KEY;
 
+/**
+ * Browsers get a notification message (the service worker shows it). The
+ * Android app gets a data-only, high-priority message so its own push service
+ * runs even when the app is closed and builds the notification itself —
+ * job requests ring until answered and vanish when the offer expires.
+ */
+export function fcmMessage(token: string, platform: string, msg: PushMessage) {
+  const data = msg.data ?? {};
+  if (platform === 'ANDROID') {
+    const urgent = data.type === 'NEW_JOB';
+    return {
+      token,
+      data: { ...data, title: msg.title, body: msg.body },
+      android: { priority: 'high', ttl: urgent ? '300s' : '86400s' },
+    };
+  }
+  return {
+    token,
+    notification: { title: msg.title, body: msg.body },
+    data,
+    // Deliver immediately (job offers expire) and open the right screen on tap.
+    webpush: {
+      headers: { Urgency: 'high', TTL: '3600' },
+      ...(data.url && { fcm_options: { link: new URL(data.url, env.WEB_APP_URL).toString() } }),
+    },
+    android: { priority: 'high' },
+  };
+}
+
 /** Sends to every registered device of the user; unregisters tokens FCM reports as dead. */
 export async function pushToUser(userId: string, msg: PushMessage): Promise<void> {
   if (!pushEnabled()) return;
-  const tokens = await prisma.notificationToken.findMany({ where: { userId }, select: { id: true, token: true } });
+  const tokens = await prisma.notificationToken.findMany({ where: { userId }, select: { id: true, token: true, platform: true } });
   if (!tokens.length) return;
   const access = await fcmAccessToken();
   await Promise.all(
@@ -57,19 +86,7 @@ export async function pushToUser(userId: string, msg: PushMessage): Promise<void
       const res = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: {
-            token: t.token,
-            notification: { title: msg.title, body: msg.body },
-            data: msg.data ?? {},
-            // Deliver immediately (job offers expire) and open the right screen on tap.
-            webpush: {
-              headers: { Urgency: 'high', TTL: '3600' },
-              ...(msg.data?.url && { fcm_options: { link: new URL(msg.data.url, env.WEB_APP_URL).toString() } }),
-            },
-            android: { priority: 'high' },
-          },
-        }),
+        body: JSON.stringify({ message: fcmMessage(t.token, t.platform, msg) }),
         signal: AbortSignal.timeout(10_000),
       });
       if (res.status === 404 || res.status === 400) {

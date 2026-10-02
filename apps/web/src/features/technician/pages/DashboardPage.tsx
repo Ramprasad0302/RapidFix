@@ -11,6 +11,7 @@ import { Toggle } from '../../../components/Toggle';
 import { technicianApi } from '../../../lib/endpoints';
 import { requestCurrentPosition } from '../../../store/location';
 import { toast } from '../../../store/toast';
+import { JobAlertsCard } from '../components/JobAlertsCard';
 import { JobCard } from '../components/JobCard';
 import { TechHeader } from '../components/TechHeader';
 
@@ -70,6 +71,8 @@ function Dashboard({ d }: { d: TechnicianDashboardDto }) {
         </Link>
         <Toggle label={p.isOnline ? 'Go offline' : 'Go online'} checked={p.isOnline} disabled={!verified || online.isPending} onChange={(v) => online.mutate(v)} />
       </section>
+
+      <JobAlertsCard />
 
       {!verified && (
         <Alert tone="info">

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { isNativeApp, setNativeKeepScreenOn } from './nativeApp';
 
 /**
  * Keep the screen on while `active` (e.g. a technician travelling to a job): a
@@ -7,6 +8,10 @@ import { useEffect } from 'react';
  */
 export function useScreenWakeLock(active: boolean) {
   useEffect(() => {
+    if (active && isNativeApp()) {
+      setNativeKeepScreenOn(true);
+      return () => setNativeKeepScreenOn(false);
+    }
     if (!active || !('wakeLock' in navigator)) return;
     let lock: WakeLockSentinel | null = null;
     let cancelled = false;

@@ -184,7 +184,7 @@ async function offer(booking: DispatchBooking, c: RankedCandidate, opts: { manua
         type: 'NEW_JOB',
         title: 'New service request',
         body: `${booking.service.name}${c.distanceKm != null ? ` · ${c.distanceKm} km away` : ''}. Respond within ${opts.seconds >= 120 ? `${Math.round(opts.seconds / 60)} minutes` : `${opts.seconds} seconds`}.`,
-        data: { bookingId: booking.id },
+        data: { bookingId: booking.id, expiresAt: expiresAt.toISOString() },
       },
     });
   });

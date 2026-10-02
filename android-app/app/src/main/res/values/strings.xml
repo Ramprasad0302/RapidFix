@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RapidFix</string>
+    <string name="channel_jobs_id" translatable="false">rapidfix_job_requests_v2</string>
+    <string name="channel_jobs_name">Job requests</string>
+    <string name="channel_jobs_desc">New service requests from customers. Rings until you respond.</string>
+    <string name="channel_updates_id" translatable="false">rapidfix_updates_v1</string>
+    <string name="channel_updates_name">Booking updates</string>
+    <string name="channel_updates_desc">Technician assigned, on the way, job finished, payments and offers.</string>
+    <string name="offline_title">You\'re offline</string>
+    <string name="offline_body">Check your internet connection and try again.</string>
+    <string name="offline_retry">Try again</string>
+    <string name="choose_file">Choose a photo or file</string>
+    <string name="no_app">No app found to open this link</string>
+    <string name="shortcut_book">Book a service</string>
+    <string name="shortcut_book_short">Book</string>
+    <string name="shortcut_bookings">My bookings</string>
+    <string name="shortcut_bookings_short">Bookings</string>
+</resources>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "346114151442",
+    "project_id": "rapid-fix-c47cb",
+    "storage_bucket": "rapid-fix-c47cb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:346114151442:android:98a1636ad8f12a82bf74cb",
+        "android_client_info": {
+          "package_name": "in.rapidfix.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtaxP-aWyMqBT9ot7Jm0VoY1cNyDYbozI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

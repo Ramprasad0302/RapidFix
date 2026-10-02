@@ -7,6 +7,7 @@ import { Logo, cx } from '@fixora/ui';
 import { PageHeader } from '../../components/PageHeader';
 import { CenteredSpinner, ErrorState } from '../../components/States';
 import { bookingApi } from '../../lib/endpoints';
+import { isNativeApp, nativePrint } from '../../lib/nativeApp';
 import { formatDate, formatTime } from '../../lib/format';
 
 const METHOD: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', RAZORPAY: 'Online (Razorpay)' };
@@ -25,7 +26,7 @@ export function InvoicePage({ backTo }: { backTo: (id: string) => string }) {
           className="bg-slate-100/95"
           right={
             inv.data && (
-              <button onClick={() => window.print()} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[15px] font-medium text-fixora-blue">
+              <button onClick={() => (isNativeApp() ? nativePrint(`RapidFix invoice ${inv.data.invoiceNumber}`) : window.print())} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[15px] font-medium text-fixora-blue">
                 <Printer className="size-5" /> Print
               </button>
             )

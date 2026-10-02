@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import { BellRing, X } from 'lucide-react';
+import { isNativeApp, onNativeEvent, openNativeNotificationSettings } from '../lib/nativeApp';
 import { notificationPermission, notificationsSupported, requestNotificationPermission } from '../lib/notifications';
 import { useAuth } from '../store/auth';
 import { sessionFlag } from './PermissionsSheet';
@@ -20,11 +21,12 @@ export function NotificationNudge({ area }: { area: 'customer' | 'technician' })
   const [perm, setPerm] = useState(notificationPermission);
   const [hidden, setHidden] = useState(() => sessionFlag(HIDDEN_KEY));
   const [busy, setBusy] = useState(false);
+  // Android app: pick up a change made in phone Settings when the user comes back.
+  useEffect(() => onNativeEvent((e) => e.event === 'state' && setPerm(notificationPermission())), []);
 
   if (!authed || hidden || (perm !== 'default' && perm !== 'denied') || !notificationsSupported() || SKIP.some((p) => pathname.startsWith(p))) return null;
   const blocked = perm === 'denied';
-  // Inside the Play Store app (Trusted Web Activity) the switch lives in Android's app settings.
-  const inAndroidApp = document.referrer.startsWith('android-app://');
+  const inAndroidApp = isNativeApp();
 
   const enable = async () => {
     setBusy(true);
@@ -41,7 +43,7 @@ export function NotificationNudge({ area }: { area: 'customer' | 'technician' })
             <>
               <b>Notifications are blocked.</b>{' '}
               {inAndroidApp
-                ? 'Open your phone Settings → Apps → RapidFix → Notifications → turn on.'
+                ? 'Turn them on in Settings so you don\'t miss updates.'
                 : 'Tap the icon left of the address bar (🔒 or ⚙︎) → Site settings / Permissions → Notifications → Allow, then reload.'}
             </>
           ) : area === 'technician' ? (
@@ -50,6 +52,14 @@ export function NotificationNudge({ area }: { area: 'customer' | 'technician' })
             'Turn on notifications to know when your technician is assigned and on the way.'
           )}
         </p>
+        {blocked && inAndroidApp && (
+          <button
+            onClick={openNativeNotificationSettings}
+            className="shrink-0 rounded-lg bg-fixora-blue px-3 py-1.5 text-sm font-semibold text-white hover:bg-fixora-blue-dark"
+          >
+            Open settings
+          </button>
+        )}
         {!blocked && (
           <button
             onClick={() => void enable()}

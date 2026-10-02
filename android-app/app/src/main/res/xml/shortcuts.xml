@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="book" android:enabled="true" android:icon="@drawable/shortcut_book"
+        android:shortcutShortLabel="@string/shortcut_book_short" android:shortcutLongLabel="@string/shortcut_book">
+        <intent android:action="android.intent.action.VIEW" android:data="https://rapidfix.in/book"
+            android:targetPackage="in.rapidfix.app" android:targetClass="in.rapidfix.app.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="bookings" android:enabled="true" android:icon="@drawable/shortcut_bookings"
+        android:shortcutShortLabel="@string/shortcut_bookings_short" android:shortcutLongLabel="@string/shortcut_bookings">
+        <intent android:action="android.intent.action.VIEW" android:data="https://rapidfix.in/bookings"
+            android:targetPackage="in.rapidfix.app" android:targetClass="in.rapidfix.app.MainActivity" />
+    </shortcut>
+</shortcuts>

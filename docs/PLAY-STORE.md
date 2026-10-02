@@ -1,3 +1,16 @@
+# RapidFix on Google Play
+
+> **From 1.1.0 (version code 7) the app is native** — `android-app/` (not the old
+> Bubblewrap/TWA project in `android/`). It runs RapidFix in its own full-screen
+> WebView (no Chrome, no address bar) and receives Firebase pushes natively, so
+> notifications and the ringing job alert arrive even when the app is closed.
+>
+> Build: `android-app/build.sh <versionCode> <versionName>` (e.g. `./build.sh 8 1.1.1`)
+> → `~/Desktop/RapidFix-Android/UPLOAD-THIS-RapidFix-<name>-code<code>.aab`.
+> Website changes go live in the app immediately (it loads https://rapidfix.in);
+> rebuild only for app-level changes. Firebase Android app: `in.rapidfix.app`
+> (google-services.json in `android-app/app/`).
+
 # RapidFix — publishing on Google Play
 
 The Android app (`android/`) is a **Trusted Web Activity**: it opens rapidfix.in full-screen, with real
