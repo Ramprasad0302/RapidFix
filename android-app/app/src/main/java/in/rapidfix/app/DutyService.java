@@ -84,6 +84,7 @@ public class DutyService extends Service {
     }
 
     static void start(Context ctx, String api, String key) {
+        ctx.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(EXTRA_API, api).putString(EXTRA_KEY, key).apply();
         Intent i = new Intent(ctx, DutyService.class).setAction(ACTION_START).putExtra(EXTRA_API, api).putExtra(EXTRA_KEY, key);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i);
         else ctx.startService(i);

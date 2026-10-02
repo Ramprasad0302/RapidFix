@@ -53,6 +53,8 @@ function Dashboard({ d }: { d: TechnicianDashboardDto }) {
     },
     onSuccess: (profile) => {
       qc.setQueryData<TechnicianDashboardDto>(['tech', 'dashboard'], (old) => (old ? { ...old, profile } : old));
+      // Starts / stops the background "online for jobs" service and location sharing right away.
+      void qc.invalidateQueries({ queryKey: ['tech', 'profile'] });
       toast(profile.isOnline ? 'You’re online — new requests can reach you' : 'You’re offline');
     },
     onError: (e) => toast(e.message, 'error'),

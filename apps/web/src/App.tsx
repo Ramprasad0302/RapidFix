@@ -5,7 +5,7 @@ import { router } from './app/router';
 import { useRealtime } from './app/useRealtime';
 import { OfflineBanner } from './components/OfflineBanner';
 import { ToastHost } from './components/ToastHost';
-import { onNativeEvent } from './lib/nativeApp';
+import { nativeCall, onNativeEvent } from './lib/nativeApp';
 import { enablePush, registerServiceWorker } from './lib/notifications';
 import { persistQueryCache, warmCatalog } from './lib/offlineCache';
 import { unlockAudio } from './lib/ringtone';
@@ -35,6 +35,8 @@ window.addEventListener('pointerdown', unlockAudio, { capture: true, passive: tr
 
 // Never let one user's cached data survive into the next session.
 authStore.subscribe((state, prev) => {
+  // Android app: write the new session cookie to disk at once (survives the app being killed).
+  if (state.status !== prev.status || state.user?.id !== prev.user?.id) void nativeCall('flushCookies');
   // Each sign-in (re)links this device's push token to the account.
   if (state.status === 'authenticated' && (prev.status !== 'authenticated' || state.user?.id !== prev.user?.id)) void enablePush();
   if (prev.status === 'authenticated' && (state.status !== 'authenticated' || state.user?.id !== prev.user?.id)) {

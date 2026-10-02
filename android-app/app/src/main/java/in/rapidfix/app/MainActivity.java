@@ -536,6 +536,11 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
                 // Native Razorpay checkout: UPI apps (PhonePe, Google Pay, Paytm…) open directly; cards & net banking too.
                 startPayment(id, msg.optJSONObject("value"));
                 break;
+            case "flushCookies":
+                // Just signed in / out: keep the session even if the app is killed right away.
+                CookieManager.getInstance().flush();
+                respond(id, null);
+                break;
             case "catalogSnapshot":
                 respond(id, BundledWeb.catalogSnapshot(this));
                 break;
@@ -767,6 +772,9 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
         foreground = true;
         current = new WeakReference<>(this);
         web.onResume();
+        // Location switched off in phone settings? Forget the page's remembered "allowed",
+        // so the next location request asks Android again instead of failing silently.
+        if (!hasLocationPermission()) GeolocationPermissions.getInstance().clearAll();
         Notifications.cancelJobAlerts(this);
         JSONObject e = state();
         try {
@@ -778,6 +786,8 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
 
     @Override
     protected void onPause() {
+        // Save the sign-in cookie to disk now: the app may be swiped away or killed next.
+        CookieManager.getInstance().flush();
         foreground = false;
         web.onPause();
         super.onPause();

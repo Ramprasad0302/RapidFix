@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { technicianApi } from '../../lib/endpoints';
-import { isNativeApp, startNativeDuty, stopNativeDuty } from '../../lib/nativeApp';
+import { isNativeApp, nativeState, onNativeEvent, startNativeDuty, stopNativeDuty } from '../../lib/nativeApp';
 import { RUNTIME } from '../../lib/runtimeConfig';
 import { toast } from '../../store/toast';
 
@@ -25,12 +25,17 @@ export function useLocationSharing() {
   const profile = useQuery({ queryKey: ['tech', 'profile'], queryFn: technicianApi.profile, staleTime: 60_000 });
   const online = profile.data?.isOnline ?? false;
   const loaded = profile.isSuccess;
+  const checkedAt = profile.dataUpdatedAt;
+  // Re-check when the app comes back to the front (e.g. location was just allowed in Settings).
+  const [resumedAt, setResumedAt] = useState(0);
+  useEffect(() => onNativeEvent((e) => e.event === 'state' && setResumedAt(Date.now())), []);
 
-  // Android app: start / stop the background service with the online switch.
+  // Android app: start / stop the background service with the online switch. Re-run on every
+  // profile refresh too — starting an already running service is harmless.
   useEffect(() => {
     if (!isNativeApp() || !loaded) return;
     if (!online) {
-      void stopNativeDuty();
+      if (nativeState()?.onDuty) void stopNativeDuty();
       return;
     }
     let cancelled = false;
@@ -41,7 +46,7 @@ export function useLocationSharing() {
     return () => {
       cancelled = true;
     };
-  }, [online, loaded]);
+  }, [online, loaded, checkedAt, resumedAt]);
 
   // Browser: share from the open page.
   useEffect(() => {
