@@ -9,7 +9,7 @@
  * the zip — set them as environment variables in hPanel.
  */
 import { execSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -40,6 +40,9 @@ mkdirSync(out, { recursive: true });
 
 // Compiled API (our own shared packages and the Prisma client are bundled in).
 // .mjs = always an ES module, whatever the host's loader; start.js stays CommonJS.
+// The server must be a single file — fail the build loudly if the bundler split it.
+const extraChunks = readdirSync(path.join(root, 'backend/dist')).filter((f) => f.endsWith('.js') && f !== 'server.js');
+if (extraChunks.length) throw new Error(`backend/dist has extra chunks (${extraChunks.join(', ')}); set splitting: false in tsup.config.ts`);
 cpSync(path.join(root, 'backend/dist/server.js'), path.join(out, 'server.mjs'));
 // Website, served by the API. config.js keeps apiUrl empty = same domain.
 cpSync(path.join(root, 'apps/web/dist'), path.join(out, 'public'), { recursive: true });
