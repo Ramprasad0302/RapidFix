@@ -5,7 +5,7 @@
 > WebView (no Chrome, no address bar) and receives Firebase pushes natively, so
 > notifications and the ringing job alert arrive even when the app is closed.
 >
-> Build: `android-app/build.sh <versionCode> <versionName>` (e.g. `./build.sh 8 1.1.1`)
+> Build: `android-app/build.sh <versionCode> <versionName>` (e.g. `./build.sh 10 1.1.3`)
 > → `~/Desktop/RapidFix-Android/UPLOAD-THIS-RapidFix-<name>-code<code>.aab`.
 > Website changes go live in the app immediately (it loads https://rapidfix.in);
 > rebuild only for app-level changes. Firebase Android app: `in.rapidfix.app`

@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId 'in.rapidfix.app'
-        minSdk 23
+        minSdk 24
         targetSdk 36
         versionCode Integer.parseInt(env.RAPIDFIX_VERSION_CODE ?: '7')
         versionName env.RAPIDFIX_VERSION_NAME ?: '1.1.0'
