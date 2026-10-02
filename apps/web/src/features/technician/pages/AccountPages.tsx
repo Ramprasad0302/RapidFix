@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleCheck, CircleX, Clock3, FileUp, Landmark, ShieldCheck, Star, Trash2, TrendingUp } from 'lucide-react';
+import { CircleCheck, CircleX, Clock3, FileUp, Landmark, Play, ShieldCheck, Star, Trash2, TrendingUp } from 'lucide-react';
 import type { TechnicianDetailsDto, TechnicianDocumentDto } from '@fixora/shared-types';
 import { Alert, Button, Spinner, TextField, cx } from '@fixora/ui';
 import { PageHeader } from '../../../components/PageHeader';
 import { CenteredSpinner, EmptyState, ErrorState } from '../../../components/States';
 import { documentUploadApi, fetchPrivateFile, technicianApi } from '../../../lib/endpoints';
 import { formatDate } from '../../../lib/format';
+import { isNativeApp, nativeCall } from '../../../lib/nativeApp';
 import { toast } from '../../../store/toast';
 import { MobileShell } from '../../customer/CustomerTabsLayout';
 import { Stars } from '../../customer/components/BookingExtras';
@@ -369,5 +370,58 @@ function Tile({ label, value, hint, tone }: { label: string; value: string; hint
       <p className={cx('mt-1 text-2xl font-bold', tone === 'warn' ? 'text-warning' : 'text-slate-900')}>{value}</p>
       {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
     </div>
+  );
+}
+
+interface ToneList {
+  selected: string;
+  tones: { id: string; name: string }[];
+}
+
+/** Android app: choose the job-request ringtone (built-in pack); it rings in the app and when the app is closed. */
+export function AlertSoundPage() {
+  const qc = useQueryClient();
+  const tones = useQuery({ queryKey: ['tech', 'alert-tones'], queryFn: () => nativeCall<ToneList>('alertTones'), enabled: isNativeApp() });
+  const choose = useMutation({
+    mutationFn: (id: string) => nativeCall<ToneList>('setAlertTone', id),
+    onSuccess: (d) => {
+      qc.setQueryData(['tech', 'alert-tones'], d);
+      toast('Job alert sound saved');
+    },
+  });
+  useEffect(() => () => void nativeCall('stopTone'), []);
+
+  return (
+    <Shell title="Job Alert Sound">
+      {!isNativeApp() ? (
+        <EmptyState title="Available in the RapidFix app" body="Install the RapidFix app from the Play Store to choose your job alert ringtone." />
+      ) : !tones.data ? (
+        <CenteredSpinner />
+      ) : (
+        <>
+          <p className="text-sm text-slate-600">Plays for every new job request — in the app and when it&apos;s closed. Tap ▶ to listen.</p>
+          <ul className="mt-3 flex flex-col gap-2" role="radiogroup" aria-label="Job alert sound">
+            {tones.data.tones.map((t) => {
+              const on = tones.data!.selected === t.id;
+              return (
+                <li key={t.id} className={cx('flex items-center gap-3 rounded-2xl border p-3', on ? 'border-fixora-blue bg-fixora-blue-soft' : 'border-slate-200')}>
+                  <button
+                    onClick={() => void nativeCall('previewTone', t.id)}
+                    aria-label={`Play ${t.name}`}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-fixora-blue shadow-card"
+                  >
+                    <Play className="size-4 fill-current" />
+                  </button>
+                  <button role="radio" aria-checked={on} onClick={() => choose.mutate(t.id)} className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left">
+                    <span className={cx('font-medium', on ? 'text-fixora-blue' : 'text-slate-900')}>{t.name}</span>
+                    {on && <CircleCheck className="size-5 shrink-0 text-fixora-blue" aria-label="Selected" />}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </Shell>
   );
 }

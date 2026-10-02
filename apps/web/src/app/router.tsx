@@ -116,6 +116,7 @@ export const router = createBrowserRouter([
               { path: 'documents', ...page(techAccount, 'DocumentsPage') },
               { path: 'reviews', ...page(techAccount, 'ReviewsPage') },
               { path: 'performance', ...page(techAccount, 'PerformancePage') },
+              { path: 'alert-sound', ...page(techAccount, 'AlertSoundPage') },
               { path: 'notifications', ...page(() => customer('NotificationsPage'), 'NotificationsPage') },
               { path: 'help', ...page(() => customer('InfoPages'), 'HelpPage') },
             ],

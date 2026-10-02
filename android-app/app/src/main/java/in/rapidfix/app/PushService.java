@@ -1,5 +1,7 @@
 package in.rapidfix.app;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
@@ -22,6 +24,7 @@ public class PushService extends FirebaseMessagingService {
             if (!data.containsKey("title")) data.put("title", n.getTitle());
             if (!data.containsKey("body")) data.put("body", n.getBody());
         }
+        Log.i("RapidFixPush", "message " + data.get("type") + " foreground=" + MainActivity.isInForeground());
         // While the app is on screen it shows the update itself (and rings in-app for job requests).
         if (MainActivity.isInForeground()) {
             MainActivity.notifyWeb(data);

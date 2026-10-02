@@ -7,6 +7,7 @@ import {
   ChevronRight,
   FileCheck2,
   Headset,
+  Music,
   Landmark,
   LogOut,
   MapPinned,
@@ -44,6 +45,7 @@ const ACCOUNT: Item[] = [
 const SETTINGS: Item[] = [
   { icon: UserRound, label: 'Profile Details', to: '/technician/profile/edit' },
   { icon: Bell, label: 'Notifications', to: '/technician/notifications' },
+  { icon: Music, label: 'Job Alert Sound', to: '/technician/alert-sound' },
   { icon: Headset, label: 'Help & Support', to: '/technician/help' },
 ];
 

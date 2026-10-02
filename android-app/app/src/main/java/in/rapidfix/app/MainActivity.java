@@ -506,6 +506,27 @@ public class MainActivity extends Activity {
                 DutyService.stop(this);
                 respond(id, false);
                 break;
+            case "alertTones":
+                respond(id, Ringtones.list(this));
+                break;
+            case "setAlertTone":
+                Ringtones.select(this, msg.optString("value"));
+                respond(id, Ringtones.list(this));
+                break;
+            case "previewTone":
+                Ringtones.play(this, msg.optString("value", null), false, 7_000);
+                respond(id, null);
+                break;
+            case "ringStart":
+                // In-app ring for a new job request: the technician's chosen tone, looping.
+                Ringtones.play(this, null, true, 0);
+                respond(id, null);
+                break;
+            case "ringStop":
+            case "stopTone":
+                Ringtones.stop();
+                respond(id, null);
+                break;
             case "catalogSnapshot":
                 respond(id, BundledWeb.catalogSnapshot(this));
                 break;

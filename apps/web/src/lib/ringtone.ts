@@ -7,6 +7,8 @@
  * `unlockAudio()` runs on taps anywhere in the app.
  */
 
+import { isNativeApp, nativeCall } from './nativeApp';
+
 const SOUND_URL = '/sounds/job-alert.wav';
 
 let ctx: AudioContext | null = null;
@@ -46,7 +48,9 @@ export function unlockAudio() {
 export function startRinging() {
   if (wanted) return;
   wanted = true;
-  const c = context();
+  // Android app: the technician's chosen tone from the built-in ringtone pack.
+  const c = isNativeApp() ? null : context();
+  if (isNativeApp()) void nativeCall('ringStart');
   if (c) {
     if (c.state === 'suspended') void c.resume().catch(() => undefined);
     void loadBuffer(c).then((buf) => {
@@ -66,6 +70,7 @@ export function startRinging() {
 }
 
 export function stopRinging() {
+  if (wanted && isNativeApp()) void nativeCall('ringStop');
   wanted = false;
   try {
     source?.stop();

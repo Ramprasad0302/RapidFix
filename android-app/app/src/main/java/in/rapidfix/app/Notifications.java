@@ -57,7 +57,7 @@ final class Notifications {
 
         // Channels left over from the earlier Play Store build (web app shell).
         for (NotificationChannel c : nm.getNotificationChannels()) {
-            if (!c.getId().equals(jobsId) && !c.getId().equals(updatesId) && !c.getId().startsWith("rapidfix_on_duty") && !c.getId().equals(NotificationChannel.DEFAULT_CHANNEL_ID)) {
+            if (!c.getId().equals(jobsId) && !c.getId().equals(updatesId) && !c.getId().startsWith("rapidfix_job_") && !c.getId().startsWith("rapidfix_on_duty") && !c.getId().equals(NotificationChannel.DEFAULT_CHANNEL_ID)) {
                 nm.deleteNotificationChannel(c.getId());
             }
         }
@@ -81,7 +81,7 @@ final class Notifications {
         PendingIntent tap = PendingIntent.getActivity(ctx, id, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Notification.Builder b = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                ? new Notification.Builder(ctx, ctx.getString(job ? R.string.channel_jobs_id : R.string.channel_updates_id))
+                ? new Notification.Builder(ctx, job ? Ringtones.jobChannel(ctx) : ctx.getString(R.string.channel_updates_id))
                 : new Notification.Builder(ctx);
         b.setSmallIcon(R.drawable.ic_stat_rapidfix)
                 .setColor(ctx.getColor(R.color.brand))
@@ -99,7 +99,7 @@ final class Notifications {
                 long left = millisUntil(data.get("expiresAt"));
                 if (left > 0) b.setTimeoutAfter(left);
             } else {
-                b.setPriority(Notification.PRIORITY_MAX).setSound(jobTone(ctx)).setVibrate(JOB_VIBRATION);
+                b.setPriority(Notification.PRIORITY_MAX).setSound(Ringtones.uri(ctx, Ringtones.selected(ctx))).setVibrate(JOB_VIBRATION);
             }
         } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             b.setPriority(Notification.PRIORITY_HIGH).setDefaults(Notification.DEFAULT_ALL);

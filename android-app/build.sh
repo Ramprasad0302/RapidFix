@@ -23,6 +23,8 @@ WEB=app/src/main/assets/web
 rm -rf "${WEB:?}"; mkdir -p "$WEB"
 rsync -a --exclude '.htaccess' --exclude '*.map' ../build/hostinger-frontend/public/ "$WEB/"
 node ../scripts/catalog-snapshot.mjs > "$WEB/catalog-snapshot.json"
+# Job-alert ringtone pack (studio WAVs, ~45 MB) — generated once, kept out of git.
+python3 tools/make_ringtones.py >/dev/null
 ./gradlew --quiet clean bundleRelease assembleRelease
 AAB=app/build/outputs/bundle/release/app-release.aab
 "$JAVA_HOME/bin/jarsigner" -verify "$AAB" >/dev/null

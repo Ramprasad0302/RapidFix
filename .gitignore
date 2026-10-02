@@ -15,3 +15,4 @@ android-app/app/build/
 android-app/.gradle/
 android-app/local.properties
 android-app/app/src/main/assets/web/
+android-app/app/src/main/res/raw/alert_*.wav
