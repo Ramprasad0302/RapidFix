@@ -11,6 +11,10 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Insets;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -95,6 +99,8 @@ public class MainActivity extends Activity {
     private GeolocationPermissions.Callback geoCallback;
     private String geoOrigin;
     private boolean firstPageShown;
+    private String failedUrl;
+    private ConnectivityManager.NetworkCallback networkCallback;
 
     static boolean isInForeground() {
         return foreground;
@@ -144,6 +150,7 @@ public class MainActivity extends Activity {
 
         configureWebView();
         fetchPushToken();
+        watchConnection();
 
         if (savedInstanceState != null && web.restoreState(savedInstanceState) != null) return;
         web.loadUrl(resolve(urlFrom(getIntent())));
@@ -194,12 +201,36 @@ public class MainActivity extends Activity {
 
         Button retry = new Button(this);
         retry.setText(R.string.offline_retry);
-        retry.setOnClickListener(v -> {
-            offline.setVisibility(View.GONE);
-            web.reload();
-        });
+        retry.setOnClickListener(v -> retryLoad());
         box.addView(retry);
         return box;
+    }
+
+    /** Load the page that failed again (reload() would only reload the error page). */
+    private void retryLoad() {
+        offline.setVisibility(View.GONE);
+        web.loadUrl(failedUrl != null ? failedUrl : home.toString());
+        failedUrl = null;
+    }
+
+    /** First launch without internet shows the offline screen; reload by itself once a connection appears. */
+    private void watchConnection() {
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm == null) return;
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(@NonNull Network network) {
+                runOnUiThread(() -> {
+                    if (offline.getVisibility() == View.VISIBLE) retryLoad();
+                });
+            }
+        };
+        try {
+            cm.registerNetworkCallback(new NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), networkCallback);
+        } catch (RuntimeException e) {
+            networkCallback = null;
+        }
     }
 
     // ── WebView ─────────────────────────────────────────────────────────────
@@ -237,6 +268,12 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageFinished(WebView view, String url) {
+                // Offline, the saved copy of the app usually loads anyway (service worker);
+                // show the offline screen only when the page really is the browser's error page.
+                view.evaluateJavascript("location.protocol", protocol -> {
+                    boolean failed = protocol != null && protocol.contains("chrome-error");
+                    offline.setVisibility(failed ? View.VISIBLE : View.GONE);
+                });
                 if (!firstPageShown) {
                     firstPageShown = true;
                     web.setBackgroundColor(Color.WHITE);
@@ -246,7 +283,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) offline.setVisibility(View.VISIBLE);
+                if (request.isForMainFrame()) failedUrl = request.getUrl().toString();
             }
 
             @Override
@@ -618,6 +655,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (current.get() == this) current = new WeakReference<>(null);
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm != null && networkCallback != null) cm.unregisterNetworkCallback(networkCallback);
         web.destroy();
         super.onDestroy();
     }

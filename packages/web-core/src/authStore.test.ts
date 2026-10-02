@@ -14,8 +14,8 @@ const reply = (config: InternalAxiosRequestConfig, status: number, data: unknown
   Promise.resolve({ data, status, statusText: '', headers: {}, config });
 
 /** Fake backend: `/profile` accepts only `current` token; `/auth/refresh` mints `fresh`. */
-function setup(opts: { refreshOk?: boolean; refreshRole?: AuthSession['user']['role'] } = {}) {
-  const { refreshOk = true, refreshRole = 'CUSTOMER' } = opts;
+function setup(opts: { refreshOk?: boolean; refreshRole?: AuthSession['user']['role']; offline?: boolean } = {}) {
+  const { refreshOk = true, refreshRole = 'CUSTOMER', offline = false } = opts;
   let current = 'fresh';
   const calls = { refresh: 0, profile: 0 };
 
@@ -24,6 +24,7 @@ function setup(opts: { refreshOk?: boolean; refreshRole?: AuthSession['user']['r
     const fail = (status: number, data: unknown) =>
       Promise.reject(new AxiosError(`HTTP ${status}`, undefined, config, null, { data, status, statusText: '', headers: {}, config }));
 
+    if (offline) return Promise.reject(new AxiosError('Network Error', 'ERR_NETWORK', config));
     if (config.url === '/auth/refresh') {
       calls.refresh++;
       await new Promise((r) => setTimeout(r, 10));
@@ -58,6 +59,31 @@ describe('createAuthStore + api client', () => {
     const { auth } = setup({ refreshOk: false });
     await auth.actions.bootstrap();
     expect(auth.store.getState().status).toBe('guest');
+  });
+
+  it('offline at launch keeps the last signed-in user (profile only), guest otherwise', async () => {
+    const mem = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+      removeItem: (k: string) => void mem.delete(k),
+    });
+    try {
+      const online = setup();
+      await online.auth.actions.bootstrap();
+      expect(mem.get('fixora.lastUser')).not.toContain('fresh'); // never the token
+
+      const offline = setup({ offline: true });
+      await offline.auth.actions.bootstrap();
+      expect(offline.auth.store.getState()).toMatchObject({ status: 'authenticated', user: { id: 'u1' }, accessToken: null });
+
+      await online.auth.actions.logout();
+      const offlineAfterLogout = setup({ offline: true });
+      await offlineAfterLogout.auth.actions.bootstrap();
+      expect(offlineAfterLogout.auth.store.getState().status).toBe('guest');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('signs out a session whose role the app cannot route', async () => {

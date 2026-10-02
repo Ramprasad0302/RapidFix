@@ -6,7 +6,8 @@ export function createQueryClient() {
     defaultOptions: {
       queries: {
         staleTime: 60_000,
-        gcTime: 30 * 60_000,
+        // Long enough for data saved for offline use to survive a day of browsing.
+        gcTime: 24 * 60 * 60_000,
         refetchOnWindowFocus: false,
         // Retry only transient failures; a 4xx will not fix itself.
         retry: (failureCount, error) =>

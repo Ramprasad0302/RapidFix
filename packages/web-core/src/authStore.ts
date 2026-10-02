@@ -29,10 +29,33 @@ export interface AuthStoreOptions {
 }
 
 const GUEST: AuthState = { status: 'guest', user: null, accessToken: null };
+/** Who was signed in last on this device (profile only — never a token), for opening the app offline. */
+const LAST_USER_KEY = 'fixora.lastUser';
+
+function readLastUser(): AuthUser | null {
+  try {
+    const raw = globalThis.localStorage?.getItem(LAST_USER_KEY);
+    return raw ? (JSON.parse(raw) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
+function writeLastUser(user: AuthUser | null) {
+  try {
+    if (user) globalThis.localStorage?.setItem(LAST_USER_KEY, JSON.stringify(user));
+    else globalThis.localStorage?.removeItem(LAST_USER_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function createAuthStore({ api, knownRoles, onSessionExpired }: AuthStoreOptions) {
   const store = createStore<AuthState>()(() => ({ status: 'unknown', user: null, accessToken: null }));
+  store.subscribe((s) => {
+    if (s.status === 'authenticated' && s.user) writeLastUser(s.user);
+    else if (s.status === 'guest') writeLastUser(null);
+  });
 
   function setSession(session: AuthSession): boolean {
     if (!knownRoles.includes(session.user.role)) {
@@ -78,8 +101,15 @@ export function createAuthStore({ api, knownRoles, onSessionExpired }: AuthStore
       try {
         if (!(await refreshAccessToken())) store.setState(GUEST);
       } catch {
-        // Offline at launch: continue as guest; protected screens ask the user to log in.
-        store.setState(GUEST);
+        // Offline at launch: keep the last signed-in user so saved bookings and profile
+        // still show; the session is confirmed (or ended) as soon as we're back online.
+        const last = readLastUser();
+        if (!last || !knownRoles.includes(last.role)) {
+          store.setState(GUEST);
+          return;
+        }
+        store.setState({ status: 'authenticated', user: last, accessToken: null });
+        globalThis.addEventListener?.('online', () => void actions.bootstrap(), { once: true });
       }
     },
     setSession,

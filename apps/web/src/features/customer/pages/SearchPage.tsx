@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { formatINR } from '@fixora/shared-utils';
 import { MobileShell } from '../CustomerTabsLayout';
@@ -8,6 +8,7 @@ import { ServiceArt } from '../../../components/ServiceArt';
 import { EmptyState, ErrorState, Skeleton } from '../../../components/States';
 import { catalogApi } from '../../../lib/endpoints';
 import { durationRange } from '../../../lib/format';
+import { searchSavedServices } from '../../../lib/offlineCache';
 
 const SUGGESTIONS = ['AC', 'Plumber', 'Electrician', 'Carpenter', 'Washing machine', 'Cleaning'];
 
@@ -27,9 +28,13 @@ export function SearchPage() {
     return () => clearTimeout(t);
   }, [text, setParams]);
 
+  const qc = useQueryClient();
   const results = useQuery({
     queryKey: ['services', 'search', q],
-    queryFn: () => catalogApi.services({ q, limit: 30 }),
+    // No internet: search the catalogue saved on this device instead.
+    queryFn: () => (navigator.onLine ? catalogApi.services({ q, limit: 30 }).catch(() => searchSavedServices(qc, q)) : searchSavedServices(qc, q)),
+    networkMode: 'always',
+    retry: false,
     enabled: q.length > 0,
     placeholderData: (prev) => prev,
   });

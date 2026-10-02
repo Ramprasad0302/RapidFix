@@ -3,13 +3,22 @@ import { RouterProvider } from 'react-router';
 import { createQueryClient } from '@fixora/web-core';
 import { router } from './app/router';
 import { useRealtime } from './app/useRealtime';
+import { OfflineBanner } from './components/OfflineBanner';
 import { ToastHost } from './components/ToastHost';
 import { onNativeEvent } from './lib/nativeApp';
 import { enablePush, registerServiceWorker } from './lib/notifications';
+import { persistQueryCache, warmCatalog } from './lib/offlineCache';
 import { unlockAudio } from './lib/ringtone';
 import { authStore } from './store/auth';
 
 export const queryClient = createQueryClient();
+
+// Offline: show saved data straight away, and keep the full catalogue on the device.
+persistQueryCache(queryClient);
+const warm = () => void warmCatalog(queryClient);
+if ('requestIdleCallback' in window) window.requestIdleCallback(() => setTimeout(warm, 3000));
+else setTimeout(warm, 5000);
+window.addEventListener('online', warm);
 
 // Service worker: installable app, offline page, system notifications; taps route inside the app.
 registerServiceWorker((path) => void router.navigate(path));
@@ -39,6 +48,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       <ToastHost />
+      <OfflineBanner />
     </QueryClientProvider>
   );
 }
