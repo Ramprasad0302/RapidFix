@@ -78,15 +78,15 @@ channel?.addEventListener('message', (e) => {
   listeners.forEach((l) => l(msg as NativeEvent));
 });
 
-/** Send a command to the app; resolves with its answer (null outside the app or after 15 s). */
-export function nativeCall<T = unknown>(cmd: string, value?: unknown): Promise<T | null> {
+/** Send a command to the app; resolves with its answer (null outside the app or after `timeoutMs`). */
+export function nativeCall<T = unknown>(cmd: string, value?: unknown, timeoutMs = 15_000): Promise<T | null> {
   if (!channel) return Promise.resolve(null);
   const id = `m${++seq}`;
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       pending.delete(id);
       resolve(null);
-    }, 15_000);
+    }, timeoutMs);
     pending.set(id, (r) => {
       clearTimeout(timer);
       resolve(r as T);

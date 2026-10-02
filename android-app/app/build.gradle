@@ -55,6 +55,8 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.7.0')
     implementation 'com.google.firebase:firebase-messaging'
     implementation 'com.google.android.gms:play-services-location:21.3.0'
+    // Razorpay native checkout: opens PhonePe / Google Pay / Paytm directly, plus cards & net banking.
+    implementation 'com.razorpay:checkout:1.6.41'
     implementation 'androidx.core:core:1.15.0'
     implementation 'androidx.webkit:webkit:1.12.1'
 }

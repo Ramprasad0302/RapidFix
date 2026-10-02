@@ -121,7 +121,7 @@ export function PaymentCard({ b }: { b: BookingDetailDto }) {
         <p className="text-[15px] font-semibold text-slate-900">Complete your payment to confirm this booking</p>
         <p className="mt-1 text-3xl font-bold text-slate-900">{formatINR(b.amountDue)}</p>
         <Button size="lg" fullWidth className="mt-4" loading={pay.isPending} onClick={() => pay.mutate()} leftIcon={<CreditCard className="size-5" />}>
-          Pay now (UPI, card, netbanking)
+          Pay now — PhonePe, GPay, Paytm or card
         </Button>
         <Button size="lg" variant="outline" fullWidth className="mt-2.5" loading={later.isPending} disabled={pay.isPending} onClick={() => later.mutate()} leftIcon={<Banknote className="size-5" />}>
           Pay after service instead
@@ -140,7 +140,7 @@ export function PaymentCard({ b }: { b: BookingDetailDto }) {
         {advance > 0 && <p className="mt-1 text-sm text-success">{formatINR(advance)} already paid online</p>}
         {b.onlinePaymentAvailable && (
           <Button size="lg" fullWidth className="mt-4" loading={pay.isPending} onClick={() => pay.mutate()} leftIcon={<CreditCard className="size-5" />}>
-            Pay online (UPI, card, netbanking)
+            Pay online — PhonePe, GPay, Paytm or card
           </Button>
         )}
         <p className={cx('flex items-start gap-2 rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-slate-600', b.onlinePaymentAvailable ? 'mt-3' : 'mt-4')}>

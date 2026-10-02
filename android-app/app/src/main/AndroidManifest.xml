@@ -14,6 +14,19 @@
     <!-- No ads: keep the advertising ID permission out (Play Console "Advertising ID: No"). -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
+    <!-- Find the UPI apps on the phone (PhonePe, Google Pay, Paytm, BHIM…) so checkout can open them directly. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" />
+        </intent>
+        <package android:name="com.phonepe.app" />
+        <package android:name="com.google.android.apps.nbu.paisa.user" />
+        <package android:name="net.one97.paytm" />
+        <package android:name="in.org.npci.upiapp" />
+        <package android:name="in.amazon.mShop.android.shopping" />
+    </queries>
+
     <application
         android:name=".App"
         android:allowBackup="false"

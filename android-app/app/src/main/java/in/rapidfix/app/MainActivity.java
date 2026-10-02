@@ -58,6 +58,9 @@ import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.razorpay.Checkout;
+import com.razorpay.PaymentData;
+import com.razorpay.PaymentResultWithDataListener;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -78,7 +81,7 @@ import java.util.Set;
  *   page → app  {id, cmd, value}
  *   app → page  {id, result} | {event, ...}
  */
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements PaymentResultWithDataListener {
     static final String EXTRA_URL = "url";
     private static final String PREFS = "rapidfix";
     private static final String PREF_TOKEN = "fcmToken";
@@ -97,6 +100,7 @@ public class MainActivity extends Activity {
     private View offline;
     private JavaScriptReplyProxy bridge;
     private String pendingPermissionId;
+    private String pendingPaymentId;
     private ValueCallback<Uri[]> fileCallback;
     private Uri cameraUri;
     private GeolocationPermissions.Callback geoCallback;
@@ -162,6 +166,7 @@ public class MainActivity extends Activity {
 
         configureWebView();
         fetchPushToken();
+        Checkout.preload(getApplicationContext()); // payment sheet opens instantly later
         watchConnection();
 
         if (savedInstanceState != null && web.restoreState(savedInstanceState) != null) return;
@@ -527,6 +532,10 @@ public class MainActivity extends Activity {
                 Ringtones.stop();
                 respond(id, null);
                 break;
+            case "razorpayPay":
+                // Native Razorpay checkout: UPI apps (PhonePe, Google Pay, Paytm…) open directly; cards & net banking too.
+                startPayment(id, msg.optJSONObject("value"));
+                break;
             case "catalogSnapshot":
                 respond(id, BundledWeb.catalogSnapshot(this));
                 break;
@@ -596,6 +605,68 @@ public class MainActivity extends Activity {
         } catch (JSONException ignored) {
         }
         send(e);
+    }
+
+    // ── Payments ────────────────────────────────────────────────────────────
+
+    private void startPayment(String id, JSONObject options) {
+        if (options == null || pendingPaymentId != null) {
+            respond(id, paymentError("A payment is already open."));
+            return;
+        }
+        try {
+            Checkout checkout = new Checkout();
+            checkout.setKeyID(options.getString("key"));
+            checkout.setImage(R.mipmap.ic_launcher);
+            options.remove("key");
+            pendingPaymentId = id;
+            checkout.open(this, options);
+        } catch (Exception e) {
+            pendingPaymentId = null;
+            respond(id, paymentError("Could not open the payment screen. Please try again."));
+        }
+    }
+
+    @Override
+    public void onPaymentSuccess(String razorpayPaymentId, PaymentData data) {
+        JSONObject r = new JSONObject();
+        try {
+            r.put("razorpay_payment_id", razorpayPaymentId);
+            r.put("razorpay_order_id", data != null ? data.getOrderId() : null);
+            r.put("razorpay_signature", data != null ? data.getSignature() : null);
+        } catch (JSONException ignored) {
+        }
+        finishPayment(r);
+    }
+
+    @Override
+    public void onPaymentError(int code, String response, PaymentData data) {
+        String message = "Payment failed. Please try again.";
+        if (code == Checkout.PAYMENT_CANCELED) message = "Payment cancelled";
+        else if (code == Checkout.NETWORK_ERROR) message = "No internet connection. Please try again.";
+        else {
+            try {
+                JSONObject err = new JSONObject(response).optJSONObject("error");
+                if (err != null && !err.optString("description").isEmpty()) message = err.optString("description");
+            } catch (JSONException ignored) {
+            }
+        }
+        finishPayment(paymentError(message));
+    }
+
+    private void finishPayment(JSONObject result) {
+        String id = pendingPaymentId;
+        pendingPaymentId = null;
+        if (id != null) respond(id, result);
+    }
+
+    private static JSONObject paymentError(String message) {
+        JSONObject e = new JSONObject();
+        try {
+            e.put("error", message);
+        } catch (JSONException ignored) {
+        }
+        return e;
     }
 
     // ── Notifications ───────────────────────────────────────────────────────

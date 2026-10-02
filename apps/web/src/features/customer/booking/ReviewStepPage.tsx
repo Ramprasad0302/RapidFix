@@ -16,7 +16,7 @@ import { NotServedSheet } from '../../../components/NotServedSheet';
 import { BookingShell, StepTitle } from './BookingShell';
 
 const PAYMENT = [
-  { value: 'RAZORPAY', title: 'Pay online now', sub: 'UPI · Cards · Net banking', icon: CreditCard },
+  { value: 'RAZORPAY', title: 'Pay online now', sub: 'PhonePe · GPay · Paytm · Cards', icon: CreditCard },
   { value: 'CASH', title: 'Pay after service', sub: 'Cash, or scan the technician’s QR', icon: Banknote },
 ] as const;
 
