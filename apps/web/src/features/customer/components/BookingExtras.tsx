@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banknote, CircleAlert, CreditCard, FileText, ReceiptText, Star, Wrench } from 'lucide-react';
@@ -8,17 +8,21 @@ import { Alert, Button, cx } from '@fixora/ui';
 import { Dialog } from '../../../components/Dialog';
 import { COMPLAINT_CATEGORIES, complaintApi, customerApi } from '../../../lib/endpoints';
 import { formatDate, formatTime } from '../../../lib/format';
-import { payWithRazorpay } from '../../../lib/razorpay';
+import { onNativeEvent } from '../../../lib/nativeApp';
+import { clearPaymentAttempt, markPaymentAttempt, PAYMENT_CHECKING, payWithRazorpay, recentPaymentAttempt } from '../../../lib/razorpay';
 import { toast } from '../../../store/toast';
 
 const INVOICE_STATUSES = ['SERVICE_COMPLETED', 'PAYMENT_PENDING', 'PAYMENT_COMPLETED', 'REFUNDED', 'DISPUTED'];
 
 function useSetBooking(id: string) {
   const qc = useQueryClient();
-  return (data: BookingDetailDto) => {
-    qc.setQueryData(['customer', 'booking', id], data);
-    void qc.invalidateQueries({ queryKey: ['customer', 'bookings'] });
-  };
+  return useCallback(
+    (data: BookingDetailDto) => {
+      qc.setQueryData(['customer', 'booking', id], data);
+      void qc.invalidateQueries({ queryKey: ['customer', 'bookings'] });
+    },
+    [qc, id],
+  );
 }
 
 /** Extra work the technician found: nothing is billed until the customer approves. */
@@ -84,6 +88,44 @@ export function AdditionalChargesCard({ b }: { b: BookingDetailDto }) {
 }
 
 /**
+ * After a payment attempt, keep asking the server (which asks Razorpay) every few
+ * seconds while the page is open — and right away when the customer comes back
+ * from PhonePe / GPay — so it's confirmed in seconds even if the phone's payment
+ * screen never reported back.
+ */
+function usePaymentWatch(b: BookingDetailDto, setBooking: (d: BookingDetailDto) => void) {
+  const waiting = (b.status === 'PENDING' && b.payNow > 0) || (b.status === 'PAYMENT_PENDING' && b.amountDue > 0);
+  useEffect(() => {
+    if (!waiting) {
+      clearPaymentAttempt(b.id);
+      return;
+    }
+    let stopped = false;
+    const check = async () => {
+      if (stopped || document.visibilityState !== 'visible' || !recentPaymentAttempt(b.id)) return;
+      const d = await customerApi.syncPayment(b.id).catch(() => null);
+      if (stopped || !d) return;
+      if (d.status !== b.status || d.payNow < b.payNow || d.amountDue < b.amountDue) {
+        clearPaymentAttempt(b.id);
+        setBooking(d);
+        toast(d.status === 'SEARCHING' ? 'Payment received — booking confirmed!' : 'Payment received. Thank you!');
+      }
+    };
+    void check();
+    const timer = setInterval(() => void check(), 4000);
+    const onVisible = () => void check();
+    document.addEventListener('visibilitychange', onVisible);
+    const off = onNativeEvent((e) => e.event === 'state' && void check());
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      off();
+    };
+  }, [waiting, b.id, b.status, b.payNow, b.amountDue, setBooking]);
+}
+
+/**
  * Payment on the booking page:
  *  - "Pay online" chosen at booking but not paid yet → pay now, or switch to paying after the service.
  *  - Job finished with something left to pay → pay online, or pay the technician (who can also show a QR).
@@ -91,8 +133,10 @@ export function AdditionalChargesCard({ b }: { b: BookingDetailDto }) {
  */
 export function PaymentCard({ b }: { b: BookingDetailDto }) {
   const setBooking = useSetBooking(b.id);
+  usePaymentWatch(b, setBooking);
   const pay = useMutation({
     mutationFn: async () => {
+      markPaymentAttempt(b.id);
       const order = await customerApi.razorpayOrder(b.id);
       const signed = await payWithRazorpay(order);
       return customerApi.razorpayVerify(b.id, signed);
@@ -101,7 +145,7 @@ export function PaymentCard({ b }: { b: BookingDetailDto }) {
       setBooking(d);
       toast(d.status === 'SEARCHING' ? 'Payment successful — booking confirmed!' : 'Payment successful. Thank you!');
     },
-    onError: (e) => toast(e.message, e.message === 'Payment cancelled' ? 'default' : 'error'),
+    onError: (e) => toast(e.message === PAYMENT_CHECKING ? 'Confirming your payment with the bank…' : e.message, e.message === 'Payment cancelled' || e.message === PAYMENT_CHECKING ? 'default' : 'error'),
   });
   const later = useMutation({
     mutationFn: () => customerApi.payLater(b.id),

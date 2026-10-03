@@ -250,6 +250,71 @@ export async function checkCollectLink(technicianUserId: string, bookingId: stri
   return { paid: true };
 }
 
+// ─── Confirm straight from Razorpay (no waiting for the app or the webhook) ─
+
+interface OrderPayment {
+  id: string;
+  amount: number;
+  status: 'created' | 'authorized' | 'captured' | 'refunded' | 'failed';
+}
+
+/** An authorized payment is money the customer already approved: capture it so it counts. */
+async function captureIfAuthorized(p: OrderPayment): Promise<OrderPayment> {
+  if (p.status !== 'authorized') return p;
+  try {
+    return await razorpay<OrderPayment>('POST', `/payments/${p.id}/capture`, { amount: p.amount, currency: 'INR' });
+  } catch {
+    // Captured meanwhile (auto-capture / webhook) — re-read it.
+    return razorpay<OrderPayment>('GET', `/payments/${p.id}`);
+  }
+}
+
+/**
+ * Ask Razorpay what happened to a booking's open order and record any payment
+ * it took. Called by the booking screen as soon as the customer returns from
+ * PhonePe / GPay / card, and every few seconds by the background worker — so a
+ * payment is confirmed within seconds even if the phone never reported back.
+ */
+export async function syncOrderPayments(bookingId: string): Promise<boolean> {
+  if (!razorpayConfigured()) return false;
+  const payment = await prisma.payment.findUnique({ where: { bookingId } });
+  if (!payment?.razorpayOrderId) return false;
+  const { items } = await razorpay<{ items: OrderPayment[] }>('GET', `/orders/${payment.razorpayOrderId}/payments`);
+  let recorded = false;
+  for (const item of items) {
+    const p = await captureIfAuthorized(item);
+    if (p.status === 'captured') {
+      await recordOnlinePayment(bookingId, { paymentId: p.id, amount: p.amount });
+      recorded = true;
+    }
+  }
+  return recorded;
+}
+
+/** Customer's screen: "did my payment go through?" (owned bookings only). */
+export async function syncCustomerPayment(customerId: string, bookingId: string) {
+  const b = await prisma.booking.findFirst({ where: { id: bookingId, customerId }, select: { id: true } });
+  if (!b) throw AppError.notFound('Booking not found', 'BOOKING_NOT_FOUND');
+  await syncOrderPayments(b.id).catch((err) => logger.warn({ err, bookingId }, 'payment sync failed'));
+}
+
+/** Background: every open order touched in the last 30 minutes. */
+export async function syncOpenOrders() {
+  if (!razorpayConfigured()) return 0;
+  const open = await prisma.payment.findMany({
+    where: {
+      status: 'PROCESSING',
+      razorpayOrderId: { not: null },
+      updatedAt: { gte: new Date(Date.now() - UNPAID_BOOKING_TTL_MS) },
+      booking: { status: { in: [B.PENDING, B.PAYMENT_PENDING] } },
+    },
+    select: { bookingId: true },
+    take: 25,
+  });
+  for (const p of open) await syncOrderPayments(p.bookingId).catch((err) => logger.warn({ err, bookingId: p.bookingId }, 'order sync failed'));
+  return open.length;
+}
+
 // ─── Webhook ─────────────────────────────────────────────────────────────
 
 /** Razorpay webhook (signature over the raw body). Idempotent; safe to receive twice. */
@@ -271,6 +336,14 @@ export async function handleRazorpayWebhook(rawBody: Buffer, signature: string |
     const bookingId = event.payload.payment_link?.entity.notes?.bookingId;
     if (!bookingId) return { handled: false };
     await recordOnlinePayment(bookingId, { paymentId: pay.id, amount: pay.amount, raw: event });
+    return { handled: true };
+  }
+  if (event.event === 'payment.authorized' && pay) {
+    // Accounts without automatic capture: capture now so the booking is confirmed at once.
+    const payment = await prisma.payment.findUnique({ where: { razorpayOrderId: pay.order_id } });
+    if (!payment) return { handled: false };
+    const captured = await captureIfAuthorized({ id: pay.id, amount: pay.amount, status: 'authorized' });
+    if (captured.status === 'captured') await recordOnlinePayment(payment.bookingId, { paymentId: pay.id, amount: pay.amount, raw: event });
     return { handled: true };
   }
   if ((event.event === 'payment.captured' || event.event === 'order.paid') && pay) {
@@ -658,12 +731,7 @@ export async function expireUnpaidBookings(now = Date.now()) {
   for (const b of stale) {
     try {
       if (b.payment?.razorpayOrderId && razorpayConfigured()) {
-        const { items } = await razorpay<{ items: { id: string; amount: number; status: string }[] }>('GET', `/orders/${b.payment.razorpayOrderId}/payments`);
-        const captured = items.find((i) => i.status === 'captured');
-        if (captured) {
-          await recordOnlinePayment(b.id, { paymentId: captured.id, amount: captured.amount });
-          continue;
-        }
+        if (await syncOrderPayments(b.id)) continue;
       }
       await prisma.$transaction(async (tx) => {
         const reason = 'Online payment was not completed';

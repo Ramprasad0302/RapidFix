@@ -1,5 +1,5 @@
 import type { RazorpayOrderDto } from '@fixora/shared-types';
-import { isNativeApp, nativeCall } from './nativeApp';
+import { isNativeApp, nativeCall, onNativeEvent } from './nativeApp';
 
 interface RazorpaySuccess {
   razorpay_order_id: string;
@@ -74,10 +74,22 @@ function options(order: RazorpayOrderDto) {
   };
 }
 
+/** Thrown when the payment screen closed without a clear answer: the server checks with Razorpay instead. */
+export const PAYMENT_CHECKING = 'Checking your payment…';
+
 /** Android app: Razorpay's native checkout (detects and opens UPI apps installed on the phone). */
 async function payInApp(order: RazorpayOrderDto): Promise<RazorpaySuccess> {
   // A UPI payment can take a few minutes (switch app, enter PIN, come back).
-  const r = await nativeCall<Partial<RazorpaySuccess> & { error?: string }>('razorpayPay', options(order), 20 * 60_000);
+  const result = nativeCall<Partial<RazorpaySuccess> & { error?: string }>('razorpayPay', options(order), 20 * 60_000);
+  // Back in RapidFix but no answer from the payment screen after a few seconds: don't keep the customer
+  // waiting — the booking page asks Razorpay directly and confirms within seconds.
+  let off = () => {};
+  const noAnswer = new Promise<never>((_, reject) => {
+    off = onNativeEvent((e) => {
+      if (e.event === 'state') setTimeout(() => reject(new Error(PAYMENT_CHECKING)), 5000);
+    });
+  });
+  const r = await Promise.race([result, noAnswer]).finally(off);
   if (!r) throw new Error('Payment cancelled');
   if (r.error) throw new Error(r.error);
   if (!r.razorpay_payment_id || !r.razorpay_order_id || !r.razorpay_signature) throw new Error('Payment could not be confirmed. If money was taken it will be matched automatically.');
@@ -96,4 +108,28 @@ export async function payWithRazorpay(order: RazorpayOrderDto): Promise<Razorpay
     rzp.on('payment.failed', (r) => reject(new Error(r.error?.description ?? 'Payment failed. Please try again.')));
     rzp.open();
   });
+}
+
+/** Remember that a payment was started for a booking (so its page keeps checking for ~15 min). */
+const ATTEMPT_KEY = (id: string) => `rapidfix.payAttempt.${id}`;
+export function markPaymentAttempt(bookingId: string) {
+  try {
+    localStorage.setItem(ATTEMPT_KEY(bookingId), String(Date.now()));
+  } catch {
+    /* storage unavailable */
+  }
+}
+export function recentPaymentAttempt(bookingId: string, withinMs = 15 * 60_000) {
+  try {
+    return Date.now() - Number(localStorage.getItem(ATTEMPT_KEY(bookingId)) ?? 0) < withinMs;
+  } catch {
+    return false;
+  }
+}
+export function clearPaymentAttempt(bookingId: string) {
+  try {
+    localStorage.removeItem(ATTEMPT_KEY(bookingId));
+  } catch {
+    /* storage unavailable */
+  }
 }

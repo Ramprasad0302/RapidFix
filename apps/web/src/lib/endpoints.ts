@@ -170,6 +170,7 @@ export const customerApi = {
   createAddress: (body: AddressInput) => unwrap<AddressDto>(api.post('/customer/addresses', body)),
   updateAddress: (id: string, body: AddressInput) => unwrap<AddressDto>(api.put(`/customer/addresses/${id}`, body)),
   deleteAddress: (id: string) => unwrap<{ deleted: boolean }>(api.delete(`/customer/addresses/${id}`)),
+  syncPayment: (id: string) => unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/payment/sync`)),
   payLater: (id: string) => unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/payment/pay-later`)),
   razorpayOrder: (id: string) => unwrap<RazorpayOrderDto>(api.post(`/customer/bookings/${id}/payment/razorpay-order`)),
   razorpayVerify: (id: string, body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>

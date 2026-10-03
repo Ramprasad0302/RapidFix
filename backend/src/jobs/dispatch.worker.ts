@@ -2,7 +2,7 @@ import { BookingStatus } from '@fixora/shared-types';
 import { logger } from '../config/logger';
 import { prisma } from '../config/prisma';
 import { dispatchBooking, expireOffers } from '../services/assignment.service';
-import { expireUnpaidBookings } from '../services/payment.service';
+import { expireUnpaidBookings, syncOpenOrders } from '../services/payment.service';
 
 /** A booking with no candidates is retried at most this often. */
 const RETRY_MS = 30_000;
@@ -16,12 +16,18 @@ export function startDispatchWorker(intervalMs = 5000) {
   const lastTried = new Map<string, number>();
   let running = false;
   let lastExpiry = 0;
+  let lastSync = 0;
 
   const tick = async () => {
     if (running) return;
     running = true;
     try {
       await expireOffers();
+      // Every 15 s: open Razorpay orders — confirms payments even when the phone never reported back.
+      if (Date.now() - lastSync > 15_000) {
+        lastSync = Date.now();
+        await syncOpenOrders();
+      }
       // Once a minute: "pay online" bookings whose payment never completed.
       if (Date.now() - lastExpiry > 60_000) {
         lastExpiry = Date.now();

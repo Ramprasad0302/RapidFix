@@ -148,7 +148,10 @@ export async function rankCandidates(booking: DispatchBooking, opts: { forAdmin?
     };
   });
 
-  return ranked.sort((a, b) => Number(b.eligible) - Number(a.eligible) || b.score - a.score);
+  // Nearest available technician first; if they don't accept, the next nearest. Rating and workload
+  // (the score) only break ties between technicians the same distance away (to 100 m).
+  const km = (c: RankedCandidate) => (c.distanceKm == null ? Number.POSITIVE_INFINITY : Math.round(c.distanceKm * 10));
+  return ranked.sort((a, b) => Number(b.eligible) - Number(a.eligible) || km(a) - km(b) || b.score - a.score);
 }
 
 async function loadBooking(id: string) {

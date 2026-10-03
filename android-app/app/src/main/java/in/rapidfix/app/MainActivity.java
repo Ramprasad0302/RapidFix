@@ -435,6 +435,11 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        // Razorpay checkout (incl. the round trip to PhonePe / GPay / Paytm) reports back here.
+        if (requestCode == Checkout.RZP_REQUEST_CODE) {
+            Checkout.handleActivityResult(this, requestCode, resultCode, data, this, null);
+            return;
+        }
         if (requestCode != REQ_FILE || fileCallback == null) return;
         Uri[] result = null;
         if (resultCode == RESULT_OK) {

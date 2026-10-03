@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prisma } from '../src/config/prisma';
 import { dispatchBooking } from '../src/services/assignment.service';
-import { expireUnpaidBookings, UNPAID_BOOKING_TTL_MS } from '../src/services/payment.service';
+import { expireUnpaidBookings, syncOpenOrders, UNPAID_BOOKING_TTL_MS } from '../src/services/payment.service';
 import { clearSettingsCache } from '../src/services/settings.service';
 import { signAccessToken } from '../src/services/token.service';
 import { API, bearer, otpLogin, request, resetDb, sampleAddress, seedCatalog } from './helpers';
@@ -283,5 +283,75 @@ describe('₹100 advance on every booking', () => {
     await request().post(`${API}/customer/bookings/${full.id}/cancel`).set(bearer(customer.token)).send({ reason: 'Not needed' }).expect(200);
     expect(calls).toEqual([expect.objectContaining({ path: '/payments/pay_ADV2/refund', body: expect.objectContaining({ amount: 10_000 }) })]);
     expect((await prisma.booking.findUniqueOrThrow({ where: { id: full.id } })).status).toBe('REFUNDED');
+  });
+});
+
+describe('fast confirmation and nearest technician first', () => {
+  beforeEach(async () => {
+    await prisma.setting.upsert({ where: { key: 'pricing.bookingAdvanceRupees' }, update: { value: 100 }, create: { key: 'pricing.bookingAdvanceRupees', value: 100 } });
+    clearSettingsCache();
+  });
+  afterEach(() => clearSettingsCache());
+
+  async function openAdvanceOrder(orderId: string) {
+    const b = await book('CASH');
+    fakeRazorpay({ 'POST /orders': { id: orderId } });
+    await request().post(`${API}/customer/bookings/${b.id}/payment/razorpay-order`).set(bearer(customer.token)).send({}).expect(200);
+    return b.id as string;
+  }
+
+  it('back from the UPI app: sync captures an authorized payment and confirms the booking at once', async () => {
+    const id = await openAdvanceOrder('order_SYNC');
+    const calls = fakeRazorpay({
+      'GET /orders/order_SYNC/payments': { items: [{ id: 'pay_UPI', amount: 10_000, status: 'authorized' }] },
+      'POST /payments/pay_UPI/capture': { id: 'pay_UPI', amount: 10_000, status: 'captured' },
+    });
+    const r = await request().post(`${API}/customer/bookings/${id}/payment/sync`).set(bearer(customer.token)).send({}).expect(200);
+    expect(r.body.data).toMatchObject({ status: 'SEARCHING', payNow: 0 });
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /orders/order_SYNC/payments', 'POST /payments/pay_UPI/capture']);
+  });
+
+  it('the background check confirms a payment even if the phone never reported back', async () => {
+    const id = await openAdvanceOrder('order_BG');
+    fakeRazorpay({ 'GET /orders/order_BG/payments': { items: [{ id: 'pay_BG', amount: 10_000, status: 'captured' }] } });
+    expect(await syncOpenOrders()).toBe(1);
+    expect((await prisma.booking.findUniqueOrThrow({ where: { id } })).status).toBe('SEARCHING');
+  });
+
+  it('offers the job to the nearest technician first, then the next nearest', async () => {
+    // A better-rated technician 4 km away vs Ravi ~1 km away.
+    const far = await prisma.user.create({
+      data: {
+        role: 'TECHNICIAN',
+        phone: '+919000000102',
+        name: 'Far Expert',
+        technician: {
+          create: {
+            languages: [],
+            villageTown: 'Tanuku',
+            district: 'West Godavari',
+            state: 'Andhra Pradesh',
+            pincode: '534211',
+            verificationStatus: 'VERIFIED',
+            isOnline: true,
+            ratingAvg: 5,
+            ratingCount: 200,
+            lastLatitude: 16.79,
+            lastLongitude: 81.6818,
+            skills: { create: { categoryId } },
+            wallet: { create: {} },
+          },
+        },
+      },
+      include: { technician: true },
+    });
+    await prisma.setting.upsert({ where: { key: 'pricing.bookingAdvanceRupees' }, update: { value: 0 }, create: { key: 'pricing.bookingAdvanceRupees', value: 0 } });
+    clearSettingsCache();
+    const b = await book('CASH');
+    expect(await dispatchBooking(b.id)).toBe('offered');
+    expect((await prisma.booking.findUniqueOrThrow({ where: { id: b.id } })).technicianId).toBe(tech.techId);
+
+    await request().post(`${API}/technician/jobs/${b.id}/reject`).set(bearer(tech.token)).send({}).expect(200);
+    expect((await prisma.booking.findUniqueOrThrow({ where: { id: b.id } })).technicianId).toBe(far.technician!.id);
   });
 });

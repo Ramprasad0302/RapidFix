@@ -7,7 +7,7 @@ import { Alert, Button, cx } from '@fixora/ui';
 import { ServiceArt } from '../../../components/ServiceArt';
 import { Skeleton } from '../../../components/States';
 import { catalogApi, customerApi, trustApi, uploadApi, type ServiceAreaCheckDto } from '../../../lib/endpoints';
-import { payWithRazorpay } from '../../../lib/razorpay';
+import { markPaymentAttempt, PAYMENT_CHECKING, payWithRazorpay } from '../../../lib/razorpay';
 import { toast } from '../../../store/toast';
 import { addressLines, durationRange, formatDate, slotRange } from '../../../lib/format';
 import { useAuth } from '../../../store/auth';
@@ -88,6 +88,7 @@ export function ReviewStepPage() {
       // Pay online: Razorpay opens right away; the booking is sent to technicians once it's paid.
       try {
         setProgress('Opening secure payment…');
+        markPaymentAttempt(booking.id);
         const signed = await payWithRazorpay(await customerApi.razorpayOrder(booking.id));
         setProgress('Confirming payment…');
         return { booking: await customerApi.razorpayVerify(booking.id, signed), paid: true as const };
@@ -104,7 +105,8 @@ export function ReviewStepPage() {
         return;
       }
       // Not paid (closed / failed): the booking page offers "Pay now" or "Pay after service".
-      toast(r.reason === 'Payment cancelled' ? 'Payment not completed — pay now or choose pay after service.' : r.reason, r.reason === 'Payment cancelled' ? 'default' : 'error');
+      if (r.reason === PAYMENT_CHECKING) toast('Confirming your payment with the bank…');
+      else toast(r.reason === 'Payment cancelled' ? 'Payment not completed — tap Pay now to try again.' : r.reason, r.reason === 'Payment cancelled' ? 'default' : 'error');
       navigate(`/bookings/${booking.id}`, { replace: true });
     },
     onSettled: () => setProgress(null),
