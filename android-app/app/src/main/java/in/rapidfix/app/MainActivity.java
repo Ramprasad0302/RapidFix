@@ -57,6 +57,12 @@ import androidx.webkit.WebMessageCompat;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 
+import com.google.android.gms.common.api.ResolvableApiException;
+import com.google.android.gms.location.CurrentLocationRequest;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.Priority;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.razorpay.Checkout;
 import com.razorpay.PaymentData;
@@ -89,6 +95,8 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
     private static final int REQ_NOTIFICATIONS = 1;
     private static final int REQ_LOCATION = 2;
     private static final int REQ_FILE = 3;
+    private static final int REQ_LOCATION_FIX = 4;
+    private static final int REQ_GPS_ON = 5;
 
     private static volatile boolean foreground;
     private static WeakReference<MainActivity> current = new WeakReference<>(null);
@@ -101,6 +109,7 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
     private JavaScriptReplyProxy bridge;
     private String pendingPermissionId;
     private String pendingPaymentId;
+    private String pendingLocationId;
     private ValueCallback<Uri[]> fileCallback;
     private Uri cameraUri;
     private GeolocationPermissions.Callback geoCallback;
@@ -435,6 +444,10 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_GPS_ON) {
+            fetchPreciseLocation(); // switched on, or not — try with whatever is available
+            return;
+        }
         // Razorpay checkout (incl. the round trip to PhonePe / GPay / Paytm) reports back here.
         if (requestCode == Checkout.RZP_REQUEST_CODE) {
             Checkout.handleActivityResult(this, requestCode, resultCode, data, this, null);
@@ -546,6 +559,15 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
                 CookieManager.getInstance().flush();
                 respond(id, null);
                 break;
+            case "getLocation":
+                // Precise position from Android's fused location (GPS + Wi-Fi + cell), like delivery apps.
+                pendingLocationId = id;
+                if (hasLocationPermission()) ensureLocationOnThenFix();
+                else {
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("locationAsked", true).apply();
+                    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION_FIX);
+                }
+                break;
             case "catalogSnapshot":
                 respond(id, BundledWeb.catalogSnapshot(this));
                 break;
@@ -615,6 +637,76 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
         } catch (JSONException ignored) {
         }
         send(e);
+    }
+
+    // ── Precise location ────────────────────────────────────────────────────
+
+    /** Phone's Location switched off? Show Google's one-tap "Turn on location" dialog first. */
+    private void ensureLocationOnThenFix() {
+        LocationSettingsRequest req = new LocationSettingsRequest.Builder()
+                .addLocationRequest(new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).build())
+                .setAlwaysShow(true)
+                .build();
+        LocationServices.getSettingsClient(this).checkLocationSettings(req)
+                .addOnSuccessListener(r -> fetchPreciseLocation())
+                .addOnFailureListener(e -> {
+                    if (e instanceof ResolvableApiException) {
+                        try {
+                            ((ResolvableApiException) e).startResolutionForResult(this, REQ_GPS_ON);
+                            return;
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    fetchPreciseLocation();
+                });
+    }
+
+    @SuppressLint("MissingPermission")
+    private void fetchPreciseLocation() {
+        if (!hasLocationPermission()) {
+            finishLocation(locationError("denied"));
+            return;
+        }
+        CurrentLocationRequest req = new CurrentLocationRequest.Builder()
+                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                .setMaxUpdateAgeMillis(5_000)
+                .setDurationMillis(20_000)
+                .build();
+        com.google.android.gms.location.FusedLocationProviderClient fused = LocationServices.getFusedLocationProviderClient(this);
+        fused.getCurrentLocation(req, null)
+                .addOnSuccessListener(loc -> {
+                    if (loc != null) {
+                        finishLocation(locationJson(loc));
+                        return;
+                    }
+                    fused.getLastLocation().addOnSuccessListener(last -> finishLocation(last != null ? locationJson(last) : locationError("unavailable")))
+                            .addOnFailureListener(e -> finishLocation(locationError("unavailable")));
+                })
+                .addOnFailureListener(e -> finishLocation(locationError("unavailable")));
+    }
+
+    private static JSONObject locationJson(android.location.Location loc) {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("latitude", loc.getLatitude()).put("longitude", loc.getLongitude()).put("accuracy", Math.round(loc.getAccuracy()));
+        } catch (JSONException ignored) {
+        }
+        return o;
+    }
+
+    private static JSONObject locationError(String code) {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("error", code);
+        } catch (JSONException ignored) {
+        }
+        return o;
+    }
+
+    private void finishLocation(JSONObject result) {
+        String id = pendingLocationId;
+        pendingLocationId = null;
+        if (id != null) respond(id, result);
     }
 
     // ── Payments ────────────────────────────────────────────────────────────
@@ -752,6 +844,9 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
         if (requestCode == REQ_NOTIFICATIONS && pendingPermissionId != null) {
             respond(pendingPermissionId, notificationState());
             pendingPermissionId = null;
+        } else if (requestCode == REQ_LOCATION_FIX) {
+            if (hasLocationPermission()) ensureLocationOnThenFix();
+            else finishLocation(locationError("denied"));
         } else if (requestCode == REQ_LOCATION && geoCallback != null) {
             geoCallback.invoke(geoOrigin, hasLocationPermission(), hasLocationPermission());
             geoCallback = null;

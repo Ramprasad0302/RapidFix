@@ -355,3 +355,40 @@ describe('fast confirmation and nearest technician first', () => {
     expect((await prisma.booking.findUniqueOrThrow({ where: { id: b.id } })).technicianId).toBe(far.technician!.id);
   });
 });
+
+describe('reachable technicians first', () => {
+  it('a technician whose phone checked in recently is offered before a closer one whose phone went quiet', async () => {
+    await prisma.setting.upsert({ where: { key: 'pricing.bookingAdvanceRupees' }, update: { value: 0 }, create: { key: 'pricing.bookingAdvanceRupees', value: 0 } });
+    clearSettingsCache();
+    // Ravi is nearest but his phone last checked in an hour ago (app killed / phone off).
+    await prisma.technician.update({ where: { id: tech.techId }, data: { lastLocationAt: new Date(Date.now() - 60 * 60_000) } });
+    const active = await prisma.user.create({
+      data: {
+        role: 'TECHNICIAN',
+        phone: '+919000000103',
+        name: 'Active Phone',
+        technician: {
+          create: {
+            languages: [],
+            villageTown: 'Tanuku',
+            district: 'West Godavari',
+            state: 'Andhra Pradesh',
+            pincode: '534211',
+            verificationStatus: 'VERIFIED',
+            isOnline: true,
+            lastLatitude: 16.78,
+            lastLongitude: 81.6818,
+            lastLocationAt: new Date(),
+            skills: { create: { categoryId } },
+            wallet: { create: {} },
+          },
+        },
+      },
+      include: { technician: true },
+    });
+    const b = await book('CASH');
+    expect(await dispatchBooking(b.id)).toBe('offered');
+    expect((await prisma.booking.findUniqueOrThrow({ where: { id: b.id } })).technicianId).toBe(active.technician!.id);
+    clearSettingsCache();
+  });
+});

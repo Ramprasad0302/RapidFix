@@ -1,5 +1,6 @@
 import { BookingStatus as B, SocketEvent, type AssignmentCandidateDto, type BookingStatus } from '@fixora/shared-types';
 import { haversineKm } from '@fixora/shared-utils';
+import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { prisma } from '../config/prisma';
 import type { Prisma } from '../generated/prisma/client';
@@ -44,10 +45,14 @@ export interface RankedCandidate extends AssignmentCandidateDto {
   userId: string;
   /** Missed (didn't answer) this booking earlier — asked again only when nobody new is free. */
   retry?: boolean;
+  /** Phone checked in within the last few minutes (app running). */
+  reachable?: boolean;
 }
 
 /** A technician who didn't answer (not one who rejected) may be asked again after this long. */
 const MISSED_RETRY_MS = 2 * 60_000;
+/** A technician's phone counts as reachable if it sent its location this recently. */
+const REACHABLE_MS = 5 * 60_000;
 
 /** Pure scoring — exported for tests and so admins can reason about the order. */
 export function scoreCandidate(
@@ -142,6 +147,7 @@ export async function rankCandidates(booking: DispatchBooking, opts: { forAdmin?
       ratingAvg: Math.round(t.ratingAvg * 10) / 10,
       activeJobs: t.activeJobCount,
       retry: missedLongAgo.has(t.id),
+      reachable: !!t.lastLocationAt && now - t.lastLocationAt.getTime() < REACHABLE_MS,
       score: scoreCandidate(settings.weights, { distanceKm, radiusKm, ratingAvg: t.ratingAvg, activeJobs: t.activeJobCount }),
       eligible: reason === null,
       reason,
@@ -150,8 +156,10 @@ export async function rankCandidates(booking: DispatchBooking, opts: { forAdmin?
 
   // Nearest available technician first; if they don't accept, the next nearest. Rating and workload
   // (the score) only break ties between technicians the same distance away (to 100 m).
+  // Technicians whose phone checked in recently (the app's "online for jobs" service sends GPS every
+  // 30 s) come first: an offer to a phone that is off or killed would just wait out the timeout.
   const km = (c: RankedCandidate) => (c.distanceKm == null ? Number.POSITIVE_INFINITY : Math.round(c.distanceKm * 10));
-  return ranked.sort((a, b) => Number(b.eligible) - Number(a.eligible) || km(a) - km(b) || b.score - a.score);
+  return ranked.sort((a, b) => Number(b.eligible) - Number(a.eligible) || Number(b.reachable) - Number(a.reachable) || km(a) - km(b) || b.score - a.score);
 }
 
 async function loadBooking(id: string) {
@@ -192,6 +200,12 @@ async function offer(booking: DispatchBooking, c: RankedCandidate, opts: { manua
     });
   });
   emitToUser(c.userId, SocketEvent.BOOKING_REQUEST, { bookingId: booking.id, expiresAt: expiresAt.toISOString() });
+  // Ring the technician's phone now — don't wait for the notification worker's next pass.
+  if (env.NODE_ENV !== 'test') {
+    void import('../jobs/notification.worker')
+      .then(({ deliverPendingNotifications }) => deliverPendingNotifications())
+      .catch((err) => logger.warn({ err }, 'instant job alert failed'));
+  }
   emitToUser(booking.customer.userId, SocketEvent.TECHNICIAN_ASSIGNED, { bookingId: booking.id });
 }
 

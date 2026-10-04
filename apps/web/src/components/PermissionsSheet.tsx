@@ -12,6 +12,8 @@ import { NotificationAskDialog } from './NotificationAskDialog';
 type State = 'granted' | 'denied' | 'prompt' | 'unsupported';
 const GEO_KEY = 'rapidfix.permissionsAsked';
 const NOTIF_KEY = 'rapidfix.notificationsAsked';
+/** Located automatically once per visit (a new app launch / browser session). */
+const AUTO_LOCATED_KEY = 'rapidfix.autoLocated';
 
 async function geolocationState(): Promise<State> {
   // Android app: the WebView can't report it, so ask the app (Android's own permission).
@@ -86,10 +88,13 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
     };
   }, []);
 
-  // Permission already granted but no location chosen yet: detect it silently (like delivery apps do).
+  // Location already allowed on this device: pick up where the customer is now, silently, every time the
+  // app / website is opened (like delivery apps). A place they choose by hand stays until the next visit.
   useEffect(() => {
-    if (location === 'customer' && geo === 'granted' && !selected) void locateAndSelect(select).catch(() => undefined);
-  }, [location, geo, selected, select]);
+    if (location !== 'customer' || geo !== 'granted' || sessionFlag(AUTO_LOCATED_KEY)) return;
+    sessionFlag(AUTO_LOCATED_KEY, true);
+    void locateAndSelect(select).catch(() => undefined);
+  }, [location, geo, select]);
 
   // Customers without a location also see it when GPS is blocked, to pick their area by hand.
   const needGeo = !!location && (geo === 'prompt' || (location === 'customer' && !selected && (geo === 'denied' || geo === 'unsupported')));

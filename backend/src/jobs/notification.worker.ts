@@ -32,7 +32,7 @@ export async function deliverPendingNotifications(limit = 100): Promise<number> 
   return pending.length;
 }
 
-export function startNotificationWorker(intervalMs = 2000) {
+export function startNotificationWorker(intervalMs = 1000) {
   let running = false;
   const timer = setInterval(() => {
     if (running) return;

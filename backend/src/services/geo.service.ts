@@ -98,7 +98,33 @@ interface GComponent {
 interface GResult {
   formatted_address: string;
   address_components: GComponent[];
-  geometry: { location: { lat: number; lng: number } };
+  geometry: { location: { lat: number; lng: number }; location_type?: string };
+  types?: string[];
+}
+
+/** Most specific first: a building / door, then a street address, then a road… (plus codes last). */
+const PRECISION = ['subpremise', 'premise', 'establishment', 'point_of_interest', 'street_address', 'route', 'sublocality', 'neighborhood', 'locality'];
+const rank = (r: GResult) => {
+  if (r.types?.includes('plus_code')) return 99;
+  const i = PRECISION.findIndex((t) => r.types?.includes(t));
+  return (i === -1 ? 50 : i) - (r.geometry.location_type === 'ROOFTOP' ? 0.5 : 0);
+};
+
+/**
+ * Google returns several results for one point (the building, the street, the area…).
+ * Use the most precise one and fill anything it lacks (area, town, PIN) from the others.
+ */
+function fromGoogleResults(results: GResult[]): GeoAddress {
+  const sorted = [...results].sort((a, b) => rank(a) - rank(b));
+  const best = fromGoogle(sorted[0]!);
+  for (const r of sorted.slice(1)) {
+    const more = fromGoogle(r);
+    for (const k of ['houseNo', 'street', 'area', 'villageTown', 'district', 'state', 'pincode'] as const) {
+      if (!best[k] && more[k]) best[k] = more[k];
+    }
+  }
+  if (!best.title) best.title = [best.area || best.street, best.villageTown].filter(Boolean).join(', ');
+  return best;
 }
 
 function fromGoogle(r: GResult): GeoAddress {
@@ -130,9 +156,8 @@ export async function reverseGeocode(lat: number, lng: number): Promise<GeoAddre
       const data = (await getJson(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&region=in&key=${env.GOOGLE_MAPS_API_KEY}`,
       )) as { results?: GResult[] };
-      const first = data.results?.[0];
-      if (!first) throw AppError.notFound('No address found here', 'ADDRESS_NOT_FOUND');
-      return fromGoogle(first);
+      if (!data.results?.length) throw AppError.notFound('No address found here', 'ADDRESS_NOT_FOUND');
+      return fromGoogleResults(data.results);
     }
     const data = (await getJson(
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=${lat}&lon=${lng}`,
