@@ -17,11 +17,16 @@ export async function resetDb() {
     `SELECT TABLE_NAME AS t FROM information_schema.TABLES
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME <> '_prisma_migrations'`,
   );
-  await prisma.$transaction([
-    prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0'),
-    ...tables.map(({ t }) => prisma.$executeRawUnsafe(`TRUNCATE TABLE \`${t}\``)),
-    prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1'),
-  ]);
+  // One connection (FOREIGN_KEY_CHECKS is per session). TRUNCATE is slow DDL on MySQL 8.4 — ~40
+  // tables can take longer than Prisma's default 5 s transaction limit on a CI runner.
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0');
+      for (const { t } of tables) await tx.$executeRawUnsafe(`TRUNCATE TABLE \`${t}\``);
+      await tx.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1');
+    },
+    { timeout: 60_000, maxWait: 10_000 },
+  );
 }
 
 /** Captures OTP codes as the provider "sends" them. */
