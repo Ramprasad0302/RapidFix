@@ -192,6 +192,8 @@ export interface BookingDetailDto extends BookingListItemDto {
     serviceCharge: number;
     visitCharge: number;
     additionalCharges: number;
+    /** Spare parts the technician bought for the job. */
+    spareParts: number;
     discount: number;
     tax: number;
     total: number;
@@ -205,6 +207,7 @@ export interface BookingDetailDto extends BookingListItemDto {
   cancellationReason: string | null;
   createdAt: string;
   additionalChargeItems: AdditionalChargeDto[];
+  sparePartItems: SparePartDto[];
   payment: PaymentInfoDto | null;
   review: ReviewInfoDto | null;
   /** Razorpay keys are configured on the server. */
@@ -277,10 +280,13 @@ export interface TechnicianJobDetailDto extends TechnicianJobDto {
   technicianNotes: string | null;
   timeline: TimelineStepDto[];
   actions: TechnicianJobAction[];
-  price: { serviceCharge: number; visitCharge: number; additionalCharges: number; discount: number; tax: number; total: number };
+  price: { serviceCharge: number; visitCharge: number; additionalCharges: number; spareParts: number; discount: number; tax: number; total: number };
   additionalChargeItems: AdditionalChargeDto[];
+  sparePartItems: SparePartDto[];
   payment: PaymentInfoDto | null;
   canRequestAdditionalCharge: boolean;
+  /** From starting the work until the bill is paid. */
+  canEditSpareParts: boolean;
   canCollectPayment: boolean;
   /** Left to collect from the customer (0 when the customer prepaid online). */
   amountDue: number;
@@ -507,6 +513,18 @@ export interface AdditionalChargeDto {
   respondedAt: string | null;
 }
 
+/** A spare part the technician bought for the job (on the bill and invoice). Amounts in paise. */
+export interface SparePartDto {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  /** Photo of the shop bill (public upload path), if the technician added one. */
+  billPhotoUrl: string | null;
+  createdAt: string;
+}
+
 export interface PaymentInfoDto {
   status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
   method: 'CASH' | 'UPI' | 'RAZORPAY';
@@ -551,7 +569,9 @@ export interface InvoiceDto {
   bookingCode: string;
   service: string;
   serviceDate: string;
-  items: { name: string; quantity: number; unitPrice: number; amount: number }[];
+  items: { name: string; quantity: number; unitPrice: number; amount: number; kind?: 'SPARE_PART' }[];
+  /** Spare parts included in the subtotal. */
+  spareParts: number;
   subtotal: number;
   discount: number;
   couponCode: string | null;
@@ -638,6 +658,8 @@ export interface TechnicianDetailsDto extends TechnicianProfileSummary {
   baseLatitude: number | null;
   baseLongitude: number | null;
   rejectionReason: string | null;
+  /** ID numbers given at sign-up: Aadhaar shows only its last 4 digits. */
+  kyc: { aadhaarLast4: string | null; panNumber: string | null };
 }
 
 export interface TechnicianReviewDto {

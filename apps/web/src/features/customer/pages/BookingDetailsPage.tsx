@@ -185,6 +185,26 @@ function Details({ b }: { b: BookingDetailDto }) {
               <PriceRow label="Service Charge" value={b.price.serviceCharge} />
               {b.price.visitCharge > 0 && <PriceRow label="Visit Charge" value={b.price.visitCharge} />}
               {b.price.additionalCharges > 0 && <PriceRow label="Additional Work" value={b.price.additionalCharges} />}
+              {b.sparePartItems.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <PriceRow label="Spare parts" value={b.price.spareParts} />
+                  <ul className="flex flex-col gap-1.5 border-l-2 border-slate-100 pl-3 text-sm text-slate-500">
+                    {b.sparePartItems.map((p) => (
+                      <li key={p.id} className="flex items-center justify-between gap-3">
+                        <span className="min-w-0">
+                          {p.name} · {p.quantity} × {formatINR(p.unitPrice)}
+                          {p.billPhotoUrl && (
+                            <a href={mediaUrl(p.billPhotoUrl)!} target="_blank" rel="noopener noreferrer" className="ml-1.5 font-medium text-fixora-blue">
+                              View bill
+                            </a>
+                          )}
+                        </span>
+                        <span>{formatINR(p.amount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {b.price.discount > 0 && (
                 <PriceRow label={`Discount${b.couponCode ? ` (${b.couponCode})` : ''}`} value={-b.price.discount} className="text-success" />
               )}

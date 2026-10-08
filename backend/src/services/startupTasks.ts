@@ -118,6 +118,35 @@ ALTER TABLE \`technicians\` ADD COLUMN \`aadhaarLast4\` VARCHAR(4) NULL;
 ALTER TABLE \`technicians\` ADD COLUMN \`panNumber\` VARCHAR(10) NULL;
 `;
 
+/** Same SQL as prisma/migrations/20261008090000_spare_parts. */
+const SPARE_PARTS_SQL = `-- Spare parts the technician bought for a job: itemised on the bill and invoice, reimbursed to the technician.
+-- AlterTable
+ALTER TABLE \`bookings\` ADD COLUMN \`sparePartsTotal\` INTEGER NOT NULL DEFAULT 0;
+
+-- CreateTable
+CREATE TABLE \`booking_spare_parts\` (
+    \`id\` CHAR(36) NOT NULL,
+    \`bookingId\` CHAR(36) NOT NULL,
+    \`technicianId\` CHAR(36) NOT NULL,
+    \`name\` VARCHAR(160) NOT NULL,
+    \`quantity\` INTEGER NOT NULL DEFAULT 1,
+    \`unitPrice\` INTEGER NOT NULL,
+    \`amount\` INTEGER NOT NULL,
+    \`billPhotoUrl\` VARCHAR(512) NULL,
+    \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX \`booking_spare_parts_bookingId_idx\`(\`bookingId\`),
+    INDEX \`booking_spare_parts_technicianId_idx\`(\`technicianId\`),
+    PRIMARY KEY (\`id\`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE \`booking_spare_parts\` ADD CONSTRAINT \`booking_spare_parts_bookingId_fkey\` FOREIGN KEY (\`bookingId\`) REFERENCES \`bookings\`(\`id\`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE \`booking_spare_parts\` ADD CONSTRAINT \`booking_spare_parts_technicianId_fkey\` FOREIGN KEY (\`technicianId\`) REFERENCES \`technicians\`(\`id\`) ON DELETE CASCADE ON UPDATE CASCADE;
+`;
+
 /** MySQL errors that mean "this part is already there": duplicate column / key / table / foreign key. */
 const ALREADY_APPLIED = new Set([1050, 1060, 1061, 1826, 1022]);
 
@@ -174,12 +203,24 @@ export async function removeDiscontinuedCategories(): Promise<number> {
   return count;
 }
 
+/**
+ * Earlier versions copied the home address into the technician's live position at sign-up, so
+ * technicians who never shared GPS looked like they were at home. Positions that never came from
+ * a GPS ping (no lastLocationAt) are cleared; they're matched by town / district until the app
+ * sends a real one. Safe to repeat.
+ */
+export function clearNonGpsPositions() {
+  return prisma.technician.updateMany({ where: { lastLocationAt: null, lastLatitude: { not: null } }, data: { lastLatitude: null, lastLongitude: null } });
+}
+
 export async function runStartupTasks() {
   const steps: [string, () => Promise<unknown>][] = [
     ['technician_services table', () => prisma.$executeRawUnsafe(TECHNICIAN_SERVICES_TABLE)],
     ['chat_blocks table', () => prisma.$executeRawUnsafe(CHAT_BLOCKS_TABLE)],
     ['franchises schema', () => applyIdempotent(FRANCHISES_SQL)],
     ['technician KYC columns', () => applyIdempotent(TECHNICIAN_KYC_SQL)],
+    ['spare parts schema', () => applyIdempotent(SPARE_PARTS_SQL)],
+    ['home address is not a live position', clearNonGpsPositions],
     ['discontinued categories', removeDiscontinuedCategories],
     ['Technician Visit services', ensureVisitServices],
   ];
@@ -193,4 +234,4 @@ export async function runStartupTasks() {
 }
 
 /** For tests: the start-up SQL must match the migration files. */
-export const startupSql = { technicianServices: TECHNICIAN_SERVICES_TABLE, chatBlocks: CHAT_BLOCKS_TABLE, franchises: FRANCHISES_SQL, technicianKyc: TECHNICIAN_KYC_SQL };
+export const startupSql = { technicianServices: TECHNICIAN_SERVICES_TABLE, chatBlocks: CHAT_BLOCKS_TABLE, franchises: FRANCHISES_SQL, technicianKyc: TECHNICIAN_KYC_SQL, spareParts: SPARE_PARTS_SQL };

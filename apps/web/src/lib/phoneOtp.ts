@@ -71,10 +71,32 @@ async function freshVerifier() {
   return verifier;
 }
 
+/**
+ * Load Firebase and the invisible reCAPTCHA while the person is still typing their number,
+ * so "Send OTP" goes straight to Firebase instead of first downloading ~200 KB of SDK and
+ * Google's reCAPTCHA (that wait was most of the "OTP takes long" delay on mobile data).
+ */
+let warming: Promise<void> | null = null;
+export function prewarmFirebaseOtp() {
+  if (!firebaseConfigured() || verifier) return;
+  warming ??= freshVerifier()
+    .then((v) => v.render())
+    .then(() => undefined)
+    .catch(() => {
+      // Not fatal: send() creates a verifier again if this one didn't make it.
+      verifier?.clear();
+      verifier = null;
+    })
+    .finally(() => {
+      warming = null;
+    });
+}
+
 export const firebaseOtp: OtpSender = {
   async send(phone) {
     if (!firebaseConfigured()) throw new OtpError('Phone sign-in isn’t set up in this app build (missing VITE_FIREBASE_* settings).');
     try {
+      if (warming) await warming;
       const { auth, mod } = await firebaseAuth();
       pending = await mod.signInWithPhoneNumber(auth, toE164India(phone), verifier ?? (await freshVerifier()));
       return { resendInSeconds: 30 };
@@ -91,9 +113,11 @@ export const firebaseOtp: OtpSender = {
       const cred = await pending.confirm(code);
       const idToken = await cred.user.getIdToken();
       const session = await authApi.firebaseLogin(idToken);
-      // RapidFix keeps its own session; the Firebase one isn't needed any more.
-      const { auth } = await firebaseAuth();
-      await auth.signOut().catch(() => undefined);
+      // RapidFix keeps its own session; the Firebase one isn't needed any more (signed out in the
+      // background — the person is already in).
+      void firebaseAuth()
+        .then(({ auth }) => auth.signOut())
+        .catch(() => undefined);
       pending = null;
       return session;
     } catch (e) {

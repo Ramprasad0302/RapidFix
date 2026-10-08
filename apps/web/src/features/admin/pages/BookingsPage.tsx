@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarCheck2, Gavel, MessageSquareText, RotateCcw, UserPlus, XCircle } from 'lucide-react';
 import { BookingStatus, canTransition, hasPermission, Permission, type AdminBookingDetailDto, type AdminBookingRowDto } from '@fixora/shared-types';
@@ -8,6 +9,7 @@ import { PinMap } from '../../../components/PinMap';
 import { Dialog } from '../../../components/Dialog';
 import { ErrorState, Skeleton } from '../../../components/States';
 import { Pill, StatusBadge } from '../../../components/StatusBadge';
+import { mediaUrl } from '../../../lib/api';
 import { adminModulesApi, bookingApi, type BookingGroup } from '../../../lib/endpoints';
 import { addressLines, formatDate, formatSchedule, formatTime } from '../../../lib/format';
 import { useBookingRoom } from '../../../lib/socket';
@@ -16,6 +18,9 @@ import { toast } from '../../../store/toast';
 import { AssignDialog } from '../components/AssignDialog';
 import { Card } from '../components/Card';
 import { DataTable, Facts, Field, humanize, inputCls, PageTitle, Pager, ReasonDialog, SearchBox, Section, useUrlParams, type Column, useFranchiseColumn } from '../components/kit';
+
+/** Same statuses the server issues an invoice for. */
+const INVOICE_READY: string[] = [BookingStatus.SERVICE_COMPLETED, BookingStatus.PAYMENT_PENDING, BookingStatus.PAYMENT_COMPLETED, BookingStatus.REFUNDED, BookingStatus.DISPUTED];
 
 const GROUPS: { value: BookingGroup; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -222,12 +227,22 @@ export function BookingDrawer({ id }: { id: string }) {
         />
       </Section>
 
-      <Section title="Money">
+      <Section
+        title="Money"
+        action={
+          INVOICE_READY.includes(b.status) && (
+            <Link to={`/admin/bookings/${b.id}/invoice`} className="text-sm font-medium text-fixora-blue">
+              View invoice
+            </Link>
+          )
+        }
+      >
         <Facts
           items={[
             ['Service charge', formatINR(b.price.serviceCharge)],
             ['Visit charge', formatINR(b.price.visitCharge)],
             ['Extra work', formatINR(b.price.additionalCharges)],
+            ...(b.price.spareParts > 0 ? [['Spare parts (no commission)', formatINR(b.price.spareParts)] as [string, string]] : []),
             [`Discount${b.couponCode ? ` (${b.couponCode})` : ''}`, `− ${formatINR(b.price.discount)}`],
             ...(b.price.tax > 0 ? [['GST', formatINR(b.price.tax)] as [string, string]] : []),
             ['Total', <b key="t">{formatINR(b.price.total)}</b>],
@@ -253,6 +268,32 @@ export function BookingDrawer({ id }: { id: string }) {
                   <span className="block font-semibold">{formatINR(t.amount)}</span>
                   <span className="text-xs text-slate-500">{formatDate(t.createdAt)}</span>
                 </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {b.sparePartItems.length > 0 && (
+        <Section title="Spare parts bought by the technician">
+          <ul className="divide-y divide-slate-100 text-sm">
+            {b.sparePartItems.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+                <span className="min-w-0">
+                  <span className="font-medium text-slate-900">{p.name}</span> · {p.quantity} × {formatINR(p.unitPrice)}
+                  <span className="block text-xs text-slate-500">
+                    Added {formatDate(p.createdAt)}, {formatTime(p.createdAt)}
+                    {p.billPhotoUrl && (
+                      <>
+                        {' · '}
+                        <a href={mediaUrl(p.billPhotoUrl)!} target="_blank" rel="noopener noreferrer" className="font-medium text-fixora-blue">
+                          Shop bill photo
+                        </a>
+                      </>
+                    )}
+                  </span>
+                </span>
+                <span className="font-semibold">{formatINR(p.amount)}</span>
               </li>
             ))}
           </ul>

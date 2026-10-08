@@ -9,7 +9,7 @@ import { Dialog } from '../../../components/Dialog';
 import { COMPLAINT_CATEGORIES, complaintApi, customerApi } from '../../../lib/endpoints';
 import { formatDate, formatTime } from '../../../lib/format';
 import { onNativeEvent } from '../../../lib/nativeApp';
-import { clearPaymentAttempt, markPaymentAttempt, openUpiPayment, PAYMENT_CHECKING, payWithRazorpay, recentPaymentAttempt } from '../../../lib/razorpay';
+import { clearPaymentAttempt, markPaymentAttempt, PAYMENT_CHECKING, payWithRazorpay, preloadCheckout, recentPaymentAttempt } from '../../../lib/razorpay';
 import { toast } from '../../../store/toast';
 
 const INVOICE_STATUSES = ['SERVICE_COMPLETED', 'PAYMENT_PENDING', 'PAYMENT_COMPLETED', 'REFUNDED', 'DISPUTED'];
@@ -136,24 +136,23 @@ function usePaymentWatch(b: BookingDetailDto, setBooking: (d: BookingDetailDto) 
 export function PaymentCard({ b }: { b: BookingDetailDto }) {
   const setBooking = useSetBooking(b.id);
   usePaymentWatch(b, setBooking);
-  const pay = useMutation({
+  // Both buttons open Razorpay's checkout on top of this page — never a separate Razorpay website.
+  useEffect(() => preloadCheckout(), []);
+  const payOnline = (method: 'any' | 'upi') => ({
     mutationFn: async () => {
       markPaymentAttempt(b.id);
       const order = await customerApi.razorpayOrder(b.id);
-      const signed = await payWithRazorpay(order);
+      const signed = await payWithRazorpay(order, method);
       return customerApi.razorpayVerify(b.id, signed);
     },
-    onSuccess: (d) => {
+    onSuccess: (d: BookingDetailDto) => {
       setBooking(d);
       toast(d.status === 'SEARCHING' ? 'Payment successful — booking confirmed!' : 'Payment successful. Thank you!');
     },
-    onError: (e) => toast(e.message === PAYMENT_CHECKING ? 'Confirming your payment with the bank…' : e.message, e.message === 'Payment cancelled' || e.message === PAYMENT_CHECKING ? 'default' : 'error'),
+    onError: (e: Error) => toast(e.message === PAYMENT_CHECKING ? 'Confirming your payment with the bank…' : e.message, e.message === 'Payment cancelled' || e.message === PAYMENT_CHECKING ? 'default' : 'error'),
   });
-  const upi = useMutation({
-    mutationFn: async () => openUpiPayment(b.id, await customerApi.upiLink(b.id)),
-    onSuccess: () => toast('Pay in PhonePe / Google Pay, then come back here — we confirm it automatically.'),
-    onError: (e) => toast(e.message, 'error'),
-  });
+  const pay = useMutation(payOnline('any'));
+  const upi = useMutation(payOnline('upi'));
   const busy = pay.isPending || upi.isPending;
   const payButtons = (
     <>

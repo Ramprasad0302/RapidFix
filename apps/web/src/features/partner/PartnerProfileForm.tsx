@@ -1,12 +1,13 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, ArrowRight, Bike, Check, Landmark, LocateFixed, ShieldCheck, Wrench } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bike, Camera, Check, FileCheck2, Landmark, Loader2, LocateFixed, ShieldCheck, Wrench } from 'lucide-react';
 import { dateOfBirthSchema, partnerPayoutSchema, toE164India } from '@fixora/shared-utils';
 import { Alert, Button, cx } from '@fixora/ui';
 import { useQuery } from '@tanstack/react-query';
-import { geoApi } from '../../lib/endpoints';
+import { documentUploadApi, geoApi } from '../../lib/endpoints';
+import { compressImage } from '../../lib/imageCompress';
 import { usePincodeFill } from '../../lib/usePincodeFill';
 import { requestCurrentPosition } from '../../store/location';
 import { STATES } from '../customer/components/AddressForm';
@@ -48,6 +49,10 @@ export const partnerSchema = z.object({
   payoutUpiId: z.string().optional(),
   aadhaarNumber: z.string().optional(),
   panNumber: z.string().optional(),
+  /** Private uploads of the ID cards (sign-up only), shown to the verification team. */
+  aadhaarFrontUrl: z.string().optional(),
+  aadhaarBackUrl: z.string().optional(),
+  panPhotoUrl: z.string().optional(),
 });
 export type PartnerFormValues = z.input<typeof partnerSchema>;
 
@@ -60,6 +65,7 @@ const registrationSchema = partnerSchema
     skills: z.array(z.string()).min(1, 'Choose at least one type of work'),
     ...partnerPayoutSchema.shape,
     confirmAccountNumber: z.string().trim(),
+    aadhaarFrontUrl: z.string({ error: 'Add a photo of the front of your Aadhaar card' }).min(1, 'Add a photo of the front of your Aadhaar card'),
   })
   .refine((v) => v.confirmAccountNumber === v.bankAccountNumber, { path: ['confirmAccountNumber'], message: "Account numbers don't match" });
 
@@ -71,7 +77,7 @@ const STEPS: { title: string; hint: string; fields: Field[] }[] = [
   {
     title: 'Bank & ID',
     hint: 'Your earnings are paid to this account',
-    fields: ['bankAccountHolder', 'bankAccountNumber', 'confirmAccountNumber', 'bankIfsc', 'payoutUpiId', 'aadhaarNumber', 'panNumber'],
+    fields: ['bankAccountHolder', 'bankAccountNumber', 'confirmAccountNumber', 'bankIfsc', 'payoutUpiId', 'aadhaarNumber', 'panNumber', 'aadhaarFrontUrl', 'aadhaarBackUrl', 'panPhotoUrl'],
   },
 ];
 
@@ -387,7 +393,7 @@ export function PartnerProfileForm({
           {last ? submitLabel : 'Continue'} {!last && <ArrowRight className="size-4.5" aria-hidden />}
         </Button>
       </div>
-      {registering && last && <p className="text-center text-xs text-slate-500">Next: upload your Aadhaar, photo and certificates for verification.</p>}
+      {registering && last && <p className="text-center text-xs text-slate-500">Next: add any skill certificates or a driving licence in My Documents (optional).</p>}
     </form>
   );
 }
@@ -442,7 +448,10 @@ function YesNo({ icon, label, value, onChange }: { icon: React.ReactNode; label:
 
 export function toPartnerPayload(v: PartnerFormValues) {
   const alt = (v.alternatePhone ?? '').replace(/[\s-]/g, '').replace(/^(\+91|0)/, '');
-  const { confirmAccountNumber: _confirm, bankAccountHolder, bankAccountNumber, bankIfsc, payoutUpiId, aadhaarNumber, panNumber, ...rest } = v;
+  const { confirmAccountNumber: _confirm, bankAccountHolder, bankAccountNumber, bankIfsc, payoutUpiId, aadhaarNumber, panNumber, aadhaarFrontUrl, aadhaarBackUrl, panPhotoUrl, ...rest } = v;
+  const kycDocuments = [aadhaarFrontUrl, aadhaarBackUrl, panPhotoUrl]
+    .map((fileUrl, i) => (fileUrl ? { type: i < 2 ? ('AADHAAR' as const) : ('PAN' as const), fileUrl } : null))
+    .filter((d) => d !== null);
   return {
     ...rest,
     // Payout & ID only at sign-up (the profile editor doesn't show them).
@@ -454,6 +463,7 @@ export function toPartnerPayload(v: PartnerFormValues) {
       aadhaarNumber: (aadhaarNumber ?? '').replace(/\s/g, ''),
       panNumber: panNumber?.trim().toUpperCase() || null,
     }),
+    ...(kycDocuments.length && { kycDocuments }),
     email: v.email || undefined,
     dateOfBirth: v.dateOfBirth || undefined,
     alternatePhone: alt ? toE164India(alt) : null,
@@ -514,6 +524,87 @@ function BankStep({ form }: { form: ReturnType<typeof useForm<PartnerFormValues>
       <Labeled label="PAN (optional)" error={e.panNumber?.message} hint="Needed for TDS if your yearly earnings cross the tax limit">
         <input {...register('panNumber')} autoComplete="off" maxLength={10} placeholder="ABCDE1234F" className={cx(input(e.panNumber), 'uppercase')} />
       </Labeled>
+      <div>
+        <p className="text-sm font-medium text-slate-800">ID proof photos</p>
+        <p className="mt-0.5 text-xs text-slate-500">Clear photos so the RapidFix team can verify you. Only you and the verification team can see them.</p>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <KycPhoto form={form} name="aadhaarFrontUrl" label="Aadhaar — front" required />
+          <KycPhoto form={form} name="aadhaarBackUrl" label="Aadhaar — back" />
+          <KycPhoto form={form} name="panPhotoUrl" label="PAN card" />
+        </div>
+        {e.aadhaarFrontUrl?.message && (
+          <span role="alert" className="mt-1 block text-xs text-danger">
+            {e.aadhaarFrontUrl.message}
+          </span>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** One ID card photo: shrunk on the phone, uploaded privately, previewed from the local copy. */
+function KycPhoto({ form, name, label, required }: { form: ReturnType<typeof useForm<PartnerFormValues>>; name: 'aadhaarFrontUrl' | 'aadhaarBackUrl' | 'panPhotoUrl'; label: string; required?: boolean }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const value = useWatch({ control: form.control, name });
+  const [preview, setPreview] = useState<{ url: string; pdf: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => () => void (preview && URL.revokeObjectURL(preview.url)), [preview]);
+  const pick = async (f: File) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const file = await compressImage(f);
+      const { path } = await documentUploadApi.upload(file);
+      setPreview({ url: URL.createObjectURL(file), pdf: path.endsWith('.pdf') });
+      form.setValue(name, path, { shouldValidate: form.formState.isSubmitted || !!form.formState.errors[name] });
+    } catch (e) {
+      setError((e as Error).message || 'Upload failed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*,application/pdf"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (f) void pick(f);
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={busy}
+        className={cx(
+          'flex items-center gap-3 rounded-xl border p-2.5 text-left text-sm',
+          value ? 'border-success/40 bg-success-soft' : form.formState.errors[name] ? 'border-danger' : 'border-dashed border-slate-300',
+        )}
+      >
+        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-slate-400">
+          {busy ? (
+            <Loader2 className="size-5 animate-spin" aria-hidden />
+          ) : preview && !preview.pdf ? (
+            <img src={preview.url} alt="" className="size-full object-cover" />
+          ) : value ? (
+            <FileCheck2 className="size-5 text-success" aria-hidden />
+          ) : (
+            <Camera className="size-5" aria-hidden />
+          )}
+        </span>
+        <span className="min-w-0">
+          <span className="block font-medium text-slate-900">
+            {label}
+            {required && <span className="text-danger"> *</span>}
+          </span>
+          <span className={cx('block text-xs', error ? 'text-danger' : 'text-slate-500')}>{error ?? (busy ? 'Uploading…' : value ? 'Added — tap to change' : 'Tap to add photo')}</span>
+        </span>
+      </button>
     </>
   );
 }

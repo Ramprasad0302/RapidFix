@@ -13,6 +13,7 @@ import {
 import { prisma } from '../../config/prisma';
 import type { Prisma } from '../../generated/prisma/client';
 import { AppError } from '../../utils/AppError';
+import { decryptField } from '../../utils/crypto';
 import { recordAudit } from '../audit.service';
 import { technicianTitle } from '../booking.service';
 import { istMonthStart } from '../technician.service';
@@ -127,6 +128,7 @@ const techInclude = {
   skills: { include: { category: true }, orderBy: { category: { sortOrder: 'asc' } } },
   wallet: true,
   franchise: { select: { name: true } },
+  _count: { select: { documents: { where: { status: 'PENDING' } } } },
 } as const satisfies Prisma.TechnicianInclude;
 type TechRow = Prisma.TechnicianGetPayload<{ include: typeof techInclude }>;
 
@@ -153,6 +155,7 @@ function toTechRow(t: TechRow): AdminTechnicianRowDto {
     lastLatitude: t.lastLatitude,
     lastLongitude: t.lastLongitude,
     lastLocationAt: t.lastLocationAt?.toISOString() ?? null,
+    pendingDocuments: t._count.documents,
     createdAt: t.createdAt.toISOString(),
   };
 }
@@ -210,6 +213,7 @@ export async function technicianDetail(id: string): Promise<AdminTechnicianDetai
     rejectionReason: t.rejectionReason,
     skillIds: t.skills.map((s) => s.categoryId),
     documents: t.documents.map((d) => ({ id: d.id, type: d.type, fileUrl: d.fileUrl, status: d.status, remarks: d.remarks, createdAt: d.createdAt.toISOString() })),
+    kyc: { aadhaarLast4: t.aadhaarLast4, panNumber: t.panNumber },
     bookings: bookings.map(toAdminRow),
     earnings: { month: month._sum.technicianEarning ?? 0, total: t.wallet?.totalEarned ?? 0, totalPaidOut: t.wallet?.totalPaidOut ?? 0, balance: t.wallet?.balance ?? 0 },
     payout: { upiId: t.payoutUpiId, bankAccountHolder: t.bankAccountHolder, bankIfsc: t.bankIfsc, bankAccountLast4: t.bankAccountLast4 },
@@ -266,8 +270,22 @@ export async function setSkills(actor: Actor, technicianId: string, categoryIds:
 
 export async function reviewDocument(actor: Actor, documentId: string, status: 'APPROVED' | 'REJECTED', remarks: string | undefined, ip?: string) {
   const d = await prisma.technicianDocument.update({ where: { id: documentId }, data: { status, remarks: remarks ?? null }, include: { technician: { select: { userId: true } } } });
-  if (status === 'REJECTED') {
-    await prisma.notification.create({ data: { userId: d.technician.userId, type: 'VERIFICATION', title: 'Document needs attention', body: `Your ${d.type.replace('_', ' ').toLowerCase()} was not accepted${remarks ? `: ${remarks}` : ''}. Please upload it again.` } });
-  }
+  const what = d.type.replace('_', ' ').toLowerCase();
+  await prisma.notification.create({
+    data:
+      status === 'REJECTED'
+        ? { userId: d.technician.userId, type: 'VERIFICATION', title: 'Document needs attention', body: `Your ${what} was not accepted${remarks ? `: ${remarks}` : ''}. Please upload it again.` }
+        : { userId: d.technician.userId, type: 'VERIFICATION', title: 'Document approved', body: `Your ${what} was checked and approved.` },
+  });
   await audit(actor, 'DOCUMENT_REVIEWED', 'TechnicianDocument', documentId, undefined, { status, remarks }, ip);
+}
+
+/** Full Aadhaar number given at sign-up, to match against the uploaded card. Every view is audited. */
+export async function revealTechnicianAadhaar(actor: Actor, technicianId: string, ip?: string) {
+  const t = await prisma.technician.findUnique({ where: { id: technicianId }, select: { aadhaarEnc: true } });
+  if (!t) throw AppError.notFound('Technician not found', 'TECHNICIAN_NOT_FOUND');
+  if (!t.aadhaarEnc) throw AppError.notFound('No Aadhaar number on file', 'NO_AADHAAR');
+  await audit(actor, 'TECHNICIAN_AADHAAR_VIEWED', 'Technician', technicianId, undefined, undefined, ip);
+  const n = decryptField(t.aadhaarEnc);
+  return { aadhaar: `${n.slice(0, 4)} ${n.slice(4, 8)} ${n.slice(8)}` };
 }

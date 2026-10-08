@@ -151,6 +151,7 @@ export async function technicianDetails(userId: string) {
     baseLatitude: t.baseLatitude,
     baseLongitude: t.baseLongitude,
     rejectionReason: t.rejectionReason,
+    kyc: { aadhaarLast4: t.aadhaarLast4, panNumber: t.panNumber },
   };
 }
 
@@ -195,8 +196,17 @@ export async function listDocuments(userId: string) {
   return rows.map(toDoc);
 }
 
-export async function addDocument(userId: string, type: DocumentType, fileUrl: string) {
+/** A private upload that isn't attached to anyone yet (so nobody can claim another person's file). */
+async function assertFreshPrivateFile(fileUrl: string) {
   if (!isOwnPrivatePath(fileUrl)) throw AppError.badRequest('Upload the document first', 'INVALID_ATTACHMENT');
+  const used =
+    (await prisma.technicianDocument.count({ where: { fileUrl } })) +
+    (await prisma.franchise.count({ where: { OR: [{ aadhaarFrontUrl: fileUrl }, { aadhaarBackUrl: fileUrl }, { panPhotoUrl: fileUrl }, { agreementUrl: fileUrl }] } }));
+  if (used) throw AppError.badRequest('Upload the document again', 'INVALID_ATTACHMENT');
+}
+
+export async function addDocument(userId: string, type: DocumentType, fileUrl: string) {
+  await assertFreshPrivateFile(fileUrl);
   const tech = await technicianOf(userId);
   const doc = await prisma.technicianDocument.create({ data: { technicianId: tech.id, type, fileUrl } });
   return toDoc(doc);
@@ -269,6 +279,8 @@ export interface PartnerRegistration extends ProfileInput {
   payoutUpiId?: string | null;
   aadhaarNumber: string;
   panNumber?: string | null;
+  /** ID proofs uploaded (privately) during sign-up — shown to the verification team. */
+  kycDocuments?: { type: DocumentType; fileUrl: string }[];
 }
 
 /**
@@ -288,6 +300,8 @@ export async function registerPartner(userId: string, input: PartnerRegistration
   }
   const categories = await prisma.serviceCategory.findMany({ where: { id: { in: input.skills }, isActive: true }, select: { id: true } });
   if (!categories.length) throw AppError.badRequest('Choose at least one service you provide', 'SKILLS_REQUIRED');
+  const kycDocuments = input.kycDocuments ?? [];
+  for (const d of kycDocuments) await assertFreshPrivateFile(d.fileUrl);
   const services = await pickableServices(categories.map((c) => c.id), input.serviceIds);
 
   const profile = {
@@ -302,8 +316,11 @@ export async function registerPartner(userId: string, input: PartnerRegistration
     pincode: input.pincode,
     baseLatitude: input.baseLatitude ?? null,
     baseLongitude: input.baseLongitude ?? null,
-    lastLatitude: input.baseLatitude ?? null,
-    lastLongitude: input.baseLongitude ?? null,
+    // The live position comes only from the phone's GPS (app open / online), never from the home
+    // address — until the first ping, jobs are matched by town / district.
+    lastLatitude: null,
+    lastLongitude: null,
+    lastLocationAt: null,
     ...extraProfile(input),
     verificationStatus: 'PENDING' as const,
     isOnline: false,
@@ -330,6 +347,7 @@ export async function registerPartner(userId: string, input: PartnerRegistration
     await tx.technicianSkill.createMany({ data: categories.map((c) => ({ technicianId: tech.id, categoryId: c.id })) });
     await tx.technicianService.deleteMany({ where: { technicianId: tech.id } });
     if (services.length) await tx.technicianService.createMany({ data: services.map((serviceId) => ({ technicianId: tech.id, serviceId })) });
+    if (kycDocuments.length) await tx.technicianDocument.createMany({ data: kycDocuments.map((d) => ({ technicianId: tech.id, type: d.type, fileUrl: d.fileUrl })) });
     const manager = profile.franchiseId ? await tx.franchise.findUnique({ where: { id: profile.franchiseId }, select: { userId: true } }) : null;
     const staff = [
       ...(await tx.user.findMany({ where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'OPERATIONS'] }, status: 'ACTIVE' }, select: { id: true } })),

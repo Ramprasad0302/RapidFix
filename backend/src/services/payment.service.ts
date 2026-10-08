@@ -591,9 +591,12 @@ export async function completePayment(bookingId: string, s: Settlement) {
     const cash = s.method === 'RAZORPAY' ? 0 : s.amount;
     const method: PaymentMethod = online > 0 ? 'RAZORPAY' : s.method;
 
+    // Commission is on the work only; spare parts the technician bought go back to them in full.
     const gross = b.serviceCharge + b.visitCharge + b.additionalChargesTotal - b.discountAmount;
     const rule = await resolveCommissionRule({ technicianId: b.technician.id, serviceId: b.serviceId, categoryId: b.service.categoryId, locationId: b.locationId });
     const split = splitCommission(gross, rule);
+    const spares = b.sparePartsTotal;
+    const technicianShare = split.technicianNet + spares;
     const now = new Date();
 
     const payment = await tx.payment.upsert({
@@ -617,15 +620,15 @@ export async function completePayment(bookingId: string, s: Settlement) {
       });
     }
 
-    const delta = split.technicianNet - cash;
+    const delta = technicianShare - cash;
     if (delta >= 0) {
       // RapidFix holds (some of) the money → credit the technician's share, less any cash they kept.
       await postWalletTxn(tx, b.technician.id, {
         type: 'EARNING_CREDIT',
         amount: delta,
-        earned: split.technicianNet,
+        earned: technicianShare,
         bookingId,
-        description: `Earning for ${b.code} (${b.service.name})${cash ? ` — ${formatINR(cash)} collected in cash` : ''}`,
+        description: `Earning for ${b.code} (${b.service.name})${spares ? ` incl. ${formatINR(spares)} spare parts` : ''}${cash ? ` — ${formatINR(cash)} collected in cash` : ''}`,
         idempotencyKey: `earn:${bookingId}`,
       });
     } else {
@@ -633,7 +636,7 @@ export async function completePayment(bookingId: string, s: Settlement) {
       await postWalletTxn(tx, b.technician.id, {
         type: 'COMMISSION_DEBIT',
         amount: delta,
-        earned: split.technicianNet,
+        earned: technicianShare,
         bookingId,
         description: `${s.method === 'UPI' ? 'UPI' : 'Cash'} job ${b.code}: commission ${formatINR(split.commission)}${b.taxAmount ? ` + GST ${formatINR(b.taxAmount)}` : ''}`,
         idempotencyKey: `commission:${bookingId}`,
@@ -644,12 +647,12 @@ export async function completePayment(bookingId: string, s: Settlement) {
     await transitionBooking(tx, b, B.PAYMENT_COMPLETED, {
       actorId: s.actorId ?? null,
       note: `Paid ${how}`,
-      data: { paymentStatus: 'SUCCESS', paymentMethod: method, commissionAmount: split.commission, technicianEarning: split.technicianNet },
+      data: { paymentStatus: 'SUCCESS', paymentMethod: method, commissionAmount: split.commission, technicianEarning: technicianShare },
     });
     await tx.notification.createMany({
       data: [
         { userId: b.customer.userId, type: 'PAYMENT', title: 'Payment received', body: `${formatINR(b.totalAmount)} paid for ${b.service.name}. Please rate your experience.`, data: { bookingId } },
-        { userId: b.technician.userId, type: 'PAYMENT', title: 'Payment confirmed', body: `${b.code}: you earned ${formatINR(split.technicianNet)}.`, data: { bookingId } },
+        { userId: b.technician.userId, type: 'PAYMENT', title: 'Payment confirmed', body: `${b.code}: you earned ${formatINR(technicianShare)}${spares ? ` (incl. ${formatINR(spares)} for spare parts)` : ''}.`, data: { bookingId } },
       ],
     });
     return { already: false as const, b };

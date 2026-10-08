@@ -458,6 +458,7 @@ model Technician {
   bookings       Booking[]
   assignments    BookingAssignment[]
   additionalReqs BookingAdditionalCharge[]
+  spareParts     BookingSparePart[]
   wallet         TechnicianWallet?
   payouts        Payout[]
   reviews        Review[]
@@ -543,6 +544,8 @@ model Booking {
   serviceCharge          Int
   visitCharge            Int           @default(0)
   additionalChargesTotal Int           @default(0)
+  /// Spare parts the technician bought for this job (sum of booking_spare_parts). Not commissioned.
+  sparePartsTotal        Int           @default(0)
   discountAmount         Int           @default(0)
   taxAmount              Int           @default(0)
   totalAmount            Int
@@ -573,6 +576,7 @@ model Booking {
   assignments       BookingAssignment[]
   items             BookingItem[]
   additionalCharges BookingAdditionalCharge[]
+  spareParts        BookingSparePart[]
   payment           Payment?
   review            Review?
   messages          Message[]
@@ -660,6 +664,28 @@ model BookingAdditionalCharge {
 
   @@index([bookingId, status])
   @@map("booking_additional_charges")
+}
+
+/// A spare part the technician bought for the job. Added straight to the bill (customer is notified).
+model BookingSparePart {
+  id           String   @id @default(uuid()) @db.Char(36)
+  bookingId    String   @db.Char(36)
+  technicianId String   @db.Char(36)
+  name         String   @db.VarChar(160)
+  quantity     Int      @default(1)
+  /// Price per piece in paise.
+  unitPrice    Int
+  amount       Int
+  /// Photo of the shop bill / receipt (public upload path), optional.
+  billPhotoUrl String?  @db.VarChar(512)
+  createdAt    DateTime @default(now())
+
+  booking    Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  technician Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([technicianId])
+  @@map("booking_spare_parts")
 }
 
 // ─── Payments & money ────────────────────────────────────────────────────

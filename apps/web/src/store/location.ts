@@ -74,8 +74,16 @@ export function requestCurrentPosition(opts: { maxWaitMs?: number; goodEnoughM?:
       navigator.geolocation.clearWatch(id);
       clearTimeout(timer);
       if (best) resolve({ latitude: best.coords.latitude, longitude: best.coords.longitude, accuracy: Math.round(best.coords.accuracy) });
-      else reject(new Error('Could not get your location. Please try again or search for your area.'));
+      else roughFix();
     };
+    // Indoors / weak GPS: a precise fix may not come in time — the network position (Wi-Fi /
+    // cell, or a fix from the last few minutes) is still far better than nothing.
+    const roughFix = () =>
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: Math.round(p.coords.accuracy) }),
+        () => reject(new Error('Could not get your location. Please try again or search for your area.')),
+        { enableHighAccuracy: false, maximumAge: 5 * 60_000, timeout: 10_000 },
+      );
     const id = navigator.geolocation.watchPosition(
       (p) => {
         if (!best || p.coords.accuracy < best.coords.accuracy) best = p;
@@ -86,6 +94,7 @@ export function requestCurrentPosition(opts: { maxWaitMs?: number; goodEnoughM?:
         done = true;
         navigator.geolocation.clearWatch(id);
         clearTimeout(timer);
+        if (err.code !== err.PERMISSION_DENIED) return roughFix();
         reject(
           new Error(
             err.code === err.PERMISSION_DENIED
