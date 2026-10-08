@@ -61,6 +61,9 @@ const DISPLAY = {
 };
 
 function options(order: RazorpayOrderDto) {
+  // The customer already signed in to RapidFix: pass their phone/email as fixed and hidden so Razorpay
+  // skips its own "enter phone number / log in with OTP" screen and goes straight to the payment options.
+  const { contact, email } = order.prefill;
   return {
     key: order.keyId,
     order_id: order.orderId,
@@ -69,6 +72,9 @@ function options(order: RazorpayOrderDto) {
     name: 'RapidFix',
     description: `Booking ${order.bookingCode}`,
     prefill: order.prefill,
+    readonly: { contact: !!contact, email: !!email, name: true },
+    hidden: { contact: !!contact, email: !!email },
+    remember_customer: false, // no Razorpay account / saved-card login
     theme: { color: '#1D4ED8' },
     config: DISPLAY,
   };
