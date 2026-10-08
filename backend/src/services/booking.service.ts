@@ -24,6 +24,7 @@ import { buildTimeline } from './bookingTimeline';
 import { dispatchBooking } from './assignment.service';
 import { geocodeAddress } from './geo.service';
 import { estimatePrice } from './pricing.service';
+import { toSpareDto } from './spareParts.service';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
 import { bookingAdvance, ONLINE_CHARGE, razorpayConfigured, refundOnlineCharges } from './payment.service';
@@ -46,6 +47,7 @@ export const bookingInclude = {
   coupon: { select: { code: true } },
   statusHistory: { select: { toStatus: true, createdAt: true } },
   additionalCharges: { orderBy: { requestedAt: 'asc' } },
+  spareParts: { orderBy: { createdAt: 'asc' } },
   payment: { include: { transactions: { where: ONLINE_CHARGE, select: { amount: true } } } },
   review: true,
 } as const satisfies Prisma.BookingInclude;
@@ -139,6 +141,7 @@ export function toCustomerDetail(b: BookingRow): BookingDetailDto {
       serviceCharge: b.serviceCharge,
       visitCharge: b.visitCharge,
       additionalCharges: b.additionalChargesTotal,
+      spareParts: b.sparePartsTotal,
       discount: b.discountAmount,
       tax: b.taxAmount,
       total: b.totalAmount,
@@ -171,6 +174,7 @@ export function toCustomerDetail(b: BookingRow): BookingDetailDto {
     cancellationReason: b.cancellationReason,
     createdAt: b.createdAt.toISOString(),
     additionalChargeItems: b.additionalCharges.map(toChargeDto),
+    sparePartItems: b.spareParts.map(toSpareDto),
     payment: toPaymentInfo(b.payment),
     review: b.review ? { rating: b.review.rating, comment: b.review.comment, createdAt: b.review.createdAt.toISOString() } : null,
     onlinePaymentAvailable: razorpayConfigured(),

@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, CircleCheck, CircleX, Clock3, FileUp, Landmark, Play, ShieldCheck, Star, Trash2, TrendingUp } from 'lucide-react';
 import type { TechnicianDetailsDto, TechnicianDocumentDto, TechnicianServicesDto } from '@fixora/shared-types';
-import { Alert, Button, Spinner, TextField, cx } from '@fixora/ui';
+import { Alert, Button, TextField, cx } from '@fixora/ui';
 import { PageHeader } from '../../../components/PageHeader';
 import { CenteredSpinner, EmptyState, ErrorState } from '../../../components/States';
-import { documentUploadApi, fetchPrivateFile, technicianApi } from '../../../lib/endpoints';
+import { PrivateThumb } from '../../../components/PrivateFile';
+import { documentUploadApi, technicianApi } from '../../../lib/endpoints';
+import { compressImage } from '../../../lib/imageCompress';
 import { formatDate } from '../../../lib/format';
 import { isNativeApp, nativeCall } from '../../../lib/nativeApp';
 import { toast } from '../../../store/toast';
@@ -191,7 +193,7 @@ export function DocumentsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const upload = useMutation({
-    mutationFn: async (f: File) => technicianApi.addDocument(type, (await documentUploadApi.upload(f)).path),
+    mutationFn: async (f: File) => technicianApi.addDocument(type, (await documentUploadApi.upload(await compressImage(f))).path),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['tech', 'documents'] });
       toast('Document uploaded for review');
@@ -207,6 +209,7 @@ export function DocumentsPage() {
   return (
     <Shell title="My Documents">
       <p className="text-sm text-slate-600">Upload clear photos or PDFs. Documents are private — only you and the RapidFix verification team can see them.</p>
+      <KycNumbers />
       <div className="flex gap-2">
         <select
           value={type}
@@ -243,7 +246,7 @@ export function DocumentsPage() {
           const st = DOC_STATUS[d.status];
           return (
             <li key={d.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3 shadow-card">
-              <PrivateThumb path={d.fileUrl} />
+              <PrivateThumb path={d.fileUrl} label={DOC_TYPES.find((t) => t.value === d.type)?.label} />
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-slate-900">{DOC_TYPES.find((t) => t.value === d.type)?.label}</p>
                 <span className={cx('mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', st.cls)}>
@@ -265,35 +268,27 @@ export function DocumentsPage() {
   );
 }
 
-/** Private files need the access token, so they're fetched as blobs, never linked directly. */
-export function PrivateThumb({ path, className }: { path: string; className?: string }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-  const pdf = path.toLowerCase().endsWith('.pdf');
-  useEffect(() => {
-    let revoked = false;
-    let objectUrl: string | null = null;
-    fetchPrivateFile(path)
-      .then((u) => {
-        objectUrl = u;
-        if (revoked) URL.revokeObjectURL(u);
-        else setUrl(u);
-      })
-      .catch(() => !revoked && setFailed(true));
-    return () => {
-      revoked = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [path]);
-  const box = cx('flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-xs font-semibold text-slate-500', className);
-  if (failed) return <span className={box}>—</span>;
-  if (!url) return <span className={box}><Spinner className="size-4" /></span>;
+/** The ID numbers given at sign-up, so the technician can check them against the cards they upload. */
+function KycNumbers() {
+  const details = useQuery({ queryKey: ['tech', 'details'], queryFn: technicianApi.details });
+  const k = details.data?.kyc;
+  if (!k || (!k.aadhaarLast4 && !k.panNumber)) return null;
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className={box} aria-label="Open document">
-      {pdf ? 'PDF' : <img src={url} alt="" className="size-full object-cover" />}
-    </a>
+    <dl className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-3.5 text-sm">
+      <div>
+        <dt className="text-slate-500">Aadhaar number</dt>
+        <dd className="font-semibold tracking-wide text-slate-900">{k.aadhaarLast4 ? `XXXX XXXX ${k.aadhaarLast4}` : '—'}</dd>
+      </div>
+      <div>
+        <dt className="text-slate-500">PAN</dt>
+        <dd className="font-semibold tracking-wide text-slate-900">{k.panNumber ?? '—'}</dd>
+      </div>
+    </dl>
   );
 }
+
+/** Kept here too: admin pages import it from this module. */
+export { PrivateThumb };
 
 // ─── Reviews & performance ───────────────────────────────────────────────
 

@@ -1,5 +1,6 @@
 import type {
   AdditionalChargeDto,
+  SparePartDto,
   AddressSnapshot,
   ComplaintDto,
   PaymentInfoDto,
@@ -46,7 +47,7 @@ export interface AdminBookingDetailDto extends AdminBookingRowDto {
   address: AddressSnapshot;
   customer: { id: string; userId: string; name: string | null; phone: string | null; email: string | null };
   technician: { id: string; userId: string; name: string | null; phone: string | null; ratingAvg: number } | null;
-  price: { serviceCharge: number; visitCharge: number; additionalCharges: number; discount: number; tax: number; total: number };
+  price: { serviceCharge: number; visitCharge: number; additionalCharges: number; spareParts: number; discount: number; tax: number; total: number };
   commissionAmount: number | null;
   technicianEarning: number | null;
   couponCode: string | null;
@@ -55,6 +56,7 @@ export interface AdminBookingDetailDto extends AdminBookingRowDto {
   history: { from: BookingStatus | null; to: BookingStatus; note: string | null; by: string | null; at: string }[];
   assignments: { technicianName: string; status: string; isManual: boolean; distanceKm: number | null; offeredAt: string; respondedAt: string | null }[];
   additionalChargeItems: AdditionalChargeDto[];
+  sparePartItems: SparePartDto[];
   complaints: ComplaintDto[];
   review: { rating: number; comment: string | null } | null;
   timeline: TimelineStepDto[];
@@ -113,6 +115,8 @@ export interface AdminTechnicianRowDto {
   lastLatitude: number | null;
   lastLongitude: number | null;
   lastLocationAt: string | null;
+  /** ID proofs uploaded and waiting for review. */
+  pendingDocuments: number;
   createdAt: string;
 }
 
@@ -133,6 +137,8 @@ export interface AdminTechnicianDetailDto extends AdminTechnicianRowDto {
   rejectionReason: string | null;
   skillIds: string[];
   documents: TechnicianDocumentDto[];
+  /** ID numbers given at sign-up (full Aadhaar only through the audited reveal). */
+  kyc: { aadhaarLast4: string | null; panNumber: string | null };
   bookings: AdminBookingRowDto[];
   earnings: { month: number; total: number; totalPaidOut: number; balance: number };
   payout: { upiId: string | null; bankAccountHolder: string | null; bankIfsc: string | null; bankAccountLast4: string | null };

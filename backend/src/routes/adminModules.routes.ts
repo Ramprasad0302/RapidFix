@@ -93,6 +93,11 @@ r.get('/technicians/:id', requirePermission(Permission.TECHNICIANS_MANAGE), asyn
   await scoped.assertTechnician(sc(res), id(req));
   ok(res, await people.technicianDetail(id(req)));
 });
+/** Full Aadhaar number (audited) — to compare with the uploaded card. */
+r.post('/technicians/:id/aadhaar', requirePermission(Permission.TECHNICIANS_MANAGE), async (req, res) => {
+  await scoped.assertTechnician(sc(res), id(req));
+  ok(res, await people.revealTechnicianAadhaar(authOf(req), id(req), req.ip));
+});
 r.post(
   '/technicians/:id/verification',
   requirePermission(Permission.TECHNICIANS_MANAGE),

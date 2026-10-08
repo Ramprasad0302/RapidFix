@@ -64,6 +64,7 @@ const COLUMNS: Column<AdminTechnicianRowDto>[] = [
     cell: (t) => (
       <span className="flex flex-col items-start gap-1">
         <Pill tone={VERIFY_TONE[t.verificationStatus]}>{humanize(t.verificationStatus)}</Pill>
+        {t.pendingDocuments > 0 && <Pill tone="amber">{t.pendingDocuments} ID proof{t.pendingDocuments > 1 ? 's' : ''} to review</Pill>}
         {t.userStatus !== 'ACTIVE' && userStatusPill(t.userStatus)}
       </span>
     ),
@@ -209,6 +210,13 @@ function TechnicianDrawer({ id }: { id: string }) {
   const [verifyTo, setVerifyTo] = useState<TechnicianVerificationStatus | null>(null);
   const [statusTo, setStatusTo] = useState<UserStatus | null>(null);
   const [editSkills, setEditSkills] = useState(false);
+  const [rejectDoc, setRejectDoc] = useState<string | null>(null);
+  const [aadhaar, setAadhaar] = useState<string | null>(null);
+  const reveal = useMutation({
+    mutationFn: () => adminModulesApi.revealTechnicianAadhaar(id),
+    onSuccess: (r) => setAadhaar(r.aadhaar),
+    onError: (e) => toast(e.message, 'error'),
+  });
 
   const refresh = (d?: AdminTechnicianDetailDto) => {
     if (d) qc.setQueryData(['admin', 'technician', id], d);
@@ -231,10 +239,13 @@ function TechnicianDrawer({ id }: { id: string }) {
     },
   });
   const reviewDoc = useMutation({
-    mutationFn: ({ docId, ok }: { docId: string; ok: boolean }) => adminModulesApi.reviewDocument(docId, ok ? 'APPROVED' : 'REJECTED', ok ? undefined : 'Please upload a clearer copy'),
-    onSuccess: () => {
+    mutationFn: ({ docId, ok, reason }: { docId: string; ok: boolean; reason?: string }) =>
+      adminModulesApi.reviewDocument(docId, ok ? 'APPROVED' : 'REJECTED', ok ? undefined : reason?.trim() || 'Please upload a clearer copy'),
+    onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: ['admin', 'technician', id] });
-      toast('Document reviewed');
+      void qc.invalidateQueries({ queryKey: ['admin', 'technicians'] });
+      setRejectDoc(null);
+      toast(v.ok ? 'Document approved — the partner is notified' : 'Sent back to the partner to upload again');
     },
     onError: (e) => toast(e.message, 'error'),
   });
@@ -327,23 +338,42 @@ function TechnicianDrawer({ id }: { id: string }) {
         </div>
       </Section>
 
-      <Section title={`Documents${pendingDocs ? ` · ${pendingDocs} to review` : ''}`}>
-        {t.documents.length === 0 && <p className="text-sm text-slate-500">No documents uploaded yet.</p>}
-        <ul className="flex flex-col gap-2">
+      <Section title={`ID proofs & documents${pendingDocs ? ` · ${pendingDocs} to review` : ''}`}>
+        <dl className="mb-3 grid grid-cols-1 gap-2 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-slate-500">Aadhaar number (given at sign-up)</dt>
+            <dd className="flex flex-wrap items-center gap-2 font-semibold tracking-wide text-slate-900">
+              {aadhaar ?? (t.kyc.aadhaarLast4 ? `XXXX XXXX ${t.kyc.aadhaarLast4}` : '—')}
+              {t.kyc.aadhaarLast4 && !aadhaar && (
+                <button onClick={() => reveal.mutate()} disabled={reveal.isPending} className="text-xs font-medium tracking-normal text-fixora-blue">
+                  {reveal.isPending ? 'Loading…' : 'Show full number'}
+                </button>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">PAN</dt>
+            <dd className="font-semibold tracking-wide text-slate-900">{t.kyc.panNumber ?? '—'}</dd>
+          </div>
+          <p className="text-xs text-slate-500 sm:col-span-2">Match these numbers and the name with the card photos below before verifying. Viewing the full Aadhaar number is recorded in the audit log.</p>
+        </dl>
+        {t.documents.length === 0 && <p className="text-sm text-slate-500">No ID proofs uploaded yet. The partner can upload them in the app under Profile → My Documents.</p>}
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {t.documents.map((d) => (
             <li key={d.id} className="flex items-center gap-3 rounded-xl border border-slate-100 p-2.5">
-              <PrivateThumb path={d.fileUrl} />
+              <PrivateThumb path={d.fileUrl} label={`${DOC_LABEL[d.type] ?? d.type} — ${t.name ?? 'technician'}`} className="size-20" />
               <div className="min-w-0 flex-1 text-sm">
                 <p className="font-medium text-slate-900">{DOC_LABEL[d.type] ?? d.type}</p>
                 <Pill tone={d.status === 'APPROVED' ? 'green' : d.status === 'PENDING' ? 'amber' : 'red'}>{humanize(d.status)}</Pill>
                 {d.remarks && <p className="text-xs text-slate-500">{d.remarks}</p>}
+                <p className="text-xs text-slate-400">{formatDate(d.createdAt)} · tap to open</p>
               </div>
               {d.status === 'PENDING' && (
-                <span className="flex gap-1">
+                <span className="flex flex-col gap-1">
                   <button aria-label="Approve document" onClick={() => reviewDoc.mutate({ docId: d.id, ok: true })} className="flex size-9 items-center justify-center rounded-full text-success hover:bg-success-soft">
                     <CircleCheck className="size-5" />
                   </button>
-                  <button aria-label="Reject document" onClick={() => reviewDoc.mutate({ docId: d.id, ok: false })} className="flex size-9 items-center justify-center rounded-full text-danger hover:bg-danger-soft">
+                  <button aria-label="Reject document" onClick={() => setRejectDoc(d.id)} className="flex size-9 items-center justify-center rounded-full text-danger hover:bg-danger-soft">
                     <CircleX className="size-5" />
                   </button>
                 </span>
@@ -396,9 +426,27 @@ function TechnicianDrawer({ id }: { id: string }) {
       )}
 
       <ReasonDialog
+        open={!!rejectDoc}
+        title="Send this document back?"
+        body="The partner is asked to upload it again with your reason."
+        label="Reason (e.g. photo is blurred, name doesn’t match)"
+        confirmLabel="Reject document"
+        danger
+        pending={reviewDoc.isPending}
+        error={reviewDoc.error?.message}
+        onConfirm={(r) => rejectDoc && reviewDoc.mutate({ docId: rejectDoc, ok: false, reason: r })}
+        onClose={() => setRejectDoc(null)}
+      />
+      <ReasonDialog
         open={!!verifyTo}
         title={verifyTo === 'VERIFIED' ? `Verify ${t.name}?` : `Reject ${t.name}?`}
-        body={verifyTo === 'VERIFIED' ? 'They can go online and receive job requests straight away.' : 'They will see this reason in the partner app.'}
+        body={
+          verifyTo === 'VERIFIED'
+            ? t.documents.some((d) => d.status === 'APPROVED' && (d.type === 'AADHAAR' || d.type === 'PAN'))
+              ? 'They can go online and receive job requests straight away.'
+              : 'No Aadhaar or PAN proof has been approved yet. Check their ID proofs first — once verified they can go online and receive job requests straight away.'
+            : 'They will see this reason in the partner app.'
+        }
         label={verifyTo === 'VERIFIED' ? 'Note (e.g. documents checked)' : 'Reason'}
         confirmLabel={verifyTo === 'VERIFIED' ? 'Verify' : 'Reject'}
         danger={verifyTo !== 'VERIFIED'}

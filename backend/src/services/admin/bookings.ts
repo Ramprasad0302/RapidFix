@@ -17,6 +17,7 @@ import { AppError } from '../../utils/AppError';
 import { locality } from '../../utils/locality';
 import { recordAudit } from '../audit.service';
 import { toChargeDto, toPaymentInfo } from '../booking.service';
+import { toSpareDto } from '../spareParts.service';
 import { transitionBooking } from '../bookingState';
 import { buildTimeline } from '../bookingTimeline';
 import { refundOnlineCharges, refundPayment } from '../payment.service';
@@ -99,6 +100,7 @@ export async function bookingDetail(id: string): Promise<AdminBookingDetailDto> 
       statusHistory: { orderBy: { createdAt: 'asc' }, include: { changedBy: { select: { name: true, role: true } } } },
       assignments: { orderBy: { offeredAt: 'asc' }, include: { technician: { select: { user: { select: { name: true } } } } } },
       additionalCharges: { orderBy: { requestedAt: 'asc' } },
+      spareParts: { orderBy: { createdAt: 'asc' } },
       complaints: { include: complaintInclude, orderBy: { createdAt: 'desc' } },
       review: true,
     },
@@ -112,7 +114,7 @@ export async function bookingDetail(id: string): Promise<AdminBookingDetailDto> 
     address: b.addressSnapshot as unknown as AddressSnapshot,
     customer: { id: b.customer.id, userId: b.customer.userId, ...b.customer.user },
     technician: b.technician ? { id: b.technician.id, userId: b.technician.userId, name: b.technician.user.name, phone: b.technician.user.phone, ratingAvg: b.technician.ratingAvg } : null,
-    price: { serviceCharge: b.serviceCharge, visitCharge: b.visitCharge, additionalCharges: b.additionalChargesTotal, discount: b.discountAmount, tax: b.taxAmount, total: b.totalAmount },
+    price: { serviceCharge: b.serviceCharge, visitCharge: b.visitCharge, additionalCharges: b.additionalChargesTotal, spareParts: b.sparePartsTotal, discount: b.discountAmount, tax: b.taxAmount, total: b.totalAmount },
     commissionAmount: b.commissionAmount,
     technicianEarning: b.technicianEarning,
     couponCode: b.coupon?.code ?? null,
@@ -121,6 +123,7 @@ export async function bookingDetail(id: string): Promise<AdminBookingDetailDto> 
     history: b.statusHistory.map((h) => ({ from: h.fromStatus, to: h.toStatus, note: h.note, by: h.changedBy ? `${h.changedBy.name ?? 'User'} (${h.changedBy.role})` : 'System', at: h.createdAt.toISOString() })),
     assignments: b.assignments.map((a) => ({ technicianName: a.technician.user.name ?? 'Technician', status: a.status, isManual: a.isManual, distanceKm: a.distanceKm, offeredAt: a.offeredAt.toISOString(), respondedAt: a.respondedAt?.toISOString() ?? null })),
     additionalChargeItems: b.additionalCharges.map(toChargeDto),
+    sparePartItems: b.spareParts.map(toSpareDto),
     complaints: b.complaints.map(toComplaint),
     review: b.review ? { rating: b.review.rating, comment: b.review.comment } : null,
     timeline: buildTimeline('customer', b.status, b.statusHistory, b.createdAt),

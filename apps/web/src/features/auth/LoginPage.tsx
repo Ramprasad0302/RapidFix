@@ -9,7 +9,7 @@ import { adminLoginSchema, formatIndianPhone, sendOtpSchema, toE164India } from 
 import { Alert, Button, Logo, OtpInput, TextField } from '@fixora/ui';
 import { OtpPhoneArt } from '../../components/art/Scenes';
 import { authApi } from '../../lib/endpoints';
-import { disposeRecaptcha, firebaseOtp, RECAPTCHA_CONTAINER, serverOtp, type OtpSender } from '../../lib/phoneOtp';
+import { disposeRecaptcha, firebaseOtp, prewarmFirebaseOtp, RECAPTCHA_CONTAINER, serverOtp, type OtpSender } from '../../lib/phoneOtp';
 import { CenteredSpinner } from '../../components/States';
 import { useAppConfig } from '../customer/queries';
 import { authActions, homeFor, useAuth } from '../../store/auth';
@@ -52,6 +52,11 @@ export function LoginPage() {
   const config = useAppConfig();
   const sender: OtpSender = config.data?.otpProvider === 'firebase' ? firebaseOtp : serverOtp;
   useEffect(() => disposeRecaptcha, []);
+  // Get Firebase + reCAPTCHA ready while the number is being typed.
+  const firebaseMode = config.data?.otpProvider === 'firebase';
+  useEffect(() => {
+    if (firebaseMode) prewarmFirebaseOtp();
+  }, [firebaseMode]);
 
   if (status === 'authenticated' && role) return <Navigate to={destinationFor(role, redirect)} replace />;
 

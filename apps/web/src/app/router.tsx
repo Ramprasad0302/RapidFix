@@ -138,6 +138,7 @@ export const router = createBrowserRouter([
               { index: true, ...page(() => admin('DashboardPage'), 'DashboardPage') },
               { path: 'users', ...page(() => admin('UsersRolesPage'), 'UsersRolesPage') },
               { path: 'bookings', ...page(() => admin('BookingsPage'), 'BookingsPage') },
+              { path: 'bookings/:id/invoice', ...page(invoice, 'AdminInvoicePage') },
               { path: 'customers', ...page(() => admin('CustomersPage'), 'CustomersPage') },
               { path: 'technicians', ...page(() => admin('TechniciansPage'), 'TechniciansPage') },
               { path: 'services', ...page(() => admin('CatalogPages'), 'ServicesPage') },

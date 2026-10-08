@@ -2,12 +2,31 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { technicianApi } from '../../lib/endpoints';
 import { isNativeApp, nativeState, onNativeEvent, startNativeDuty, stopNativeDuty } from '../../lib/nativeApp';
+import { requestCurrentPosition } from '../../store/location';
 import { RUNTIME } from '../../lib/runtimeConfig';
 import { toast } from '../../store/toast';
 
 /** Every 5 s while travelling to a customer (they watch it live), every 30 s otherwise. */
 const TRAVEL_INTERVAL_MS = 5_000;
 const IDLE_INTERVAL_MS = 30_000;
+/** While the app is open: a fresh position this often (online in a browser / offline anywhere). */
+const OPEN_ONLINE_MS = 60_000;
+const OPEN_OFFLINE_MS = 3 * 60_000;
+
+/** Location already allowed — so a check never pops up a permission prompt by itself. */
+async function locationAllowed(online: boolean): Promise<boolean> {
+  if (isNativeApp()) {
+    const state = nativeState()?.location;
+    return state === 'granted' || (state === undefined && online); // iPhone app doesn't report it
+  }
+  if (!('geolocation' in navigator)) return false;
+  try {
+    const p = await navigator.permissions?.query({ name: 'geolocation' as PermissionName });
+    return p ? p.state === 'granted' || (p.state === 'prompt' && online) : online;
+  } catch {
+    return online;
+  }
+}
 
 /** Absolute API address for the Android service (config may hold a relative "/api/v1"). */
 const apiBase = () => new URL(RUNTIME.apiUrl, location.origin).toString().replace(/\/$/, '');
@@ -47,6 +66,40 @@ export function useLocationSharing() {
       cancelled = true;
     };
   }, [online, loaded, checkedAt, resumedAt]);
+
+  // Whenever the app is open — online or not — the server gets where the phone really is (never the
+  // home address): right away, when the app comes back to the front, and every few minutes. So the
+  // position is current the moment the partner goes online or a job comes in.
+  useEffect(() => {
+    if (!loaded) return;
+    let stopped = false;
+    let busy = false;
+    const send = async () => {
+      if (busy || stopped || document.visibilityState === 'hidden') return;
+      busy = true;
+      try {
+        if (!(await locationAllowed(online))) return;
+        const fix = await requestCurrentPosition({ maxWaitMs: 8_000, goodEnoughM: 50 });
+        if (!stopped) await technicianApi.pingLocation(fix.latitude, fix.longitude);
+      } catch {
+        /* no fix right now — the next check tries again */
+      } finally {
+        busy = false;
+      }
+    };
+    void send();
+    // In the app the background service already pings every 30 s while online.
+    const timer = isNativeApp() && online ? null : setInterval(() => void send(), online ? OPEN_ONLINE_MS : OPEN_OFFLINE_MS);
+    const onVisible = () => document.visibilityState === 'visible' && void send();
+    document.addEventListener('visibilitychange', onVisible);
+    const off = onNativeEvent((e) => e.event === 'state' && void send());
+    return () => {
+      stopped = true;
+      if (timer) clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      off();
+    };
+  }, [online, loaded]);
 
   // Browser: share from the open page.
   useEffect(() => {

@@ -330,6 +330,9 @@ export const technicianApi = {
   performance: () => unwrap<TechnicianPerformanceDto>(api.get('/technician/performance')),
   requestCharge: (id: string, body: { title: string; description?: string; amount: number }) =>
     unwrap<TechnicianJobDetailDto>(api.post(`/technician/jobs/${id}/additional-charges`, body)),
+  addSparePart: (id: string, body: { name: string; quantity: number; unitPrice: number; billPhotoUrl?: string | null }) =>
+    unwrap<TechnicianJobDetailDto>(api.post(`/technician/jobs/${id}/spare-parts`, body)),
+  removeSparePart: (id: string, partId: string) => unwrap<TechnicianJobDetailDto>(api.delete(`/technician/jobs/${id}/spare-parts/${partId}`)),
   paymentLink: (id: string) => unwrap<PaymentLinkDto>(api.post(`/technician/jobs/${id}/payment-link`)),
   checkPaymentLink: (id: string, linkId: string) => unwrap<{ paid: boolean }>(api.get(`/technician/jobs/${id}/payment-link/${encodeURIComponent(linkId)}`)),
   collectPayment: (id: string, method: 'CASH' | 'UPI') => unwrap<TechnicianJobDetailDto>(api.post(`/technician/jobs/${id}/collect-payment`, { method })),
@@ -381,6 +384,7 @@ export const adminModulesApi = {
     unwrap<Paged<AdminTechnicianRowDto>>(api.get('/admin/technicians', { params })),
   liveTechnicians: () => unwrap<AdminTechnicianRowDto[]>(api.get('/admin/technicians/live')),
   technician: (id: string) => unwrap<AdminTechnicianDetailDto>(api.get(`/admin/technicians/${id}`)),
+  revealTechnicianAadhaar: (id: string) => unwrap<{ aadhaar: string }>(api.post(`/admin/technicians/${id}/aadhaar`)),
   setVerification: (id: string, status: TechnicianVerificationStatus, reason?: string) =>
     unwrap<AdminTechnicianDetailDto>(api.post(`/admin/technicians/${id}/verification`, { status, reason })),
   setSkills: (id: string, categoryIds: string[]) => unwrap<AdminTechnicianDetailDto>(api.put(`/admin/technicians/${id}/skills`, { categoryIds })),

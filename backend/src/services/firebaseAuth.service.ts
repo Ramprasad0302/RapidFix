@@ -34,6 +34,12 @@ async function signingCerts(forceRefresh = false): Promise<Record<string, string
   return certs;
 }
 
+/** Fetch Google's signing keys at start-up, so the first OTP sign-in after a deploy doesn't wait for them. */
+export function warmFirebaseCerts() {
+  if (env.OTP_PROVIDER !== 'firebase' || !env.FIREBASE_PROJECT_ID) return;
+  signingCerts().catch((err) => logger.warn({ err }, 'could not pre-load Firebase signing keys (fetched on first sign-in instead)'));
+}
+
 /** Test hook: forget cached keys. */
 export const resetFirebaseCertCache = () => {
   cache = null;

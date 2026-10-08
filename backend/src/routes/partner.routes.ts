@@ -36,6 +36,11 @@ const schema = partnerPayoutSchema.extend({
   skills: z.array(z.uuid()).min(1, 'Choose at least one service').max(10),
   /** Specific services within those categories (e.g. TV, washing machine). Omitted = all of them. */
   serviceIds: z.array(z.uuid()).max(300).optional(),
+  /** Photos / PDFs of Aadhaar (front & back), PAN… uploaded privately during sign-up. */
+  kycDocuments: z
+    .array(z.object({ type: z.enum(['AADHAAR', 'PAN', 'DRIVING_LICENSE', 'CERTIFICATE', 'PROFILE_PHOTO', 'OTHER']), fileUrl: z.string().max(200) }))
+    .max(6)
+    .optional(),
 });
 
 partnerRouter.post('/register', authenticate(), authorize(Role.CUSTOMER), validate(schema), async (req, res) => {

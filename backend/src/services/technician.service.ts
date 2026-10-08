@@ -23,6 +23,7 @@ const TOWN_SPEED_KMPH = 20;
 import { locality } from '../utils/locality';
 import { ONLINE_CHARGE, razorpayConfigured, settleIfPrepaid } from './payment.service';
 import { amountDueOf, technicianTitle, toChargeDto, toPaymentInfo } from './booking.service';
+import { SPARE_EDITABLE, toSpareDto } from './spareParts.service';
 import { dispatchBooking } from './assignment.service';
 import { transitionBooking } from './bookingState';
 import { estimateTechnicianEarning } from './commission.service';
@@ -47,6 +48,7 @@ const jobInclude = {
   customer: { include: { user: { select: { name: true, phone: true } } } },
   statusHistory: { select: { toStatus: true, createdAt: true } },
   additionalCharges: { orderBy: { requestedAt: 'asc' } },
+  spareParts: { orderBy: { createdAt: 'asc' } },
   payment: { include: { transactions: { where: ONLINE_CHARGE, select: { amount: true } } } },
 } as const satisfies Prisma.BookingInclude;
 type JobRow = Prisma.BookingGetPayload<{ include: typeof jobInclude }>;
@@ -203,13 +205,16 @@ export async function getJob(userId: string, id: string): Promise<TechnicianJobD
       serviceCharge: b.serviceCharge,
       visitCharge: b.visitCharge,
       additionalCharges: b.additionalChargesTotal,
+      spareParts: b.sparePartsTotal,
       discount: b.discountAmount,
       tax: b.taxAmount,
       total: b.totalAmount,
     },
     additionalChargeItems: b.additionalCharges.map(toChargeDto),
+    sparePartItems: b.spareParts.map(toSpareDto),
     payment: toPaymentInfo(b.payment),
     canRequestAdditionalCharge: b.status === B.SERVICE_STARTED || b.status === B.ADDITIONAL_CHARGE_APPROVED,
+    canEditSpareParts: SPARE_EDITABLE.includes(b.status),
     canCollectPayment: b.status === B.PAYMENT_PENDING,
     amountDue: amountDueOf(b),
     onlinePaymentAvailable: razorpayConfigured(),
@@ -440,7 +445,7 @@ export async function earnings(userId: string, month?: string): Promise<Technici
     cancelledJobs,
     ratingAvg: Math.round(tech.ratingAvg * 10) / 10,
     ledger: ledgerRows.map((b) => {
-      const gross = b.serviceCharge + b.visitCharge + b.additionalChargesTotal - b.discountAmount;
+      const gross = b.serviceCharge + b.visitCharge + b.additionalChargesTotal + b.sparePartsTotal - b.discountAmount;
       return {
         bookingId: b.id,
         code: b.code ?? '',

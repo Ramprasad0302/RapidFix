@@ -98,6 +98,7 @@ function Invoice({ inv }: { inv: InvoiceDto }) {
 
       <dl className="ml-auto mt-4 flex max-w-xs flex-col gap-1.5 text-sm">
         <Line label="Subtotal" value={formatINR(inv.subtotal)} />
+        {inv.spareParts > 0 && <Line label="  incl. spare parts" value={formatINR(inv.spareParts)} />}
         {inv.discount > 0 && <Line label={`Discount${inv.couponCode ? ` (${inv.couponCode})` : ''}`} value={`− ${formatINR(inv.discount)}`} />}
         {inv.tax > 0 && <Line label={`GST (${inv.taxPercent}%)`} value={formatINR(inv.tax)} />}
         <div className="mt-1 flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
@@ -134,3 +135,4 @@ function Line({ label, value }: { label: string; value: string }) {
 
 export const CustomerInvoicePage = () => <InvoicePage backTo={(id) => `/bookings/${id}`} />;
 export const TechnicianInvoicePage = () => <InvoicePage backTo={(id) => `/technician/jobs/${id}`} />;
+export const AdminInvoicePage = () => <InvoicePage backTo={(id) => `/admin/bookings?id=${id}`} />;

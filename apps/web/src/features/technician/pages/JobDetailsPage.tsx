@@ -21,7 +21,7 @@ import { useScreenWakeLock } from '../../../lib/wakeLock';
 import { requestCurrentPosition } from '../../../store/location';
 import { toast } from '../../../store/toast';
 import { MobileShell } from '../../customer/CustomerTabsLayout';
-import { CollectPaymentCard, ExtraWorkSection } from '../components/JobExtras';
+import { CollectPaymentCard, ExtraWorkSection, SparePartsSection } from '../components/JobExtras';
 
 const ACTION_LABEL: Record<TechnicianJobAction, string> = {
   ACCEPT: 'Accept Job',
@@ -184,6 +184,7 @@ function Details({ j }: { j: TechnicianJobDetailDto }) {
         )}
       </section>
 
+      <SparePartsSection j={j} />
       <ExtraWorkSection j={j} />
       {!j.canCollectPayment && <CollectPaymentCard j={j} />}
 

@@ -7,7 +7,7 @@ import { Alert, Button, cx } from '@fixora/ui';
 import { ServiceArt } from '../../../components/ServiceArt';
 import { Skeleton } from '../../../components/States';
 import { catalogApi, customerApi, trustApi, uploadApi, type ServiceAreaCheckDto } from '../../../lib/endpoints';
-import { markPaymentAttempt, openUpiPayment, PAYMENT_CHECKING, payWithRazorpay } from '../../../lib/razorpay';
+import { markPaymentAttempt, PAYMENT_CHECKING, payWithRazorpay, preloadCheckout } from '../../../lib/razorpay';
 import { toast } from '../../../store/toast';
 import { addressLines, durationRange, formatDate, slotRange } from '../../../lib/format';
 import { useAuth } from '../../../store/auth';
@@ -15,7 +15,6 @@ import { useBookingDraft } from '../../../store/bookingDraft';
 import { NotServedSheet } from '../../../components/NotServedSheet';
 import { BookingShell, StepTitle } from './BookingShell';
 
-const UPI_OPENED = 'upi';
 
 /** Step 5 — review, coupon, payment preference, server-side estimate; login happens here if needed. */
 export function ReviewStepPage() {
@@ -26,6 +25,7 @@ export function ReviewStepPage() {
   const [couponInput, setCouponInput] = useState(draft.couponCode ?? '');
   const [progress, setProgress] = useState<string | null>(null);
   const [payVia, setPayVia] = useState<'upi' | 'card'>('upi');
+  useEffect(() => preloadCheckout(), []);
 
   const service = useQuery({ queryKey: ['service', draft.serviceSlug], queryFn: () => catalogApi.service(draft.serviceSlug!), enabled: !!draft.serviceSlug });
   const saved = useQuery({ queryKey: ['customer', 'addresses'], queryFn: customerApi.addresses, enabled: authed && !!draft.addressId });
@@ -90,12 +90,8 @@ export function ReviewStepPage() {
       // Pay online: Razorpay opens right away; the booking is sent to technicians once it's paid.
       try {
         setProgress('Opening secure payment…');
-        if (payVia === 'upi') {
-          openUpiPayment(booking.id, await customerApi.upiLink(booking.id));
-          return { booking, paid: false as const, reason: UPI_OPENED };
-        }
         markPaymentAttempt(booking.id);
-        const signed = await payWithRazorpay(await customerApi.razorpayOrder(booking.id));
+        const signed = await payWithRazorpay(await customerApi.razorpayOrder(booking.id), payVia === 'upi' ? 'upi' : 'any');
         setProgress('Confirming payment…');
         return { booking: await customerApi.razorpayVerify(booking.id, signed), paid: true as const };
       } catch (e) {
@@ -111,8 +107,7 @@ export function ReviewStepPage() {
         return;
       }
       // Not paid (closed / failed): the booking page offers "Pay now" or "Pay after service".
-      if (r.reason === UPI_OPENED) toast('Pay in PhonePe / Google Pay, then come back here — we confirm it automatically.');
-      else if (r.reason === PAYMENT_CHECKING) toast('Confirming your payment with the bank…');
+      if (r.reason === PAYMENT_CHECKING) toast('Confirming your payment with the bank…');
       else toast(r.reason === 'Payment cancelled' ? 'Payment not completed — tap Pay now to try again.' : r.reason, r.reason === 'Payment cancelled' ? 'default' : 'error');
       navigate(`/bookings/${booking.id}`, { replace: true });
     },

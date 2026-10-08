@@ -8,6 +8,7 @@ import { transitionBooking } from './bookingState';
 import { taxRate } from './pricing.service';
 import { emitBookingEvent } from './realtime.service';
 import { getSetting } from './settings.service';
+import { billTotals } from './spareParts.service';
 
 // ─── Additional charges (spec §31) ───────────────────────────────────────
 
@@ -59,13 +60,12 @@ export async function respondAdditionalCharge(customerId: string, userId: string
     if (!count) throw AppError.conflict('Already answered.', 'NO_PENDING_CHARGE');
     if (approve) {
       const additional = b.additionalChargesTotal + charge.amount;
-      const taxable = b.serviceCharge + b.visitCharge + additional - b.discountAmount;
-      const tax = Math.round((taxable * (await taxRate())) / 100);
+      const totals = await billTotals({ ...b, additionalChargesTotal: additional });
       await tx.bookingItem.create({ data: { bookingId, type: 'ADDITIONAL', name: charge.title, unitPrice: charge.amount, amount: charge.amount } });
       await transitionBooking(tx, b, B.ADDITIONAL_CHARGE_APPROVED, {
         actorId: userId,
         note: `Approved ${charge.title}`,
-        data: { additionalChargesTotal: additional, taxAmount: tax, totalAmount: taxable + tax },
+        data: { additionalChargesTotal: additional, ...totals },
       });
     } else {
       await transitionBooking(tx, b, B.SERVICE_STARTED, { actorId: userId, note: `Rejected ${charge.title}` });
@@ -117,6 +117,7 @@ export async function invoice(bookingId: string, auth: { userId: string; role: R
     where: { id: bookingId },
     include: {
       items: { orderBy: [{ type: 'asc' }, { createdAt: 'asc' }] },
+      spareParts: { orderBy: { createdAt: 'asc' } },
       payment: true,
       coupon: { select: { code: true } },
       service: { select: { name: true } },
@@ -127,7 +128,7 @@ export async function invoice(bookingId: string, auth: { userId: string; role: R
   const done = [B.SERVICE_COMPLETED, B.PAYMENT_PENDING, B.PAYMENT_COMPLETED, B.REFUNDED, B.DISPUTED] as string[];
   if (!done.includes(b.status)) throw AppError.conflict('The invoice is available once the service is completed.', 'INVOICE_NOT_READY');
   const a = b.addressSnapshot as { houseNo: string; street: string; area: string; villageTown: string; district: string; state: string; pincode: string };
-  const subtotal = b.serviceCharge + b.visitCharge + b.additionalChargesTotal;
+  const subtotal = b.serviceCharge + b.visitCharge + b.additionalChargesTotal + b.sparePartsTotal;
   const [supportPhone, supportEmail] = await Promise.all([getSetting('support.phone', '+91 94919 63366'), getSetting('support.email', 'support@rapidfix.in')]);
   return {
     invoiceNumber: b.payment?.invoiceNumber ?? `PRO-${b.code}`,
@@ -143,7 +144,11 @@ export async function invoice(bookingId: string, auth: { userId: string; role: R
     bookingCode: b.code ?? '',
     service: b.service.name,
     serviceDate: (b.completedAt ?? b.scheduledFor).toISOString(),
-    items: b.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, amount: i.amount })),
+    items: [
+      ...b.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, amount: i.amount })),
+      ...b.spareParts.map((p) => ({ name: `Spare part: ${p.name}`, quantity: p.quantity, unitPrice: p.unitPrice, amount: p.amount, kind: 'SPARE_PART' as const })),
+    ],
+    spareParts: b.sparePartsTotal,
     subtotal,
     discount: b.discountAmount,
     couponCode: b.coupon?.code ?? null,

@@ -110,6 +110,7 @@ describe('Start-up catalogue upkeep', () => {
     expect(norm(migration('20261007040000_chat_blocks'))).toBe(norm(startupSql.chatBlocks));
     expect(norm(migration('20261007120000_franchises'))).toBe(norm(startupSql.franchises));
     expect(norm(migration('20261007150000_technician_kyc'))).toBe(norm(startupSql.technicianKyc));
+    expect(norm(migration('20261008090000_spare_parts'))).toBe(norm(startupSql.spareParts));
   });
 
   it('adds the franchise schema to a database that does not have it yet (like production)', async () => {
@@ -137,6 +138,13 @@ describe('Start-up catalogue upkeep', () => {
     await prisma.$executeRawUnsafe('ALTER TABLE `technicians` DROP COLUMN `panNumber`');
     expect(await applyIdempotent(startupSql.technicianKyc)).toBe(1);
     expect(await applyIdempotent(startupSql.technicianKyc)).toBe(0);
+  });
+
+  it('adds the spare parts table and column to a database without them (like production), once', async () => {
+    await prisma.$executeRawUnsafe('DROP TABLE `booking_spare_parts`');
+    await prisma.$executeRawUnsafe('ALTER TABLE `bookings` DROP COLUMN `sparePartsTotal`');
+    expect(await applyIdempotent(startupSql.spareParts)).toBe(4);
+    expect(await applyIdempotent(startupSql.spareParts)).toBe(0);
   });
 
   it('re-running the franchises schema on an up-to-date database is a no-op', async () => {

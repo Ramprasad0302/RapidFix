@@ -7,6 +7,7 @@ import { validate } from '../middleware/validate';
 import * as tech from '../services/technician.service';
 import * as account from '../services/technicianAccount.service';
 import * as payments from '../services/payment.service';
+import * as spares from '../services/spareParts.service';
 import * as work from '../services/work.service';
 import { signLocationToken, verifyLocationToken } from '../services/token.service';
 import { ok } from '../utils/response';
@@ -141,6 +142,28 @@ technicianRouter.post(
     ok(res, await tech.getJob(authOf(req).userId, String(req.params.id)), 201);
   },
 );
+
+/** Spare parts bought for the job: added straight to the bill and invoice (customer is notified). */
+technicianRouter.post(
+  '/jobs/:id/spare-parts',
+  validate(
+    z.object({
+      name: z.string().trim().min(2).max(160),
+      quantity: z.number().int().min(1).max(100),
+      unitPrice: z.number().int().min(100).max(5_000_000),
+      billPhotoUrl: z.string().max(200).nullable().optional(),
+    }),
+  ),
+  async (req, res) => {
+    await spares.addSparePart(authOf(req).userId, String(req.params.id), req.body);
+    ok(res, await tech.getJob(authOf(req).userId, String(req.params.id)), 201);
+  },
+);
+
+technicianRouter.delete('/jobs/:id/spare-parts/:partId', async (req, res) => {
+  await spares.removeSparePart(authOf(req).userId, String(req.params.id), String(req.params.partId));
+  ok(res, await tech.getJob(authOf(req).userId, String(req.params.id)));
+});
 
 /** Razorpay QR / link for the amount still due (also texted to the customer). */
 technicianRouter.post('/jobs/:id/payment-link', async (req, res) => {
