@@ -20,6 +20,8 @@ export const Permission = {
   USERS_MANAGE: 'users:manage',
   /** Grant or revoke staff (admin) roles. */
   ADMINS_MANAGE: 'admins:manage',
+  /** Create franchises, appoint franchise managers, see every franchise's reports. */
+  FRANCHISES_MANAGE: 'franchises:manage',
 } as const;
 export type Permission = (typeof Permission)[keyof typeof Permission];
 
@@ -32,7 +34,12 @@ export const ROLE_PERMISSIONS: Readonly<Record<AdminRole, readonly Permission[]>
   [Role.OPERATIONS]: [P.DASHBOARD_VIEW, P.BOOKINGS_MANAGE, P.TECHNICIANS_MANAGE, P.REVIEWS_MANAGE, P.REPORTS_VIEW],
   [Role.SUPPORT]: [P.DASHBOARD_VIEW, P.CUSTOMERS_MANAGE, P.COMPLAINTS_MANAGE, P.REVIEWS_MANAGE],
   [Role.FINANCE]: [P.DASHBOARD_VIEW, P.PAYMENTS_MANAGE, P.PAYOUTS_MANAGE, P.REPORTS_VIEW],
+  // Everything here is limited to the manager's own franchise by the API.
+  [Role.FRANCHISE_ADMIN]: [P.DASHBOARD_VIEW, P.BOOKINGS_MANAGE, P.CUSTOMERS_MANAGE, P.TECHNICIANS_MANAGE, P.COMPLAINTS_MANAGE, P.REPORTS_VIEW],
 };
+
+/** Staff whose data is limited to one franchise. */
+export const isFranchiseScoped = (role: Role) => role === Role.FRANCHISE_ADMIN;
 
 export function isAdminRole(role: Role): role is AdminRole {
   return role in ROLE_PERMISSIONS;

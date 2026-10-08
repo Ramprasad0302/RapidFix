@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MapPinned, Users } from 'lucide-react';
+import { MapPinned, MapPinPlus, Users } from 'lucide-react';
+import { hasPermission, Permission } from '@fixora/shared-types';
 import { formatIndianPhone } from '@fixora/shared-utils';
 import { Button, cx } from '@fixora/ui';
 import { ErrorState, Skeleton } from '../../../components/States';
 import { Toggle } from '../../../components/Toggle';
-import { adminModulesApi, type AdminServiceAreaDto } from '../../../lib/endpoints';
+import { adminModulesApi, franchiseApi, type AdminServiceAreaDto } from '../../../lib/endpoints';
+import { useAuth } from '../../../store/auth';
+import { AddLocalityDialog } from '../components/AddLocalityDialog';
 import { formatDate, formatTime } from '../../../lib/format';
 import { toast } from '../../../store/toast';
 import { Card } from '../components/Card';
@@ -18,9 +21,23 @@ import { PageTitle } from '../components/kit';
  */
 export function ServiceAreaPage() {
   const data = useQuery({ queryKey: ['admin', 'service-area'], queryFn: adminModulesApi.serviceArea });
+  const role = useAuth((s) => s.user?.role);
+  const canFranchise = !!role && hasPermission(role, Permission.FRANCHISES_MANAGE);
+  const franchises = useQuery({ queryKey: ['admin', 'franchises'], queryFn: franchiseApi.list, enabled: canFranchise });
+  const [adding, setAdding] = useState(false);
   return (
     <div className="mx-auto max-w-[1000px]">
-      <PageTitle icon={MapPinned} title="Service Area" subtitle="Bookings are accepted only inside active towns' radius. Everyone else can tap “I'm interested”." />
+      <PageTitle
+        icon={MapPinned}
+        title="Service Area"
+        subtitle="Bookings are accepted only inside active towns' radius. Everyone else can tap “I'm interested”."
+        actions={
+          <Button leftIcon={<MapPinPlus className="size-4.5" />} onClick={() => setAdding(true)}>
+            Add locality
+          </Button>
+        }
+      />
+      <AddLocalityDialog open={adding} onClose={() => setAdding(false)} />
       {data.isPending && <Skeleton className="mt-6 h-96" />}
       {data.isError && !data.data && <ErrorState error={data.error} onRetry={() => void data.refetch()} />}
       {data.data && (
@@ -28,7 +45,7 @@ export function ServiceAreaPage() {
           <Card title="Towns" className="mt-5">
             <ul className="divide-y divide-slate-100">
               {data.data.locations.map((l) => (
-                <TownRow key={`${l.id}:${l.isActive}:${l.radiusKm}`} l={l} />
+                <TownRow key={`${l.id}:${l.isActive}:${l.radiusKm}`} l={l} franchises={canFranchise ? (franchises.data ?? []) : null} />
               ))}
             </ul>
           </Card>
@@ -80,8 +97,17 @@ export function ServiceAreaPage() {
   );
 }
 
-function TownRow({ l }: { l: AdminServiceAreaDto['locations'][number] }) {
+function TownRow({ l, franchises }: { l: AdminServiceAreaDto['locations'][number]; franchises: { id: string; name: string; status: string }[] | null }) {
   const qc = useQueryClient();
+  const attach = useMutation({
+    mutationFn: (franchiseId: string | null) => adminModulesApi.setLocalityFranchise(l.id, franchiseId),
+    onSuccess: (_d, franchiseId) => {
+      toast(franchiseId ? `${l.name} now belongs to ${franchises?.find((f) => f.id === franchiseId)?.name}` : `${l.name} is run by head office`);
+      void qc.invalidateQueries({ queryKey: ['admin', 'service-area'] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'franchises'] });
+    },
+    onError: (e) => toast((e as Error).message, 'error'),
+  });
   const [radius, setRadius] = useState(String(l.radiusKm));
   const save = useMutation({
     mutationFn: (body: { isActive?: boolean; radiusKm?: number }) => adminModulesApi.updateServiceArea(l.id, body),
@@ -100,6 +126,25 @@ function TownRow({ l }: { l: AdminServiceAreaDto['locations'][number] }) {
         <p className="text-xs text-slate-500">
           {l.district}, {l.state}
         </p>
+        {franchises ? (
+          <select
+            value={l.franchiseId ?? ''}
+            disabled={attach.isPending}
+            onChange={(e) => attach.mutate(e.target.value || null)}
+            aria-label={`Franchise for ${l.name}`}
+            className="mt-1 h-8 max-w-full rounded-lg border border-slate-300 bg-white px-2 text-xs"
+          >
+            <option value="">Head office (no franchise)</option>
+            {franchises.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+                {f.status !== 'ACTIVE' ? ` (${f.status.toLowerCase()})` : ''}
+              </option>
+            ))}
+          </select>
+        ) : (
+          l.franchise && <p className="text-xs font-medium text-fixora-blue">{l.franchise}</p>
+        )}
       </div>
       <label className="flex items-center gap-2 text-sm text-slate-600">
         Radius

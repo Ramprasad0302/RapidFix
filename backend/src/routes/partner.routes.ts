@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { Role } from '@fixora/shared-types';
-import { dateOfBirthSchema, indianPhoneSchema, toE164India } from '@fixora/shared-utils';
+import { dateOfBirthSchema, indianPhoneSchema, toE164India, partnerPayoutSchema } from '@fixora/shared-utils';
 import { setRefreshCookie } from '../controllers/auth.controller';
 import { authenticate, authOf, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -11,7 +11,7 @@ import { ok } from '../utils/response';
 /** "Become a RapidFix partner": a freshly signed-in phone account registers as a technician (pending verification). */
 export const partnerRouter = Router();
 
-const schema = z.object({
+const schema = partnerPayoutSchema.extend({
   name: z.string().trim().min(2).max(120),
   email: z.email('Enter a valid email').trim().toLowerCase(),
   dateOfBirth: dateOfBirthSchema(18, 70),
@@ -34,6 +34,8 @@ const schema = z.object({
   baseLatitude: z.number().min(-90).max(90).nullable().optional(),
   baseLongitude: z.number().min(-180).max(180).nullable().optional(),
   skills: z.array(z.uuid()).min(1, 'Choose at least one service').max(10),
+  /** Specific services within those categories (e.g. TV, washing machine). Omitted = all of them. */
+  serviceIds: z.array(z.uuid()).max(300).optional(),
 });
 
 partnerRouter.post('/register', authenticate(), authorize(Role.CUSTOMER), validate(schema), async (req, res) => {

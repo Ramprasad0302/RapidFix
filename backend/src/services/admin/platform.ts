@@ -1,3 +1,4 @@
+import { bookingScope, complaintScope, customerScope, technicianScope, type Scope } from '../franchiseScope';
 import { z } from 'zod';
 import {
   CANCELLED_STATUSES,
@@ -55,8 +56,8 @@ export async function setReviewVisibility(actor: Actor, id: string, isVisible: b
 
 // ─── Complaints ──────────────────────────────────────────────────────────
 
-export async function listComplaints(q: { status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'; page: number; pageSize: number }) {
-  const where: Prisma.ComplaintWhereInput = q.status ? { status: q.status } : {};
+export async function listComplaints(q: { status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'; page: number; pageSize: number }, scope: Scope = null) {
+  const where: Prisma.ComplaintWhereInput = { ...(q.status && { status: q.status }), AND: [complaintScope(scope)] };
   const [rows, total] = await prisma.$transaction([
     prisma.complaint.findMany({ where, include: complaintInclude, orderBy: [{ status: 'asc' }, { createdAt: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
     prisma.complaint.count({ where }),
@@ -117,10 +118,10 @@ export async function listBroadcasts(): Promise<BroadcastDto[]> {
 
 // ─── Reports ─────────────────────────────────────────────────────────────
 
-export async function report(from: Date, to: Date): Promise<ReportDto> {
+export async function report(from: Date, to: Date, scope: Scope = null): Promise<ReportDto> {
   const created = { gte: from, lte: to };
   const bookings = await prisma.booking.findMany({
-    where: { createdAt: created },
+    where: { createdAt: created, ...bookingScope(scope) },
     select: {
       id: true,
       status: true,
@@ -142,14 +143,14 @@ export async function report(from: Date, to: Date): Promise<ReportDto> {
 
   // Repeat customers: booked in range and had any earlier booking.
   const inRangeCustomers = [...new Set(bookings.map((b) => b.customerId))];
-  const earlier = await prisma.booking.groupBy({ by: ['customerId'], where: { customerId: { in: inRangeCustomers }, createdAt: { lt: from } }, _count: { _all: true } });
+  const earlier = await prisma.booking.groupBy({ by: ['customerId'], where: { customerId: { in: inRangeCustomers }, createdAt: { lt: from }, ...bookingScope(scope) }, _count: { _all: true } });
   const multiInRange = inRangeCustomers.filter((c) => bookings.filter((b) => b.customerId === c).length > 1);
   const repeat = new Set([...earlier.map((e) => e.customerId), ...multiInRange]);
 
   const [newCustomers, newTechnicians, ratingAgg] = await Promise.all([
-    prisma.customer.count({ where: { createdAt: created, user: { role: 'CUSTOMER' } } }),
-    prisma.technician.count({ where: { createdAt: created } }),
-    prisma.review.aggregate({ where: { createdAt: created }, _avg: { rating: true }, _count: { _all: true } }),
+    prisma.customer.count({ where: { createdAt: created, user: { role: 'CUSTOMER' }, AND: [customerScope(scope)] } }),
+    prisma.technician.count({ where: { createdAt: created, ...technicianScope(scope) } }),
+    prisma.review.aggregate({ where: { createdAt: created, booking: bookingScope(scope) }, _avg: { rating: true }, _count: { _all: true } }),
   ]);
 
   const days = new Map<string, { date: string; bookings: number; completed: number; revenue: number }>();
@@ -175,14 +176,14 @@ export async function report(from: Date, to: Date): Promise<ReportDto> {
   };
 
   const techs = await prisma.technician.findMany({
-    where: { verificationStatus: 'VERIFIED' },
+    where: { verificationStatus: 'VERIFIED', ...technicianScope(scope) },
     select: { id: true, ratingAvg: true, user: { select: { name: true } } },
   });
   const [jobs, earnings, offers, accepted] = await Promise.all([
-    prisma.booking.groupBy({ by: ['technicianId'], where: { createdAt: created, status: { in: completedStatuses as never } }, _count: { _all: true } }),
-    prisma.booking.groupBy({ by: ['technicianId'], where: { createdAt: created, paymentStatus: 'SUCCESS' }, _sum: { technicianEarning: true } }),
-    prisma.bookingAssignment.groupBy({ by: ['technicianId'], where: { offeredAt: created, status: { not: 'OFFERED' } }, _count: { _all: true } }),
-    prisma.bookingAssignment.groupBy({ by: ['technicianId'], where: { offeredAt: created, status: { in: ['ACCEPTED', 'REASSIGNED'] } }, _count: { _all: true } }),
+    prisma.booking.groupBy({ by: ['technicianId'], where: { createdAt: created, status: { in: completedStatuses as never }, ...bookingScope(scope) }, _count: { _all: true } }),
+    prisma.booking.groupBy({ by: ['technicianId'], where: { createdAt: created, paymentStatus: 'SUCCESS', ...bookingScope(scope) }, _sum: { technicianEarning: true } }),
+    prisma.bookingAssignment.groupBy({ by: ['technicianId'], where: { offeredAt: created, status: { not: 'OFFERED' }, booking: bookingScope(scope) }, _count: { _all: true } }),
+    prisma.bookingAssignment.groupBy({ by: ['technicianId'], where: { offeredAt: created, status: { in: ['ACCEPTED', 'REASSIGNED'] }, booking: bookingScope(scope) }, _count: { _all: true } }),
   ]);
   const technicianPerformance = techs
     .map((t) => {
@@ -234,6 +235,11 @@ const SETTINGS: Record<string, { description: string; schema: z.ZodType; default
   'commission.globalPercent': { description: 'Default RapidFix commission % (overridden by category / service / technician rules)', schema: z.number().min(0).max(50), default: 15 },
   'dispatch.requestTimeoutSeconds': { description: 'Seconds a technician has to accept an automatic job offer', schema: z.number().int().min(10).max(600), default: 60 },
   'dispatch.maxAttempts': { description: 'Automatic offers per booking before handing over to operations', schema: z.number().int().min(1).max(20), default: 5 },
+  'dispatch.autoCancelMinutes': {
+    description: 'Cancel and fully refund a booking that no technician accepts within this many minutes (0 = never)',
+    schema: z.number().int().min(0).max(1440),
+    default: 30,
+  },
   'dispatch.searchRadiusKm': { description: 'Maximum distance for automatic assignment', schema: z.number().min(1).max(50), default: 15 },
   'dispatch.weights': {
     description: 'Ranking weights (skill, distance, rating, workload)',

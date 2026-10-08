@@ -127,7 +127,7 @@ final class Notifications {
         return Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + ctx.getPackageName() + "/" + R.raw.job_alert);
     }
 
-    private static long millisUntil(String iso) {
+    static long millisUntil(String iso) {
         if (iso == null || iso.isEmpty()) return 0;
         try {
             long at = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O

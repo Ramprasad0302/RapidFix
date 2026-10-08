@@ -165,8 +165,15 @@ export async function reverseGeocode(lat: number, lng: number): Promise<GeoAddre
     if (data.error) throw AppError.notFound('No address found here', 'ADDRESS_NOT_FOUND');
     return fromNominatim(data);
   });
+  // Google often has no district for Indian addresses: take it from the pincode.
+  let { district, state } = result;
+  if ((!district || !state) && /^[1-9]\d{5}$/.test(result.pincode)) {
+    const pin = await lookupPincode(result.pincode).catch(() => null);
+    district ||= pin?.district ?? '';
+    state ||= pin?.state ?? '';
+  }
   // Keep the exact pin, not the geocoder's snapped point.
-  return { ...result, latitude: lat, longitude: lng };
+  return { ...result, district, state, latitude: lat, longitude: lng };
 }
 
 export async function searchPlaces(q: string, near?: { lat: number; lng: number }): Promise<GeoPlace[]> {
@@ -194,6 +201,47 @@ export async function searchPlaces(q: string, near?: { lat: number; lng: number 
   });
 }
 
+export interface PincodeInfo {
+  pincode: string;
+  district: string;
+  state: string;
+  /** Post offices / localities under this pincode, e.g. "Sajjapuram". */
+  places: string[];
+  /** Mandal / block (usually the town), e.g. "Tanuku". */
+  block: string;
+}
+
+interface PostOffice {
+  Name: string;
+  District: string;
+  State: string;
+  Block?: string;
+}
+
+/** District and state for a 6-digit Indian pincode (India Post's public directory). */
+export async function lookupPincode(pincode: string): Promise<PincodeInfo> {
+  return cached(`p:${pincode}`, async () => {
+    const data = (await getJson(`https://api.postalpincode.in/pincode/${pincode}`)) as { Status: string; PostOffice?: PostOffice[] | null }[];
+    const offices = data[0]?.Status === 'Success' ? (data[0].PostOffice ?? []) : [];
+    if (!offices.length) throw AppError.notFound('This pincode was not found', 'PINCODE_NOT_FOUND');
+    const most = (pick: (o: PostOffice) => string | undefined) => {
+      const counts = new Map<string, number>();
+      for (const o of offices) {
+        const v = pick(o)?.trim();
+        if (v && v !== 'NA') counts.set(v, (counts.get(v) ?? 0) + 1);
+      }
+      return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+    };
+    return {
+      pincode,
+      district: most((o) => o.District),
+      state: most((o) => o.State),
+      places: [...new Set(offices.map((o) => o.Name))],
+      block: most((o) => o.Block),
+    };
+  });
+}
+
 /** Best-effort coordinates for a typed address (used when a booking has no GPS pin). */
 export async function geocodeAddress(parts: { area: string; villageTown: string; district: string; state: string; pincode: string }) {
   for (const q of [
@@ -208,4 +256,29 @@ export async function geocodeAddress(parts: { area: string; villageTown: string;
     }
   }
   return null;
+}
+
+export interface IfscInfo {
+  ifsc: string;
+  bank: string;
+  branch: string;
+  city: string;
+  state: string;
+}
+
+/** Bank and branch for an IFSC (Razorpay's public IFSC directory) — lets people spot a mistyped code. */
+export async function lookupIfsc(ifsc: string): Promise<IfscInfo> {
+  const code = ifsc.toUpperCase();
+  return cached(`ifsc:${code}`, async () => {
+    let res: Response;
+    try {
+      res = await fetch(`https://ifsc.razorpay.com/${code}`, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    } catch {
+      throw new AppError(503, 'IFSC_LOOKUP_UNAVAILABLE', 'Could not check this IFSC right now.');
+    }
+    if (res.status === 404) throw AppError.notFound('No bank branch has this IFSC. Please check it.', 'IFSC_NOT_FOUND');
+    if (!res.ok) throw new AppError(503, 'IFSC_LOOKUP_UNAVAILABLE', 'Could not check this IFSC right now.');
+    const d = (await res.json()) as { BANK?: string; BRANCH?: string; CITY?: string; STATE?: string };
+    return { ifsc: code, bank: d.BANK ?? '', branch: d.BRANCH ?? '', city: d.CITY ?? '', state: d.STATE ?? '' };
+  });
 }

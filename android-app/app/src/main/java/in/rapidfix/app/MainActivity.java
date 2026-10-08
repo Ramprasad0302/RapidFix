@@ -26,6 +26,7 @@ import android.print.PrintManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
@@ -554,6 +555,18 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
                 // Native Razorpay checkout: UPI apps (PhonePe, Google Pay, Paytm…) open directly; cards & net banking too.
                 startPayment(id, msg.optJSONObject("value"));
                 break;
+            case "haptic": {
+                // Tab switches, confirmations and errors: a short tap of the vibration motor.
+                String kind = msg.optString("value", "light");
+                int fx = "error".equals(kind) || "warning".equals(kind) ? HapticFeedbackConstants.REJECT
+                        : "success".equals(kind) ? HapticFeedbackConstants.CONFIRM
+                        : "selection".equals(kind) ? HapticFeedbackConstants.CLOCK_TICK
+                        : HapticFeedbackConstants.VIRTUAL_KEY;
+                if (Build.VERSION.SDK_INT < 30 && (fx == HapticFeedbackConstants.REJECT || fx == HapticFeedbackConstants.CONFIRM)) fx = HapticFeedbackConstants.VIRTUAL_KEY;
+                web.performHapticFeedback(fx);
+                respond(id, null);
+                break;
+            }
             case "flushCookies":
                 // Just signed in / out: keep the session even if the app is killed right away.
                 CookieManager.getInstance().flush();
@@ -876,6 +889,7 @@ public class MainActivity extends Activity implements PaymentResultWithDataListe
         // so the next location request asks Android again instead of failing silently.
         if (!hasLocationPermission()) GeolocationPermissions.getInstance().clearAll();
         Notifications.cancelJobAlerts(this);
+        JobAlarmService.stop(this); // the in-app pop-up takes over
         JSONObject e = state();
         try {
             e.put("event", "state");

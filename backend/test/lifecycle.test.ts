@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prisma } from '../src/config/prisma';
 import { dispatchBooking } from '../src/services/assignment.service';
 import { signAccessToken } from '../src/services/token.service';
-import { API, bearer, createStaff, otpLogin, request, resetDb, sampleAddress, seedCatalog } from './helpers';
+import { API, bearer, createStaff, otpLogin, partnerPayout, request, resetDb, sampleAddress, seedCatalog } from './helpers';
 
 let serviceId: string;
 let categoryId: string;
@@ -160,6 +160,46 @@ describe('chat', () => {
     await request().get(`${API}/bookings/${id}/messages`).set(bearer(support.token)).expect(200);
     await request().post(`${API}/bookings/${id}/messages`).set(bearer(support.token)).send({ body: 'hi' }).expect(403);
   });
+
+  it('report & block: support gets a complaint with the messages; the chat closes and hides the blocked person', async () => {
+    const id = await bookAndAssign();
+    await tAct(id, 'accept').expect(200);
+    await request().post(`${API}/bookings/${id}/messages`).set(bearer(tech.token)).send({ body: 'rude message' }).expect(201);
+    await request().post(`${API}/bookings/${id}/messages`).set(bearer(customer.token)).send({ body: 'hello' }).expect(201);
+
+    const r = await request().post(`${API}/bookings/${id}/chat/report`).set(bearer(customer.token)).send({ reason: 'Abusive or rude' }).expect(200);
+    expect(r.body.data).toMatchObject({ blockedBy: 'me', canSend: false, counterpart: { phone: null } });
+    const complaint = await prisma.complaint.findFirstOrThrow({ where: { bookingId: id } });
+    expect(complaint).toMatchObject({ category: 'Chat message', raisedById: customer.user.id });
+    expect(complaint.description).toContain('rude message');
+
+    // The blocker no longer sees their messages; neither side can send.
+    const mine = await request().get(`${API}/bookings/${id}/messages`).set(bearer(customer.token)).expect(200);
+    expect(mine.body.data.map((m: { body: string }) => m.body)).toEqual(['hello']);
+    await request().post(`${API}/bookings/${id}/messages`).set(bearer(tech.token)).send({ body: 'again' }).expect(409);
+    const theirs = await request().get(`${API}/bookings/${id}/chat`).set(bearer(tech.token)).expect(200);
+    expect(theirs.body.data).toMatchObject({ blockedBy: 'them', canSend: false });
+
+    const un = await request().delete(`${API}/bookings/${id}/chat/block`).set(bearer(customer.token)).expect(200);
+    expect(un.body.data).toMatchObject({ blockedBy: null, canSend: true });
+  });
+});
+
+describe('App Store review account', () => {
+  it('books without payment and goes to the demo technician (never a real one)', async () => {
+    const reviewer = await otpLogin('9000012345');
+    const res = await request()
+      .post(`${API}/customer/bookings`)
+      .set(bearer(reviewer.token))
+      .send({ serviceId, scheduleType: 'NOW', address: { ...sampleAddress, latitude: 37.33, longitude: -122.03 } }) // Cupertino: outside the area
+      .expect(201);
+    expect(res.body.data).toMatchObject({ status: 'TECHNICIAN_ACCEPTED', payNow: 0 });
+    const chat = await request().get(`${API}/bookings/${res.body.data.id}/messages`).set(bearer(reviewer.token)).expect(200);
+    expect(chat.body.data[0].body).toContain('demo technician');
+    expect(await prisma.notification.count({ where: { userId: tech.userId } })).toBe(0);
+    const demo = await prisma.technician.findFirstOrThrow({ where: { user: { phone: '+919000099999' } } });
+    expect(demo.isOnline).toBe(false);
+  });
 });
 
 describe('Razorpay', () => {
@@ -270,8 +310,13 @@ describe('technician account', () => {
       state: 'Andhra Pradesh',
       pincode: '534211',
       skills: [categoryId],
+      ...partnerPayout,
     };
-    // Onboarding needs the details used for verification.
+    // Onboarding needs the details used for verification — and bank details for payouts.
+    const { bankAccountNumber: _acc, ...noBank } = partner;
+    await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send(noBank).expect(400);
+    await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner, bankIfsc: 'SBI123' }).expect(400);
+    await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner, aadhaarNumber: '234567890123' }).expect(400);
     const { dateOfBirth: _dob, ...noDob } = partner;
     await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send(noDob).expect(400);
     await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner, dateOfBirth: '2015-01-01' }).expect(400);
@@ -284,6 +329,10 @@ describe('technician account', () => {
     expect(res.body.data.user).toMatchObject({ role: 'TECHNICIAN', technician: { verificationStatus: 'PENDING' } });
     const details = await request().get(`${API}/technician/profile/details`).set(bearer(res.body.data.accessToken)).expect(200);
     expect(details.body.data).toMatchObject({ dateOfBirth: '1992-04-10', alternatePhone: '+919000000051', hasOwnTools: true, hasVehicle: false });
+    const tech = await prisma.technician.findFirstOrThrow({ where: { user: { phone: '+919000000050' } } });
+    expect(tech).toMatchObject({ bankAccountHolder: 'Test Partner', bankIfsc: 'SBIN0001234', bankAccountLast4: '9012', payoutUpiId: 'partner@okaxis', aadhaarLast4: '0124' });
+    expect(tech.bankAccountEnc).not.toContain('123456789012'); // encrypted at rest
+    expect(tech.aadhaarEnc).not.toContain('234567890124');
     await request().post(`${API}/auth/refresh`).set('Cookie', fresh.cookie).expect(401);
     await request().post(`${API}/technician/online`).set(bearer(res.body.data.accessToken)).send({}).expect(403);
   });

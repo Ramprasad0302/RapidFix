@@ -31,6 +31,7 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync('fixora-timing-equaliser', 12);
 export const userInclude = {
   technician: { select: { id: true, verificationStatus: true, isOnline: true } },
   customer: { select: { _count: { select: { addresses: { where: { deletedAt: null } } } } } },
+  franchise: { select: { id: true, code: true, name: true, town: true } },
 } as const;
 type UserWithTech = Prisma.UserGetPayload<{ include: typeof userInclude }>;
 
@@ -44,6 +45,7 @@ export function toAuthUser(u: UserWithTech): AuthUser {
     avatarUrl: u.avatarUrl,
     ...(u.technician && { technician: u.technician }),
     ...(u.role === Role.CUSTOMER && { profileComplete: isCustomerProfileComplete(u) }),
+    ...(u.role === Role.FRANCHISE_ADMIN && u.franchise && { franchise: u.franchise }),
   };
 }
 

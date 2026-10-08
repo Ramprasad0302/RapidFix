@@ -1,5 +1,5 @@
+import { bookingScope, customerScope, technicianScope, type Scope } from './franchiseScope';
 import {
-  ADMIN_ROLES,
   BOOKING_TAB_STATUSES,
   CANCELLED_STATUSES,
   hasPermission,
@@ -43,7 +43,8 @@ async function kpi(count: (where: { gte?: Date; lt?: Date }) => Promise<number>)
   return { total, thisMonth, growthPct: growth(thisMonth, lastMonth) };
 }
 
-export async function dashboard(range: DashboardRange): Promise<AdminDashboardDto> {
+export async function dashboard(range: DashboardRange, scope: Scope = null): Promise<AdminDashboardDto> {
+  const inBooking = bookingScope(scope);
   const now = new Date();
   const periodDays = range === 'today' ? 1 : range === '7d' ? 7 : 30;
   const periodStart = istDayStart(now, -(periodDays - 1));
@@ -51,19 +52,19 @@ export async function dashboard(range: DashboardRange): Promise<AdminDashboardDt
   const chartStart = istDayStart(now, -(chartDays - 1));
 
   const revenueSum = async (w: { gte?: Date; lt?: Date }) =>
-    (await prisma.payment.aggregate({ where: { status: 'SUCCESS', ...(w.gte && { paidAt: w }) }, _sum: { amount: true } }))._sum
+    (await prisma.payment.aggregate({ where: { status: 'SUCCESS', booking: inBooking, ...(w.gte && { paidAt: w }) }, _sum: { amount: true } }))._sum
       .amount ?? 0;
 
   const [customers, technicians, bookingsKpi, revenueKpi] = await Promise.all([
-    kpi((w) => prisma.customer.count({ where: { user: { role: Role.CUSTOMER }, ...(w.gte && { createdAt: w }) } })),
-    kpi((w) => prisma.technician.count({ where: { user: { role: Role.TECHNICIAN }, ...(w.gte && { createdAt: w }) } })),
-    kpi((w) => prisma.booking.count({ where: w.gte ? { createdAt: w } : {} })),
+    kpi((w) => prisma.customer.count({ where: { user: { role: Role.CUSTOMER }, AND: [customerScope(scope)], ...(w.gte && { createdAt: w }) } })),
+    kpi((w) => prisma.technician.count({ where: { user: { role: Role.TECHNICIAN }, ...technicianScope(scope), ...(w.gte && { createdAt: w }) } })),
+    kpi((w) => prisma.booking.count({ where: { ...inBooking, ...(w.gte && { createdAt: w }) } })),
     kpi(revenueSum),
   ]);
 
   const windowStart = chartStart < periodStart ? chartStart : periodStart;
   const periodBookings = await prisma.booking.findMany({
-    where: { createdAt: { gte: windowStart } },
+    where: { createdAt: { gte: windowStart }, ...inBooking },
     select: {
       status: true,
       createdAt: true,
@@ -98,12 +99,13 @@ export async function dashboard(range: DashboardRange): Promise<AdminDashboardDt
   };
 
   const [activeServices, completedInPeriod, cancelledInPeriod] = await Promise.all([
-    prisma.booking.count({ where: { status: { in: [...TECHNICIAN_TAB_STATUSES.inProgress] } } }),
-    prisma.booking.count({ where: { status: { in: COMPLETED }, completedAt: { gte: periodStart } } }),
-    prisma.booking.count({ where: { status: { in: [...CANCELLED_STATUSES] }, cancelledAt: { gte: periodStart } } }),
+    prisma.booking.count({ where: { status: { in: [...TECHNICIAN_TAB_STATUSES.inProgress] }, ...inBooking } }),
+    prisma.booking.count({ where: { status: { in: COMPLETED }, completedAt: { gte: periodStart }, ...inBooking } }),
+    prisma.booking.count({ where: { status: { in: [...CANCELLED_STATUSES] }, cancelledAt: { gte: periodStart }, ...inBooking } }),
   ]);
 
   const recent = await prisma.booking.findMany({
+    where: inBooking,
     orderBy: { createdAt: 'desc' },
     take: 6,
     include: {
@@ -114,7 +116,7 @@ export async function dashboard(range: DashboardRange): Promise<AdminDashboardDt
   });
 
   const live = await prisma.technician.findMany({
-    where: { verificationStatus: 'VERIFIED', user: { role: Role.TECHNICIAN, status: 'ACTIVE' } },
+    where: { verificationStatus: 'VERIFIED', ...technicianScope(scope), user: { role: Role.TECHNICIAN, status: 'ACTIVE' } },
     orderBy: [{ isOnline: 'desc' }, { lastLocationAt: 'desc' }],
     take: 5,
     include: { user: { select: { name: true, avatarUrl: true } }, skills: { include: { category: true }, orderBy: { category: { sortOrder: 'asc' } }, take: 1 } },
@@ -122,7 +124,7 @@ export async function dashboard(range: DashboardRange): Promise<AdminDashboardDt
 
   // Revenue (payments collected) and payouts (technician earnings on paid jobs).
   const paidInChart = await prisma.payment.findMany({
-    where: { status: 'SUCCESS', paidAt: { gte: chartStart } },
+    where: { status: 'SUCCESS', paidAt: { gte: chartStart }, booking: inBooking },
     select: { amount: true, paidAt: true },
   });
   const revenueByDay = new Map(days.map((d) => [d, 0]));
@@ -133,7 +135,7 @@ export async function dashboard(range: DashboardRange): Promise<AdminDashboardDt
   const payoutSum = async (w: { gte?: Date; lt?: Date }) =>
     (
       await prisma.booking.aggregate({
-        where: { status: 'PAYMENT_COMPLETED', ...(w.gte && { completedAt: w }) },
+        where: { status: 'PAYMENT_COMPLETED', ...inBooking, ...(w.gte && { completedAt: w }) },
         _sum: { technicianEarning: true },
       })
     )._sum.technicianEarning ?? 0;
@@ -148,7 +150,7 @@ export async function dashboard(range: DashboardRange): Promise<AdminDashboardDt
   ]);
 
   const reviews = await prisma.review.findMany({
-    where: { isVisible: true },
+    where: { isVisible: true, booking: inBooking },
     orderBy: { createdAt: 'desc' },
     take: 3,
     include: {
@@ -260,6 +262,9 @@ export async function changeRole(actor: { userId: string; role: Role }, targetId
   });
   if (!target) throw AppError.notFound('User not found', 'USER_NOT_FOUND');
   if (target.role === newRole) return target;
+  if (target.role === Role.FRANCHISE_ADMIN) {
+    throw AppError.conflict('This person manages a franchise. Change it from Franchises.', 'FRANCHISE_MANAGER');
+  }
 
   const touchesStaff = isAdminRole(target.role) || isAdminRole(newRole);
   if (touchesStaff && !hasPermission(actor.role, Permission.ADMINS_MANAGE)) {
@@ -314,4 +319,5 @@ export async function changeRole(actor: { userId: string; role: Role }, targetId
   return updated;
 }
 
-export const ASSIGNABLE_ROLES = [Role.CUSTOMER, Role.TECHNICIAN, ...ADMIN_ROLES] as const;
+/** Franchise managers are appointed only through Franchises (with their agreement details). */
+export const ASSIGNABLE_ROLES = [Role.CUSTOMER, Role.TECHNICIAN, Role.SUPER_ADMIN, Role.ADMIN, Role.OPERATIONS, Role.SUPPORT, Role.FINANCE] as const;

@@ -20,9 +20,12 @@ function slotAvailable(date: string | null, slotId: string) {
 
 /** Book Now / Schedule for Later + date chips + time-slot grid (booking step 4 and reschedule). */
 export function ScheduleFields({ value, onChange }: { value: ScheduleValue; onChange(v: ScheduleValue): void }) {
-  const days = nextDays(7);
+  const [today, tomorrow] = nextDays(2);
+  // Late in the day every slot has passed: start the dates at tomorrow.
+  const todayOver = TIME_SLOTS.every((s) => !slotAvailable(today!, s.id));
+  const days = todayOver ? nextDays(8).slice(1) : nextDays(7);
   const now = value.scheduleType === 'NOW';
-  const date = value.date ?? days[0]!;
+  const date = value.date && days.includes(value.date) ? value.date : days[0]!;
 
   return (
     <div className="flex flex-col gap-5">
@@ -62,19 +65,20 @@ export function ScheduleFields({ value, onChange }: { value: ScheduleValue; onCh
       ) : (
         <div>
           <p className="mb-2 text-sm font-semibold text-slate-900">Select Date</p>
-          <div className="scroll-row -mx-5 gap-2 px-5">
-            {days.map((d, i) => (
+          {todayOver && <p className="-mt-1 mb-2 text-xs text-slate-500">Today’s slots are over — showing from tomorrow.</p>}
+          <div className="scroll-row -mx-5 scroll-px-5 gap-2 px-5">
+            {days.map((d) => (
               <button
                 key={d}
                 type="button"
                 onClick={() => onChange({ ...value, date: d, timeSlot: slotAvailable(d, value.timeSlot ?? '') ? value.timeSlot : null })}
                 aria-pressed={date === d}
                 className={cx(
-                  'flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl border text-sm',
+                  'flex h-16 min-w-16 shrink-0 flex-col px-2 items-center justify-center rounded-xl border text-sm',
                   date === d ? 'border-fixora-blue bg-fixora-blue text-white' : 'border-slate-200 text-slate-800',
                 )}
               >
-                <span className="text-xs opacity-80">{i === 0 ? 'Today' : formatWeekday(`${d}T12:00:00+05:30`)}</span>
+                <span className="text-xs opacity-80">{d === today ? 'Today' : d === tomorrow ? 'Tomorrow' : formatWeekday(`${d}T12:00:00+05:30`)}</span>
                 <span className="font-semibold">{formatShortDate(`${d}T12:00:00+05:30`)}</span>
               </button>
             ))}

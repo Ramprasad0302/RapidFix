@@ -12,6 +12,8 @@ export const Role = {
   OPERATIONS: 'OPERATIONS',
   SUPPORT: 'SUPPORT',
   FINANCE: 'FINANCE',
+  /** Franchise manager ("sub-admin"): runs one town; sees only that franchise's data. */
+  FRANCHISE_ADMIN: 'FRANCHISE_ADMIN',
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
@@ -21,6 +23,7 @@ export const ADMIN_ROLES = [
   Role.OPERATIONS,
   Role.SUPPORT,
   Role.FINANCE,
+  Role.FRANCHISE_ADMIN,
 ] as const satisfies readonly Role[];
 export type AdminRole = (typeof ADMIN_ROLES)[number];
 
@@ -108,3 +111,6 @@ export const TIME_SLOTS = [
   { id: '18-20', label: '6 PM – 8 PM', startHour: 18, endHour: 20 },
 ] as const;
 export type TimeSlotId = (typeof TIME_SLOTS)[number]['id'];
+
+export const FranchiseStatus = { ACTIVE: 'ACTIVE', SUSPENDED: 'SUSPENDED', TERMINATED: 'TERMINATED' } as const;
+export type FranchiseStatus = (typeof FranchiseStatus)[keyof typeof FranchiseStatus];

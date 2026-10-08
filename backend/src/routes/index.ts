@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { adminRouter } from './admin.routes';
+import { assistantRouter } from './assistant.routes';
 import { authRouter } from './auth.routes';
 import { bookingsRouter } from './bookings.routes';
 import { complaintsRouter } from './complaints.routes';
@@ -20,6 +21,7 @@ apiRouter.use('/auth', authRouter);
 apiRouter.use('/', catalogRouter);
 apiRouter.use('/uploads', uploadRouter);
 apiRouter.use('/geo', geoRouter);
+apiRouter.use('/assistant', assistantRouter);
 apiRouter.use('/files', filesRouter);
 apiRouter.use('/bookings', bookingsRouter);
 apiRouter.use('/complaints', complaintsRouter);

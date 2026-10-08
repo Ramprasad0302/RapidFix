@@ -134,3 +134,13 @@ export function cookieFrom(res: { headers: Record<string, unknown> }, name: stri
   const hit = list.find((c) => c.startsWith(`${name}=`) && !c.startsWith(`${name}=;`));
   return hit?.split(';')[0];
 }
+
+/** Payout + ID details every new partner gives at sign-up (synthetic values). */
+export const partnerPayout = {
+  bankAccountHolder: 'Test Partner',
+  bankAccountNumber: '123456789012',
+  bankIfsc: 'SBIN0001234',
+  payoutUpiId: 'partner@okaxis',
+  aadhaarNumber: '234567890124', // synthetic, passes the Verhoeff check
+  panNumber: '',
+};

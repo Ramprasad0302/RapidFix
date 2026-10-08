@@ -30,6 +30,9 @@ public class PushService extends FirebaseMessagingService {
             MainActivity.notifyWeb(data);
             return;
         }
+        // A new job request rings like an alarm (audible on silent / vibrate) until answered;
+        // everything else is a normal notification.
+        if (Notifications.TYPE_NEW_JOB.equals(data.get("type")) && JobAlarmService.start(this, data)) return;
         Notifications.show(this, data);
     }
 

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import { cx } from '@fixora/ui';
+import { haptic } from '../lib/haptics';
 
 export interface NavItem {
   to: string;
@@ -22,6 +23,7 @@ export function BottomNav({ items }: { items: NavItem[] }) {
             <NavLink
               to={to}
               end={end}
+              onClick={() => haptic('selection')}
               className={({ isActive }) =>
                 cx('flex h-16 flex-col items-center justify-center gap-1 text-[12px] font-medium', isActive ? 'text-fixora-blue' : 'text-slate-500')
               }

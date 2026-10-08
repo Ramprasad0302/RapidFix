@@ -1,8 +1,9 @@
+import { IfscHint } from '../../partner/PartnerProfileForm';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleCheck, CircleX, Clock3, FileUp, Landmark, Play, ShieldCheck, Star, Trash2, TrendingUp } from 'lucide-react';
-import type { TechnicianDetailsDto, TechnicianDocumentDto } from '@fixora/shared-types';
+import { Check, CircleCheck, CircleX, Clock3, FileUp, Landmark, Play, ShieldCheck, Star, Trash2, TrendingUp } from 'lucide-react';
+import type { TechnicianDetailsDto, TechnicianDocumentDto, TechnicianServicesDto } from '@fixora/shared-types';
 import { Alert, Button, Spinner, TextField, cx } from '@fixora/ui';
 import { PageHeader } from '../../../components/PageHeader';
 import { CenteredSpinner, EmptyState, ErrorState } from '../../../components/States';
@@ -41,7 +42,7 @@ function ProfileForm({ d }: { d: TechnicianDetailsDto }) {
   const navigate = useNavigate();
   const save = useMutation({
     mutationFn: (v: PartnerFormValues) => {
-      const { skills: _skills, ...rest } = toPartnerPayload(v);
+      const { skills: _skills, serviceIds: _serviceIds, ...rest } = toPartnerPayload(v);
       return technicianApi.updateProfile(rest);
     },
     onSuccess: (updated) => {
@@ -70,6 +71,7 @@ function ProfileForm({ d }: { d: TechnicianDetailsDto }) {
     baseLatitude: d.baseLatitude,
     baseLongitude: d.baseLongitude,
     skills: d.skills.map((s) => s.id),
+    serviceIds: [],
   };
   return (
     <>
@@ -135,7 +137,10 @@ export function PayoutDetailsPage() {
             </p>
           )}
           <TextField label="Account holder name" value={holder ?? d.bankAccountHolder ?? ''} onChange={(e) => setHolder(e.target.value)} autoComplete="name" />
-          <TextField label="IFSC" value={ifsc ?? d.bankIfsc ?? ''} onChange={(e) => setIfsc(e.target.value.toUpperCase().slice(0, 11))} autoComplete="off" placeholder="SBIN0001234" />
+          <div>
+            <TextField label="IFSC" value={ifsc ?? d.bankIfsc ?? ''} onChange={(e) => setIfsc(e.target.value.toUpperCase().slice(0, 11))} autoComplete="off" placeholder="SBIN0001234" />
+            <IfscHint ifsc={ifsc ?? d.bankIfsc ?? ''} />
+          </div>
           <TextField
             label={d.bankAccountLast4 ? 'New account number (leave empty to keep)' : 'Account number'}
             inputMode="numeric"
@@ -394,7 +399,7 @@ export function AlertSoundPage() {
   return (
     <Shell title="Job Alert Sound">
       {!isNativeApp() ? (
-        <EmptyState title="Available in the RapidFix app" body="Install the RapidFix app from the Play Store to choose your job alert ringtone." />
+        <EmptyState title="Available in the RapidFix app" body="Install the RapidFix app (Play Store or App Store) to choose your job alert ringtone." />
       ) : !tones.data ? (
         <CenteredSpinner />
       ) : (
@@ -420,6 +425,83 @@ export function AlertSoundPage() {
               );
             })}
           </ul>
+        </>
+      )}
+    </Shell>
+  );
+}
+
+/**
+ * "Services I do": within each type of work, tick only what you do (e.g. Appliance Repair →
+ * TV and washing machine). Job requests come only for ticked services; the category's
+ * Technician Visit always comes to everyone in it.
+ */
+export function ServicesPage() {
+  const qc = useQueryClient();
+  const data = useQuery({ queryKey: ['tech', 'services'], queryFn: technicianApi.services });
+  // Unsaved ticks; until the first change, what the server has.
+  const [edits, setEdits] = useState<Set<string> | null>(null);
+  const picked = edits ?? (data.data ? new Set(data.data.categories.flatMap((c) => c.services.filter((s) => s.selected).map((s) => s.id))) : null);
+  const save = useMutation({
+    mutationFn: () => technicianApi.setServices([...(picked ?? [])]),
+    onSuccess: (d: TechnicianServicesDto) => {
+      qc.setQueryData(['tech', 'services'], d);
+      setEdits(null);
+      toast('Your services are saved');
+    },
+    onError: (e) => toast(e.message, 'error'),
+  });
+
+  const toggle = (services: { id: string }[], id: string) => {
+    const next = new Set(picked);
+    if (next.has(id)) {
+      if (services.filter((s) => next.has(s.id)).length === 1) return toast('Keep at least one service in each type of work', 'error');
+      next.delete(id);
+    } else next.add(id);
+    setEdits(next);
+  };
+
+  return (
+    <Shell title="Services I Do">
+      {data.isPending || !picked ? (
+        <CenteredSpinner />
+      ) : data.isError ? (
+        <ErrorState error={data.error} onRetry={() => void data.refetch()} />
+      ) : (
+        <>
+          <p className="text-sm text-slate-600">You get job requests only for the services you tick. Technician visits in your types of work always come to you.</p>
+          <div className="mt-4 flex flex-col gap-4">
+            {data.data.categories.map((c) => (
+              <section key={c.id} className="rounded-2xl border border-slate-200 p-4">
+                <h2 className="font-semibold text-slate-900">{c.name}</h2>
+                <ul className="mt-2.5 flex flex-wrap gap-2">
+                  {c.services.map((s) => {
+                    const on = picked.has(s.id);
+                    return (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => toggle(c.services, s.id)}
+                          className={cx(
+                            'flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition',
+                            on ? 'border-fixora-blue bg-fixora-blue-soft text-fixora-blue' : 'border-slate-200 text-slate-500 hover:border-slate-300',
+                          )}
+                        >
+                          {on && <Check className="size-3.5" strokeWidth={3} />}
+                          {s.name}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
+          <Button className="mt-5 w-full" size="lg" loading={save.isPending} onClick={() => save.mutate()}>
+            Save
+          </Button>
+          <p className="mt-3 text-center text-xs text-slate-500">To add a new type of work, contact RapidFix support.</p>
         </>
       )}
     </Shell>

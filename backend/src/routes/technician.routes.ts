@@ -40,6 +40,15 @@ technicianRouter.get('/profile', async (req, res) => {
   ok(res, tech.toProfileSummary(await tech.technicianOf(authOf(req).userId)));
 });
 
+/** "Services I do": pick the specific services within your types of work (e.g. TV, washing machine). */
+technicianRouter.get('/services', async (req, res) => {
+  ok(res, await account.myServices(authOf(req).userId));
+});
+
+technicianRouter.put('/services', validate(z.object({ serviceIds: z.array(z.uuid()).max(300) })), async (req, res) => {
+  ok(res, await account.setMyServices(authOf(req).userId, req.body.serviceIds));
+});
+
 technicianRouter.get('/profile/details', async (req, res) => {
   ok(res, await account.technicianDetails(authOf(req).userId));
 });

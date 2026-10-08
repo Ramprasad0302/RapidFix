@@ -10,6 +10,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -43,6 +46,9 @@ final class Ringtones {
     };
 
     private static MediaPlayer player;
+    private static Vibrator vibrator;
+    /** Call-style buzz: 0.8 s on, 0.6 s off, repeating. */
+    private static final long[] RING_VIBRATION = {0, 800, 600};
     private static final Handler main = new Handler(Looper.getMainLooper());
 
     private Ringtones() {}
@@ -94,13 +100,18 @@ final class Ringtones {
         return channelId;
     }
 
-    /** Play a tone: a short preview, or looping (the in-app ring for a new job) until stop(). */
+    /**
+     * Play a tone: a short preview, or looping — the job-request buzzer — until stop().
+     * The buzzer uses the alarm sound stream, so it rings even when the phone is on
+     * silent or vibrate (like an alarm clock), and vibrates like an incoming call.
+     */
     static void play(Context ctx, String id, boolean loop, long previewMs) {
         stop();
         int res = resOf(id == null ? selected(ctx) : id);
         if (res == 0) return;
+        if (loop) vibrate(ctx);
         MediaPlayer mp = MediaPlayer.create(ctx.getApplicationContext(), res, new AudioAttributes.Builder()
-                .setUsage(loop ? AudioAttributes.USAGE_NOTIFICATION_RINGTONE : AudioAttributes.USAGE_MEDIA)
+                .setUsage(loop ? AudioAttributes.USAGE_ALARM : AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build(), 0);
         if (mp == null) return;
@@ -111,8 +122,27 @@ final class Ringtones {
         if (!loop && previewMs > 0) main.postDelayed(Ringtones::stop, previewMs);
     }
 
+    private static void vibrate(Context ctx) {
+        Vibrator v;
+        if (Build.VERSION.SDK_INT >= 31) {
+            VibratorManager vm = ctx.getSystemService(VibratorManager.class);
+            v = vm != null ? vm.getDefaultVibrator() : null;
+        } else {
+            v = (Vibrator) ctx.getSystemService(Context.VIBRATOR_SERVICE);
+        }
+        if (v == null || !v.hasVibrator()) return;
+        AudioAttributes alarm = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.vibrate(VibrationEffect.createWaveform(RING_VIBRATION, 0), alarm);
+        else v.vibrate(RING_VIBRATION, 0, alarm);
+        vibrator = v;
+    }
+
     static void stop() {
         main.removeCallbacksAndMessages(null);
+        if (vibrator != null) {
+            vibrator.cancel();
+            vibrator = null;
+        }
         if (player != null) {
             try {
                 player.stop();

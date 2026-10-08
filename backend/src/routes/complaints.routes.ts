@@ -14,7 +14,7 @@ complaintsRouter.post(
   validate(
     z.object({
       bookingId: z.uuid().optional(),
-      category: z.enum(['Service quality', 'Technician behaviour', 'Pricing / billing', 'Payment', 'Delay / no-show', 'App issue', 'Other']),
+      category: z.enum(['Service quality', 'Technician behaviour', 'Pricing / billing', 'Payment', 'Delay / no-show', 'App issue', 'Chat message', 'Other']),
       subject: z.string().trim().min(4).max(160),
       description: z.string().trim().min(10).max(2000),
     }),

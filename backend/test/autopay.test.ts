@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 import { prisma } from '../src/config/prisma';
 import { dispatchBooking } from '../src/services/assignment.service';
 import { expireUnpaidBookings, syncOpenOrders, UNPAID_BOOKING_TTL_MS } from '../src/services/payment.service';
+import { cancelUnassignedBookings } from '../src/services/autoCancel.service';
 import { clearSettingsCache } from '../src/services/settings.service';
 import { signAccessToken } from '../src/services/token.service';
 import { API, bearer, otpLogin, request, resetDb, sampleAddress, seedCatalog } from './helpers';
@@ -141,6 +142,28 @@ describe('pay online at booking', () => {
     expect((await wallet()).balance).toBe(Math.round(59_900 * 0.85));
   });
 
+  it('customer pays with PhonePe / Google Pay through a UPI link, confirmed by the booking screen', async () => {
+    const b = await book('RAZORPAY');
+    const calls = fakeRazorpay({
+      'GET /payment_links?': { payment_links: [] },
+      'POST /payment_links': { id: 'plink_2', short_url: 'https://rzp.io/i/upi', status: 'created', amount: 39_900, expire_by: 2_000_000_000, notes: { bookingId: b.id } },
+    });
+    const link = await request().post(`${API}/customer/bookings/${b.id}/payment/upi-link`).set(bearer(customer.token)).send({}).expect(200);
+    expect(link.body.data).toMatchObject({ linkId: 'plink_2', shortUrl: 'https://rzp.io/i/upi', amount: 39_900 });
+    expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ amount: 39_900, notes: { bookingId: b.id }, callback_method: 'get' });
+
+    // Someone else's booking: no link.
+    const other = await otpLogin('9000000002');
+    await request().post(`${API}/customer/bookings/${b.id}/payment/upi-link`).set(bearer(other.token)).send({}).expect(404);
+
+    fakeRazorpay({
+      'GET /payment_links?': { payment_links: [{ id: 'plink_2', short_url: '', status: 'paid', amount: 39_900, notes: { bookingId: b.id } }] },
+      'GET /payment_links/plink_2': { id: 'plink_2', short_url: '', status: 'paid', amount: 39_900, notes: { bookingId: b.id }, payments: [{ payment_id: 'pay_UPI1', amount: 39_900, status: 'captured' }] },
+    });
+    await request().post(`${API}/customer/bookings/${b.id}/payment/sync`).set(bearer(customer.token)).send({}).expect(200);
+    expect(await booking(b.id)).toMatchObject({ status: 'SEARCHING' });
+  });
+
   it('customer can switch to paying after the service', async () => {
     const b = await book('RAZORPAY');
     const r = await request().post(`${API}/customer/bookings/${b.id}/payment/pay-later`).set(bearer(customer.token)).send({}).expect(200);
@@ -175,6 +198,50 @@ describe('pay online at booking', () => {
     await prisma.booking.update({ where: { id: second.id }, data: { createdAt: new Date(Date.now() - UNPAID_BOOKING_TTL_MS - 60_000) } });
     await expireUnpaidBookings();
     expect(await prisma.booking.findUniqueOrThrow({ where: { id: second.id } })).toMatchObject({ status: 'ADMIN_CANCELLED', cancellationReason: 'Online payment was not completed' });
+  });
+});
+
+describe('no technician within 30 minutes', () => {
+  /** Pretend the booking started looking for a technician `minutes` ago. */
+  const searchingFor = (id: string, minutes: number) =>
+    prisma.bookingStatusHistory.updateMany({ where: { bookingId: id, toStatus: 'SEARCHING' }, data: { createdAt: new Date(Date.now() - minutes * 60_000) } });
+
+  it('a paid booking nobody accepted is cancelled and fully refunded automatically', async () => {
+    const b = await book('RAZORPAY');
+    await payAtBooking(b.id);
+    expect(await dispatchBooking(b.id)).toBe('offered'); // offered, but the technician never accepts
+    await searchingFor(b.id, 31);
+    const calls = fakeRazorpay({ 'POST /payments/pay_PRE1/refund': { id: 'rfnd_auto' } });
+    expect(await cancelUnassignedBookings()).toBe(1);
+    expect(calls).toEqual([expect.objectContaining({ method: 'POST', path: '/payments/pay_PRE1/refund', body: expect.objectContaining({ amount: 39_900 }) })]);
+    const after = await prisma.booking.findUniqueOrThrow({ where: { id: b.id }, include: { payment: true, assignments: true } });
+    expect(after).toMatchObject({ status: 'REFUNDED', technicianId: null });
+    expect(after.payment).toMatchObject({ status: 'REFUNDED', refundedAmount: 39_900 });
+    expect(after.assignments.every((a) => a.status !== 'OFFERED')).toBe(true);
+    expect(await prisma.notification.count({ where: { userId: customer.user.id, title: 'Sorry — no technician was free' } })).toBe(1);
+    expect(await prisma.notification.count({ where: { userId: customer.user.id, title: 'Refund started' } })).toBe(1);
+  });
+
+  it('leaves bookings under 30 minutes, accepted ones, and everything when switched off', async () => {
+    const recent = await book('CASH');
+    await searchingFor(recent.id, 10);
+    // (Same service again within 2 minutes would be treated as a double-tap of the same booking.)
+    await prisma.booking.update({ where: { id: recent.id }, data: { createdAt: new Date(Date.now() - 10 * 60_000) } });
+    const accepted = await book('CASH');
+    expect(await dispatchBooking(accepted.id)).toBe('offered');
+    await tAct(accepted.id, 'accept');
+    await searchingFor(accepted.id, 45);
+    expect(await cancelUnassignedBookings()).toBe(0);
+
+    await searchingFor(recent.id, 31);
+    await prisma.setting.create({ data: { key: 'dispatch.autoCancelMinutes', value: 0 } });
+    clearSettingsCache();
+    expect(await cancelUnassignedBookings()).toBe(0);
+    await prisma.setting.update({ where: { key: 'dispatch.autoCancelMinutes' }, data: { value: 30 } });
+    clearSettingsCache();
+    expect(await cancelUnassignedBookings()).toBe(1); // pay-after-service: cancelled, nothing to refund
+    expect((await prisma.booking.findUniqueOrThrow({ where: { id: recent.id } })).status).toBe('ADMIN_CANCELLED');
+    expect((await prisma.booking.findUniqueOrThrow({ where: { id: accepted.id } })).status).toBe('TECHNICIAN_ACCEPTED');
   });
 });
 

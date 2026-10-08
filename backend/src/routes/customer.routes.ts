@@ -213,6 +213,10 @@ customerRouter.post('/bookings/:id/payment/sync', async (req, res) => {
   ok(res, await bookings.getCustomerBooking(customerId, String(req.params.id)));
 });
 
+customerRouter.post('/bookings/:id/payment/upi-link', async (req, res) => {
+  ok(res, await payments.createCustomerPayLink((await customerOf(req)).customerId, String(req.params.id)));
+});
+
 customerRouter.post('/bookings/:id/payment/razorpay-order', async (req, res) => {
   ok(res, await payments.createRazorpayOrder((await customerOf(req)).customerId, String(req.params.id)));
 });

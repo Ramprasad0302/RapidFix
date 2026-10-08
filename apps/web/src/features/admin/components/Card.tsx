@@ -3,7 +3,7 @@ import { cx } from '@fixora/ui';
 
 export function Card({ title, action, children, className }: { title?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx('rounded-2xl border border-slate-200/70 bg-white p-5 shadow-card', className)}>
+    <section className={cx('min-w-0 rounded-2xl border border-slate-200/70 bg-white p-4 shadow-card sm:p-5', className)}>
       {(title || action) && (
         <div className="mb-4 flex items-center justify-between gap-3">
           {title && <h2 className="text-[17px] font-bold text-slate-900">{title}</h2>}

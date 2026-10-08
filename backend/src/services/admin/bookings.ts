@@ -1,3 +1,4 @@
+import { bookingScope, type Scope } from '../franchiseScope';
 import {
   BOOKING_TAB_STATUSES,
   BookingStatus as B,
@@ -38,6 +39,7 @@ export const rowInclude = {
   service: { select: { name: true, category: { select: { name: true } } } },
   customer: { select: { user: { select: { name: true, phone: true } } } },
   technician: { select: { user: { select: { name: true } } } },
+  franchise: { select: { name: true } },
 } as const satisfies Prisma.BookingInclude;
 
 export function toAdminRow(b: Prisma.BookingGetPayload<{ include: typeof rowInclude }>): AdminBookingRowDto {
@@ -54,6 +56,7 @@ export function toAdminRow(b: Prisma.BookingGetPayload<{ include: typeof rowIncl
     timeSlot: b.timeSlot,
     scheduleType: b.scheduleType,
     locality: locality(b.addressSnapshot as unknown as AddressSnapshot),
+    franchise: b.franchise?.name ?? null,
     totalAmount: b.totalAmount,
     paymentStatus: b.paymentStatus,
     paymentMethod: b.paymentMethod,
@@ -61,9 +64,10 @@ export function toAdminRow(b: Prisma.BookingGetPayload<{ include: typeof rowIncl
   };
 }
 
-export async function listBookings(q: { q?: string; group?: string; from?: Date; to?: Date; page: number; pageSize: number }): Promise<Paged<AdminBookingRowDto>> {
+export async function listBookings(q: { q?: string; group?: string; from?: Date; to?: Date; page: number; pageSize: number }, scope: Scope = null): Promise<Paged<AdminBookingRowDto>> {
   const term = q.q?.trim();
   const where: Prisma.BookingWhereInput = {
+    AND: [bookingScope(scope)],
     ...(q.group && STATUS_GROUPS[q.group] && { status: { in: STATUS_GROUPS[q.group] } }),
     ...((q.from || q.to) && { createdAt: { ...(q.from && { gte: q.from }), ...(q.to && { lte: q.to }) } }),
     ...(term && {

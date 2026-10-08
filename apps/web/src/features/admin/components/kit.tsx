@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Search, type LucideIcon } from 'lucide-react
 import { Alert, Button, cx } from '@fixora/ui';
 import { Dialog } from '../../../components/Dialog';
 import { EmptyState, ErrorState, Skeleton } from '../../../components/States';
+import { useAuth } from '../../../store/auth';
 
 /** Shared building blocks for the admin modules (same look as Dashboard / Users & Roles). */
 
@@ -106,7 +107,7 @@ export function DataTable<T>({
   if (loading || !rows) return <Skeleton className="mt-4 h-72" />;
   if (!rows.length) return <EmptyState title={empty} className="py-10" />;
   return (
-    <div className="-mx-5 mt-4 overflow-x-auto">
+    <div className="-mx-4 sm:-mx-5 mt-4 overflow-x-auto">
       <table className={cx('w-full text-left text-sm', fetching && 'opacity-70')} style={{ minWidth }}>
         <thead>
           <tr className="border-y border-slate-100 bg-slate-50/70 text-[13px] text-slate-500">
@@ -271,3 +272,12 @@ export const humanize = (s: string) => s.charAt(0) + s.slice(1).toLowerCase().re
 
 /** YYYY-MM-DD in IST for date inputs. */
 export const isoDay = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+
+/** Head office lists get a "Franchise" column (franchise managers only ever see their own). */
+export function useFranchiseColumn<T extends { franchise: string | null }>(columns: Column<T>[], after: string): Column<T>[] {
+  const scoped = useAuth((s) => s.user?.role === 'FRANCHISE_ADMIN');
+  if (scoped) return columns;
+  const col: Column<T> = { header: 'Franchise', className: 'whitespace-nowrap', cell: (r) => r.franchise ?? <span className="text-slate-400">Head office</span> };
+  const i = columns.findIndex((c) => c.header === after);
+  return [...columns.slice(0, i + 1), col, ...columns.slice(i + 1)];
+}

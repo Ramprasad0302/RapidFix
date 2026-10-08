@@ -30,6 +30,22 @@ bookingsRouter.post('/:id/messages/read', async (req, res) => {
   ok(res, { read: await chat.markRead(String(req.params.id), authOf(req)) });
 });
 
+bookingsRouter.post(
+  '/:id/chat/report',
+  validate(z.object({ reason: z.string().trim().min(3).max(80), details: z.string().trim().max(1000).optional(), block: z.boolean().default(true) })),
+  async (req, res) => {
+    ok(res, await chat.reportChat(String(req.params.id), authOf(req), req.body));
+  },
+);
+
+bookingsRouter.post('/:id/chat/block', async (req, res) => {
+  ok(res, await chat.blockChat(String(req.params.id), authOf(req)));
+});
+
+bookingsRouter.delete('/:id/chat/block', async (req, res) => {
+  ok(res, await chat.unblockChat(String(req.params.id), authOf(req)));
+});
+
 bookingsRouter.get('/:id/invoice', async (req, res) => {
   ok(res, await invoice(String(req.params.id), authOf(req)));
 });

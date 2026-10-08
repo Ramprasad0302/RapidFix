@@ -1,6 +1,6 @@
 import { api } from './api';
 import { firebaseConfigured, getFirebaseApp } from './firebase';
-import { isNativeApp, nativePushToken, nativeState, onNativeEvent, requestNativeNotificationPermission } from './nativeApp';
+import { isNativeApp, nativePlatform, nativePushToken, nativeState, onNativeEvent, requestNativeNotificationPermission } from './nativeApp';
 import { RUNTIME } from './runtimeConfig';
 
 /**
@@ -83,12 +83,12 @@ onNativeEvent((e) => {
   if (e.event === 'token' && pushWanted && e.token !== readToken()) void enablePush();
 });
 
-/** Android app: register the app's push token (works while the app is closed). */
+/** Android / iPhone app: register the app's push token (works while the app is closed). */
 async function enableNativePush() {
   const token = await nativePushToken();
   if (!token || !pushWanted) return;
   try {
-    await api.post('/notifications/tokens', { token, platform: 'ANDROID' });
+    await api.post('/notifications/tokens', { token, platform: nativePlatform() === 'ios' ? 'IOS' : 'ANDROID' });
     writeToken(token);
   } catch {
     // Retried on the next sign-in or app start.

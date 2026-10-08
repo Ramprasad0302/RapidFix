@@ -1,4 +1,5 @@
 import { bookingAdvance, razorpayConfigured } from '../services/payment.service';
+import { assistantEnabled } from '../services/assistant.service';
 import { Router } from 'express';
 import { z } from 'zod';
 import { optionalAuthenticate } from '../middleware/auth';
@@ -10,6 +11,7 @@ import { getSetting } from '../services/settings.service';
 import { env } from '../config/env';
 import { ok } from '../utils/response';
 import * as serviceArea from '../services/serviceArea.service';
+import { isReviewDemoPhone } from '../services/reviewDemo';
 import { indianPhoneSchema, toE164India } from '@fixora/shared-utils';
 
 /** Public, cacheable catalogue — guests can browse, search and price everything. */
@@ -73,11 +75,18 @@ catalogRouter.get('/stats/public', cachePublic(300), async (_req, res) => {
 /** Is this map point inside the area we serve (e.g. Tanuku within 10 km)? */
 catalogRouter.get(
   '/service-area',
+  optionalAuthenticate(),
   validate(z.object({ lat: z.coerce.number().min(-90).max(90), lng: z.coerce.number().min(-180).max(180) }), 'query'),
-  async (_req, res) => {
+  async (req, res) => {
     const q = res.locals.query as { lat: number; lng: number };
-    res.set('Cache-Control', 'no-cache');
-    ok(res, await serviceArea.checkPoint(q.lat, q.lng));
+    res.set('Cache-Control', 'private, no-cache');
+    const check = await serviceArea.checkPoint(q.lat, q.lng);
+    // App Store / Play reviewers book from wherever they are (see reviewDemo.ts).
+    if (!check.served && req.auth) {
+      const user = await prisma.user.findUnique({ where: { id: req.auth.userId }, select: { phone: true } });
+      if (isReviewDemoPhone(user?.phone)) return ok(res, { ...check, served: true });
+    }
+    ok(res, check);
   },
 );
 
@@ -105,7 +114,7 @@ catalogRouter.post(
 catalogRouter.get('/app-config', async (_req, res) => {
   res.set('Cache-Control', 'no-cache');
   const [supportPhone, supportEmail] = await Promise.all([getSetting('support.phone', '+91 94919 63366'), getSetting('support.email', 'support@rapidfix.in')]);
-  ok(res, { supportPhone, supportEmail, otpProvider: env.OTP_PROVIDER === 'firebase' ? 'firebase' : 'server', onlinePayments: razorpayConfigured(), bookingAdvance: await bookingAdvance() });
+  ok(res, { supportPhone, supportEmail, otpProvider: env.OTP_PROVIDER === 'firebase' ? 'firebase' : 'server', onlinePayments: razorpayConfigured(), bookingAdvance: await bookingAdvance(), assistant: assistantEnabled(), autoCancelMinutes: Number(await getSetting<number>('dispatch.autoCancelMinutes', 30)) });
 });
 
 catalogRouter.get('/reviews/featured', cachePublic(300), async (_req, res) => {

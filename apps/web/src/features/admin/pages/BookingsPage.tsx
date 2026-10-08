@@ -15,7 +15,7 @@ import { useAuth } from '../../../store/auth';
 import { toast } from '../../../store/toast';
 import { AssignDialog } from '../components/AssignDialog';
 import { Card } from '../components/Card';
-import { DataTable, Facts, Field, humanize, inputCls, PageTitle, Pager, ReasonDialog, SearchBox, Section, useUrlParams, type Column } from '../components/kit';
+import { DataTable, Facts, Field, humanize, inputCls, PageTitle, Pager, ReasonDialog, SearchBox, Section, useUrlParams, type Column, useFranchiseColumn } from '../components/kit';
 
 const GROUPS: { value: BookingGroup; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -67,6 +67,7 @@ const COLUMNS: Column<AdminBookingRowDto>[] = [
 ];
 
 export function BookingsPage() {
+  const columns = useFranchiseColumn(COLUMNS, 'Technician');
   const { get, set, page } = useUrlParams();
   const group = (get('group') as BookingGroup | undefined) ?? 'all';
   const q = get('q');
@@ -111,7 +112,7 @@ export function BookingsPage() {
           </label>
         </div>
         <DataTable
-          columns={COLUMNS}
+          columns={columns}
           rows={list.data?.items}
           rowKey={(b) => b.id}
           onRowClick={(b) => set({ id: b.id, page: String(page) })}

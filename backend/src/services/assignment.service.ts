@@ -35,7 +35,7 @@ const CONFLICT_WINDOW_MS = 2 * 3_600_000;
 const MANUAL_OFFER_SECONDS = 15 * 60;
 
 const bookingForDispatch = {
-  service: { select: { id: true, name: true, categoryId: true } },
+  service: { select: { id: true, name: true, slug: true, categoryId: true } },
   customer: { select: { userId: true } },
   assignments: { select: { technicianId: true, status: true, isManual: true, expiresAt: true } },
 } as const satisfies Prisma.BookingInclude;
@@ -76,7 +76,14 @@ export async function rankCandidates(booking: DispatchBooking, opts: { forAdmin?
       verificationStatus: 'VERIFIED',
       user: { status: 'ACTIVE', role: 'TECHNICIAN' },
       skills: { some: { categoryId: booking.service.categoryId } },
+      // Technicians who picked specific services in this category get only those; no picks = the whole
+      // category. Every technician in the category does its "Technician Visit".
+      ...(!booking.service.slug.endsWith('-technician-visit') && {
+        OR: [{ services: { none: { service: { categoryId: booking.service.categoryId } } } }, { services: { some: { serviceId: booking.service.id } } }],
+      }),
       ...(!opts.forAdmin && { isOnline: true }),
+      // A franchise booking goes to that franchise's technicians (and head-office technicians).
+      ...(booking.franchiseId && { AND: [{ OR: [{ franchiseId: booking.franchiseId }, { franchiseId: null }] }] }),
     },
     include: {
       user: { select: { id: true, name: true, avatarUrl: true } },

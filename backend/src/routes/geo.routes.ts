@@ -4,7 +4,7 @@ import { limiterBase } from '../middleware/rateLimit';
 import { z } from 'zod';
 import { env } from '../config/env';
 import { validate } from '../middleware/validate';
-import { reverseGeocode, searchPlaces } from '../services/geo.service';
+import { lookupIfsc, lookupPincode, reverseGeocode, searchPlaces } from '../services/geo.service';
 import { ok } from '../utils/response';
 
 /** Address lookup for the location picker (public: guests set their location too). */
@@ -36,4 +36,14 @@ const searchQuery = z.object({
 geoRouter.get('/search', validate(searchQuery, 'query'), async (_req, res) => {
   const q = res.locals.query as z.infer<typeof searchQuery>;
   ok(res, await searchPlaces(q.q, q.lat != null && q.lng != null ? { lat: q.lat, lng: q.lng } : undefined));
+});
+
+const pincodeParams = z.object({ pincode: z.string().regex(/^[1-9]\d{5}$/, 'Enter a valid 6-digit pincode') });
+geoRouter.get('/pincode/:pincode', validate(pincodeParams, 'params'), async (req, res) => {
+  ok(res, await lookupPincode(String(req.params.pincode)));
+});
+
+const ifscParams = z.object({ ifsc: z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Enter a valid IFSC') });
+geoRouter.get('/ifsc/:ifsc', validate(ifscParams, 'params'), async (req, res) => {
+  ok(res, await lookupIfsc(String(req.params.ifsc)));
 });

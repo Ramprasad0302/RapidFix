@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarCheck2, CalendarDays, ChevronRight, CircleCheck, Clock, Headset, MapPinned, ToggleRight, WalletCards } from 'lucide-react';
+import { CalendarCheck2, CalendarDays, ChevronRight, CircleCheck, Clock, Headset, MapPinned, ToggleRight, WalletCards, Landmark } from 'lucide-react';
 import type { TechnicianDashboardDto } from '@fixora/shared-types';
 import { formatINR } from '@fixora/shared-utils';
 import { Alert, cx } from '@fixora/ui';
@@ -9,6 +9,7 @@ import { SectionHeader } from '../../../components/PageHeader';
 import { EmptyState, ErrorState, Skeleton } from '../../../components/States';
 import { Toggle } from '../../../components/Toggle';
 import { technicianApi } from '../../../lib/endpoints';
+import { isNativeApp, nativeState } from '../../../lib/nativeApp';
 import { requestCurrentPosition } from '../../../store/location';
 import { toast } from '../../../store/toast';
 import { JobAlertsCard } from '../components/JobAlertsCard';
@@ -21,6 +22,7 @@ export function DashboardPage() {
     <>
       <TechHeader />
       <main className="flex flex-col gap-5 px-4 lg:mx-auto lg:max-w-7xl lg:gap-8 lg:px-8 lg:py-10">
+        <BankReminder />
         {dash.isPending && (
           <>
             <Skeleton className="h-24" />
@@ -40,16 +42,17 @@ function Dashboard({ d }: { d: TechnicianDashboardDto }) {
   const p = d.profile;
   const verified = p.verificationStatus === 'VERIFIED';
 
+  // Flips instantly: the server call takes a moment, and the GPS position follows from
+  // location sharing (the app's background service) a few seconds later — no waiting for a fix.
   const online = useMutation({
-    mutationFn: async (next: boolean) => {
-      let coords: { lat: number; lng: number } | undefined;
-      if (next) {
-        // Share location only when going online — used to find nearby jobs.
-        coords = await requestCurrentPosition()
-          .then(({ latitude, longitude }) => ({ lat: latitude, lng: longitude }))
-          .catch(() => undefined);
-      }
-      return technicianApi.setOnline(next, coords);
+    mutationFn: (next: boolean) => technicianApi.setOnline(next),
+    onMutate: async (next) => {
+      await qc.cancelQueries({ queryKey: ['tech', 'dashboard'] });
+      const prev = qc.getQueryData<TechnicianDashboardDto>(['tech', 'dashboard']);
+      qc.setQueryData<TechnicianDashboardDto>(['tech', 'dashboard'], (old) => (old ? { ...old, profile: { ...old.profile, isOnline: next } } : old));
+      // In the app, location must be allowed for the background service: ask now (first time only).
+      if (next && isNativeApp() && nativeState()?.location !== 'granted') void requestCurrentPosition().catch(() => undefined);
+      return { prev };
     },
     onSuccess: (profile) => {
       qc.setQueryData<TechnicianDashboardDto>(['tech', 'dashboard'], (old) => (old ? { ...old, profile } : old));
@@ -57,7 +60,10 @@ function Dashboard({ d }: { d: TechnicianDashboardDto }) {
       void qc.invalidateQueries({ queryKey: ['tech', 'profile'] });
       toast(profile.isOnline ? 'You’re online — new requests can reach you' : 'You’re offline');
     },
-    onError: (e) => toast(e.message, 'error'),
+    onError: (e, _next, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['tech', 'dashboard'], ctx.prev);
+      toast(e.message, 'error');
+    },
   });
 
   return (
@@ -164,5 +170,20 @@ function QuickAction({ icon, label, to, onClick }: { icon: React.ReactNode; labe
       {icon}
       {label}
     </button>
+  );
+}
+
+/** Partners who joined before bank details were asked at sign-up: nudge until they add an account. */
+function BankReminder() {
+  const payout = useQuery({ queryKey: ['tech', 'payout-details'], queryFn: technicianApi.payoutDetails, staleTime: 5 * 60_000 });
+  if (!payout.data || payout.data.bankAccountLast4) return null;
+  return (
+    <Link to="/technician/payout-details" className="flex items-center gap-3 rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-slate-800">
+      <Landmark className="size-5 shrink-0 text-warning" aria-hidden />
+      <span className="flex-1">
+        <b>Add your bank account</b> so we can pay your earnings.
+      </span>
+      <span className="font-semibold text-fixora-blue">Add</span>
+    </Link>
   );
 }

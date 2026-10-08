@@ -1,0 +1,45 @@
+# XcodeGen spec for the RapidFix iPhone app. `ios-app/build.sh` generates
+# RapidFix.xcodeproj from this file — edit here, not in Xcode's project settings.
+name: RapidFix
+options:
+  bundleIdPrefix: in.rapidfix
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: 12.19.0
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  RapidFix:
+    type: application
+    platform: iOS
+    sources:
+      - path: RapidFix
+      # The website (same build as rapidfix.in) + service catalogue, for the first launch without internet.
+      - path: Resources/web
+        type: folder
+        buildPhase: resources
+      # Job-alert tones (made by build.sh from android-app/tools/make_ringtones.py).
+      - path: Resources/Sounds
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: in.rapidfix.app
+        PRODUCT_NAME: RapidFix
+        INFOPLIST_FILE: RapidFix/Info.plist
+        CODE_SIGN_ENTITLEMENTS: RapidFix/RapidFix.entitlements
+        CODE_SIGN_STYLE: Automatic
+        # iPhone + iPad (the iPad build is also offered on Apple-silicon Macs in the Mac App Store).
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    dependencies:
+      - package: Firebase
+        product: FirebaseMessaging

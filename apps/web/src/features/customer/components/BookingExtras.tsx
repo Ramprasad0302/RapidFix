@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CircleAlert, CreditCard, FileText, ReceiptText, Star, Wrench } from 'lucide-react';
+import { Banknote, CircleAlert, CreditCard, Smartphone, FileText, ReceiptText, Star, Wrench } from 'lucide-react';
 import type { BookingDetailDto } from '@fixora/shared-types';
 import { formatINR } from '@fixora/shared-utils';
 import { Alert, Button, cx } from '@fixora/ui';
@@ -9,7 +9,7 @@ import { Dialog } from '../../../components/Dialog';
 import { COMPLAINT_CATEGORIES, complaintApi, customerApi } from '../../../lib/endpoints';
 import { formatDate, formatTime } from '../../../lib/format';
 import { onNativeEvent } from '../../../lib/nativeApp';
-import { clearPaymentAttempt, markPaymentAttempt, PAYMENT_CHECKING, payWithRazorpay, recentPaymentAttempt } from '../../../lib/razorpay';
+import { clearPaymentAttempt, markPaymentAttempt, openUpiPayment, PAYMENT_CHECKING, payWithRazorpay, recentPaymentAttempt } from '../../../lib/razorpay';
 import { toast } from '../../../store/toast';
 
 const INVOICE_STATUSES = ['SERVICE_COMPLETED', 'PAYMENT_PENDING', 'PAYMENT_COMPLETED', 'REFUNDED', 'DISPUTED'];
@@ -100,6 +100,8 @@ function usePaymentWatch(b: BookingDetailDto, setBooking: (d: BookingDetailDto) 
       clearPaymentAttempt(b.id);
       return;
     }
+    // Back from Razorpay's UPI payment page (it returns to this page with ?paid=1).
+    if (new URLSearchParams(window.location.search).has('paid')) markPaymentAttempt(b.id);
     let stopped = false;
     const check = async () => {
       if (stopped || document.visibilityState !== 'visible' || !recentPaymentAttempt(b.id)) return;
@@ -147,6 +149,22 @@ export function PaymentCard({ b }: { b: BookingDetailDto }) {
     },
     onError: (e) => toast(e.message === PAYMENT_CHECKING ? 'Confirming your payment with the bank…' : e.message, e.message === 'Payment cancelled' || e.message === PAYMENT_CHECKING ? 'default' : 'error'),
   });
+  const upi = useMutation({
+    mutationFn: async () => openUpiPayment(b.id, await customerApi.upiLink(b.id)),
+    onSuccess: () => toast('Pay in PhonePe / Google Pay, then come back here — we confirm it automatically.'),
+    onError: (e) => toast(e.message, 'error'),
+  });
+  const busy = pay.isPending || upi.isPending;
+  const payButtons = (
+    <>
+      <Button size="lg" fullWidth className="mt-4" loading={upi.isPending} disabled={pay.isPending} onClick={() => upi.mutate()} leftIcon={<Smartphone className="size-5" />}>
+        PhonePe / Google Pay / UPI
+      </Button>
+      <Button size="lg" variant="outline" fullWidth className="mt-2.5" loading={pay.isPending} disabled={upi.isPending} onClick={() => pay.mutate()} leftIcon={<CreditCard className="size-5" />}>
+        Card, net banking or wallet
+      </Button>
+    </>
+  );
   const later = useMutation({
     mutationFn: () => customerApi.payLater(b.id),
     onSuccess: (d) => {
@@ -170,11 +188,9 @@ export function PaymentCard({ b }: { b: BookingDetailDto }) {
         {advanceOnly && b.price.total > b.payNow && (
           <p className="mt-1 text-sm text-slate-600">The rest ({formatINR(b.price.total - b.payNow)}) is paid after the service.</p>
         )}
-        <Button size="lg" fullWidth className="mt-4" loading={pay.isPending} onClick={() => pay.mutate()} leftIcon={<CreditCard className="size-5" />}>
-          Pay now — PhonePe, GPay, Paytm or card
-        </Button>
+        {payButtons}
         {!advanceOnly && (
-          <Button size="lg" variant="outline" fullWidth className="mt-2.5" loading={later.isPending} disabled={pay.isPending} onClick={() => later.mutate()} leftIcon={<Banknote className="size-5" />}>
+          <Button size="lg" variant="ghost" fullWidth className="mt-2.5" loading={later.isPending} disabled={busy} onClick={() => later.mutate()} leftIcon={<Banknote className="size-5" />}>
             Pay only the advance now
           </Button>
         )}
@@ -190,11 +206,7 @@ export function PaymentCard({ b }: { b: BookingDetailDto }) {
         <p className="text-[15px] font-semibold text-slate-900">{advance > 0 ? 'Balance to pay' : 'Amount to pay'}</p>
         <p className="mt-1 text-3xl font-bold text-slate-900">{formatINR(b.amountDue)}</p>
         {advance > 0 && <p className="mt-1 text-sm text-success">{formatINR(advance)} already paid online</p>}
-        {b.onlinePaymentAvailable && (
-          <Button size="lg" fullWidth className="mt-4" loading={pay.isPending} onClick={() => pay.mutate()} leftIcon={<CreditCard className="size-5" />}>
-            Pay online — PhonePe, GPay, Paytm or card
-          </Button>
-        )}
+        {b.onlinePaymentAvailable && payButtons}
         <p className={cx('flex items-start gap-2 rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-slate-600', b.onlinePaymentAvailable ? 'mt-3' : 'mt-4')}>
           <Banknote className="mt-0.5 size-4.5 shrink-0 text-fixora-blue" aria-hidden />
           {b.onlinePaymentAvailable ? 'Or scan the QR on your technician’s phone, or pay them' : 'Please pay your technician'} in cash. Your invoice is ready the moment it’s paid.

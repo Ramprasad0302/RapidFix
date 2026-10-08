@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { BadgeCheck, CalendarClock, FileCheck2, IndianRupee, MapPinned, ShieldCheck, Smartphone, UserRound, Wrench } from 'lucide-react';
 import { isAdminRole, Role, type AuthSession } from '@fixora/shared-types';
 import { formatIndianPhone } from '@fixora/shared-utils';
 import { Alert, Logo } from '@fixora/ui';
 import { PageHeader } from '../../components/PageHeader';
 import { CenteredSpinner, ErrorState } from '../../components/States';
-import { partnerApi } from '../../lib/endpoints';
+import { catalogApi, partnerApi } from '../../lib/endpoints';
 import { disposeRecaptcha, firebaseOtp, RECAPTCHA_CONTAINER, serverOtp, type OtpSender } from '../../lib/phoneOtp';
 import { authActions, homeFor, useAuth } from '../../store/auth';
 import { toast } from '../../store/toast';
@@ -40,6 +40,15 @@ export function PartnerRegisterPage() {
   const user = useAuth((s) => s.user);
   const navigate = useNavigate();
   const categories = useCategories();
+  // Every category's services, so partners can tick the exact work they do (the visit is done by all).
+  const services = useQuery({
+    queryKey: ['partner', 'services', categories.data?.map((c) => c.slug)],
+    queryFn: async () => (await Promise.all((categories.data ?? []).map((c) => catalogApi.services({ category: c.slug, limit: 50 })))).flat(),
+    enabled: !!categories.data,
+    staleTime: 10 * 60_000,
+  });
+  const servicesOf = (categoryId: string) =>
+    (services.data ?? []).filter((s) => s.category.id === categoryId && !s.slug.endsWith('-technician-visit')).map((s) => ({ id: s.id, name: s.name }));
   // Set before the session switches to TECHNICIAN, so this page sends them to documents, not the dashboard.
   const [justRegistered, setJustRegistered] = useState(false);
   const register = useMutation({
@@ -109,8 +118,9 @@ export function PartnerRegisterPage() {
                   baseLatitude: null,
                   baseLongitude: null,
                   skills: [],
+                  serviceIds: [],
                 }}
-                categories={categories.data?.map((c) => ({ id: c.id, name: c.name })) ?? []}
+                categories={categories.data?.map((c) => ({ id: c.id, name: c.name, services: servicesOf(c.id) })) ?? []}
                 submitLabel="Submit registration"
                 pending={register.isPending}
                 error={register.error?.message}

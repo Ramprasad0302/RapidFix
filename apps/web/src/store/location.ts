@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AddressInput } from '@fixora/shared-utils';
-import { isNativeApp, nativeCall } from '../lib/nativeApp';
+import { isNativeApp, nativeCall, nativePlatform } from '../lib/nativeApp';
 import { safeStorage } from './safeStorage';
 
 export interface SelectedLocation {
@@ -47,10 +47,15 @@ export const useLocationStore = create<LocationState>()(
  */
 type Fix = { latitude: number; longitude: number; accuracy: number };
 
-/** Android app: Android's fused location (GPS + Wi-Fi + cell, high accuracy) — much more precise than the WebView's. */
+/** In the app: the phone's own precise location (GPS + Wi-Fi + cell) — much more precise than the web view's. */
 async function nativeFix(): Promise<Fix> {
   const r = await nativeCall<Partial<Fix> & { error?: string }>('getLocation', null, 40_000);
-  if (r?.error === 'denied') throw new Error('Location permission is off. Turn it on in phone Settings → Apps → RapidFix → Permissions → Location, or search for your area instead.');
+  if (r?.error === 'denied')
+    throw new Error(
+      nativePlatform() === 'ios'
+        ? 'Location permission is off. Turn it on in Settings → RapidFix → Location, or search for your area instead.'
+        : 'Location permission is off. Turn it on in phone Settings → Apps → RapidFix → Permissions → Location, or search for your area instead.',
+    );
   if (!r || r.error || r.latitude == null || r.longitude == null) throw new Error('Could not get your location. Please try again or search for your area.');
   return { latitude: r.latitude, longitude: r.longitude, accuracy: r.accuracy ?? 0 };
 }

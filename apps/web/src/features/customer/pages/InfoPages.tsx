@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Banknote, ChevronDown, CreditCard, Mail, Phone, Share2, Smartphone } from 'lucide-react';
+import { Link } from 'react-router';
+import { Banknote, ChevronDown, ChevronRight, CreditCard, Mail, Phone, Share2, Smartphone, Sparkles } from 'lucide-react';
 import { Button } from '@fixora/ui';
 import { SupportArt } from '../../../components/art/Scenes';
 import { PageHeader } from '../../../components/PageHeader';
 import { Skeleton } from '../../../components/States';
-import { useSupportContacts } from '../queries';
+import { useAppConfig, useSupportContacts } from '../queries';
 import { customerApi } from '../../../lib/endpoints';
 import { homeFor, useAuth } from '../../../store/auth';
 import { copyText } from '../../../store/toast';
@@ -22,7 +23,7 @@ function InfoLayout({ title, backTo, children }: { title: string; backTo?: strin
 
 const FAQ = [
   ['How do I book a service?', 'Choose a service, describe the problem, add your address and preferred time, then confirm. We assign a verified professional near you.'],
-  ['Do I pay before the service?', 'No. You pay after the work is done — by cash, UPI or online. The estimate is shown before you book.'],
+  ['Do I pay before the service?', 'Only a small advance online when you book — it confirms your booking and is adjusted in the final bill. The rest is paid after the work by UPI, card or cash. The estimate is shown before you book.'],
   ['Can the price change?', 'The final price can change only if extra work or parts are needed. Your technician must request it in the app and you approve it first.'],
   ['How do I cancel or reschedule?', 'Open the booking in My Bookings and tap Cancel or Reschedule. You can do this until the technician starts travelling.'],
   ['Are professionals verified?', 'Yes. Every RapidFix partner is ID-verified and approved by our team before they can take jobs.'],
@@ -31,6 +32,7 @@ const FAQ = [
 export function HelpPage() {
   const { phone: SUPPORT_PHONE, email: SUPPORT_EMAIL } = useSupportContacts();
   const role = useAuth((s) => s.user?.role);
+  const assistant = useAppConfig().data?.assistant && role !== 'TECHNICIAN';
   return (
     <InfoLayout title="Help & Support" backTo={homeFor(role) === '/' ? '/account' : homeFor(role)}>
       <section className="flex items-center gap-4 rounded-2xl bg-fixora-blue-soft p-4">
@@ -40,6 +42,18 @@ export function HelpPage() {
           <p className="text-sm">Every day, 8 AM – 9 PM</p>
         </div>
       </section>
+      {assistant && (
+        <Link to="/assistant" className="mt-4 flex items-center gap-3 rounded-2xl bg-gradient-to-br from-fixora-blue to-sky-500 p-4 text-white shadow-card">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <Sparkles className="size-5.5" />
+          </span>
+          <span className="flex-1">
+            <span className="block font-semibold">Ask RapidFix Assistant</span>
+            <span className="block text-sm text-white/85">Instant answers, any time — English, తెలుగు, हिंदी</span>
+          </span>
+          <ChevronRight className="size-5" />
+        </Link>
+      )}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <a href={`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`} className="flex flex-col items-center gap-1 rounded-2xl border border-slate-100 p-4 font-semibold text-slate-900 shadow-card">
           <Phone className="size-6 text-fixora-blue" /> Call us

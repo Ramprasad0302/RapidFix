@@ -5,6 +5,7 @@ import { logger } from './config/logger';
 import { prisma } from './config/prisma';
 import { startDispatchWorker } from './jobs/dispatch.worker';
 import { startNotificationWorker } from './jobs/notification.worker';
+import { runStartupTasks } from './services/startupTasks';
 import { initSockets } from './sockets';
 
 const app = createApp();
@@ -12,6 +13,9 @@ const httpServer = createServer(app);
 initSockets(httpServer);
 const stopDispatch = startDispatchWorker();
 const stopNotifications = startNotificationWorker();
+
+// Catalogue / schema upkeep: technician_services table, discontinued categories, "Technician Visit" services.
+void runStartupTasks();
 
 httpServer.listen(env.PORT, () => {
   logger.info(typeof env.PORT === 'number' ? `RapidFix API listening on http://localhost:${env.PORT}${env.API_PREFIX}` : `RapidFix API listening on ${env.PORT}`);

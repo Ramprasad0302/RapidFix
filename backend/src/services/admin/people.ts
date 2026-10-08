@@ -1,3 +1,4 @@
+import { bookingScope, customerScope, technicianScope, type Scope } from '../franchiseScope';
 import {
   hasPermission,
   Permission,
@@ -25,7 +26,7 @@ const audit = (actor: Actor, action: string, entity: string, entityId: string, o
 
 // ─── Customers ───────────────────────────────────────────────────────────
 
-const customerInclude = { user: true, _count: { select: { bookings: true, addresses: true } } } as const satisfies Prisma.CustomerInclude;
+const customerInclude = { user: true, franchise: { select: { name: true } }, _count: { select: { bookings: true, addresses: true } } } as const satisfies Prisma.CustomerInclude;
 
 async function spentBy(customerIds: string[]) {
   const rows = await prisma.payment.groupBy({ by: ['bookingId'], where: { status: 'SUCCESS', booking: { customerId: { in: customerIds } } }, _sum: { amount: true } });
@@ -46,6 +47,7 @@ function toCustomerRow(c: Prisma.CustomerGetPayload<{ include: typeof customerIn
     phone: c.user.phone,
     email: c.user.email,
     city: c.city,
+    franchise: c.franchise?.name ?? null,
     status: c.user.status,
     bookings: c._count.bookings,
     spent,
@@ -54,9 +56,10 @@ function toCustomerRow(c: Prisma.CustomerGetPayload<{ include: typeof customerIn
   };
 }
 
-export async function listCustomers(q: { q?: string; status?: 'ACTIVE' | 'SUSPENDED' | 'BLOCKED'; page: number; pageSize: number }): Promise<Paged<AdminCustomerRowDto>> {
+export async function listCustomers(q: { q?: string; status?: 'ACTIVE' | 'SUSPENDED' | 'BLOCKED'; page: number; pageSize: number }, scope: Scope = null): Promise<Paged<AdminCustomerRowDto>> {
   const term = q.q?.trim();
   const where: Prisma.CustomerWhereInput = {
+    AND: [customerScope(scope)],
     user: {
       role: 'CUSTOMER',
       ...(q.status && { status: q.status }),
@@ -71,12 +74,12 @@ export async function listCustomers(q: { q?: string; status?: 'ACTIVE' | 'SUSPEN
   return { items: rows.map((r) => toCustomerRow(r, spent.get(r.id) ?? 0)), total, page: q.page, pageSize: q.pageSize };
 }
 
-export async function customerDetail(id: string): Promise<AdminCustomerDetailDto> {
+export async function customerDetail(id: string, scope: Scope = null): Promise<AdminCustomerDetailDto> {
   const c = await prisma.customer.findUnique({ where: { id }, include: customerInclude });
   if (!c) throw AppError.notFound('Customer not found', 'CUSTOMER_NOT_FOUND');
   const [bookings, payments, reviews, complaints, spent] = await Promise.all([
-    prisma.booking.findMany({ where: { customerId: id }, include: rowInclude, orderBy: { createdAt: 'desc' }, take: 50 }),
-    prisma.payment.findMany({ where: { booking: { customerId: id } }, include: { booking: { select: { code: true } } }, orderBy: { createdAt: 'desc' }, take: 50 }),
+    prisma.booking.findMany({ where: { customerId: id, ...bookingScope(scope) }, include: rowInclude, orderBy: { createdAt: 'desc' }, take: 50 }),
+    prisma.payment.findMany({ where: { booking: { customerId: id, ...bookingScope(scope) } }, include: { booking: { select: { code: true } } }, orderBy: { createdAt: 'desc' }, take: 50 }),
     prisma.review.findMany({ where: { customerId: id }, include: { booking: { select: { service: { select: { name: true } } } }, technician: { select: { user: { select: { name: true } } } } }, orderBy: { createdAt: 'desc' } }),
     prisma.complaint.findMany({ where: { raisedById: c.userId }, include: complaintInclude, orderBy: { createdAt: 'desc' } }),
     spentBy([id]),
@@ -123,6 +126,7 @@ const techInclude = {
   user: { select: { name: true, phone: true, email: true, status: true, dateOfBirth: true } },
   skills: { include: { category: true }, orderBy: { category: { sortOrder: 'asc' } } },
   wallet: true,
+  franchise: { select: { name: true } },
 } as const satisfies Prisma.TechnicianInclude;
 type TechRow = Prisma.TechnicianGetPayload<{ include: typeof techInclude }>;
 
@@ -135,6 +139,8 @@ function toTechRow(t: TechRow): AdminTechnicianRowDto {
     title: technicianTitle(t.skills),
     skills: t.skills.map((s) => s.category.name),
     villageTown: t.villageTown,
+    franchise: t.franchise?.name ?? null,
+    franchiseId: t.franchiseId,
     district: t.district,
     verificationStatus: t.verificationStatus,
     userStatus: t.user.status,
@@ -151,9 +157,10 @@ function toTechRow(t: TechRow): AdminTechnicianRowDto {
   };
 }
 
-export async function listTechnicians(q: { q?: string; verification?: TechnicianVerificationStatus; online?: boolean; categoryId?: string; page: number; pageSize: number }): Promise<Paged<AdminTechnicianRowDto>> {
+export async function listTechnicians(q: { q?: string; verification?: TechnicianVerificationStatus; online?: boolean; categoryId?: string; page: number; pageSize: number }, scope: Scope = null): Promise<Paged<AdminTechnicianRowDto>> {
   const term = q.q?.trim();
   const where: Prisma.TechnicianWhereInput = {
+    ...technicianScope(scope),
     user: { role: 'TECHNICIAN', ...(term && { OR: [{ name: { contains: term } }, { phone: { contains: term } }] }) },
     ...(q.verification && { verificationStatus: q.verification }),
     ...(q.online !== undefined && { isOnline: q.online }),
@@ -167,9 +174,9 @@ export async function listTechnicians(q: { q?: string; verification?: Technician
 }
 
 /** All online technicians with a position — the admin live map. */
-export async function liveTechnicians() {
+export async function liveTechnicians(scope: Scope = null) {
   const rows = await prisma.technician.findMany({
-    where: { isOnline: true, lastLatitude: { not: null }, user: { role: 'TECHNICIAN', status: 'ACTIVE' } },
+    where: { ...technicianScope(scope), isOnline: true, lastLatitude: { not: null }, user: { role: 'TECHNICIAN', status: 'ACTIVE' } },
     include: techInclude,
     take: 500,
   });
@@ -251,6 +258,8 @@ export async function setSkills(actor: Actor, technicianId: string, categoryIds:
   await prisma.$transaction([
     prisma.technicianSkill.deleteMany({ where: { technicianId } }),
     prisma.technicianSkill.createMany({ data: categoryIds.map((categoryId) => ({ technicianId, categoryId })) }),
+    // Specific-service picks only make sense inside the technician's categories.
+    prisma.technicianService.deleteMany({ where: { technicianId, service: { categoryId: { notIn: categoryIds } } } }),
   ]);
   await audit(actor, 'TECHNICIAN_SKILLS_CHANGED', 'Technician', technicianId, before.map((b) => b.categoryId), categoryIds, ip);
 }

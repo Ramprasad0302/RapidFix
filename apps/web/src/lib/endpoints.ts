@@ -65,9 +65,16 @@ import type {
   TechnicianJobDetailDto,
   TechnicianJobDto,
   TechnicianProfileSummary,
+  TechnicianServicesDto,
   UploadResultDto,
+  FranchiseDetailDto,
+  FranchiseReportDto,
+  FranchiseRowDto,
+  FranchiseStatus,
+  LocationInput,
+  MyFranchiseDto,
 } from '@fixora/shared-types';
-import type { AddressInput } from '@fixora/shared-utils';
+import type { AddressInput, FranchiseFormInput } from '@fixora/shared-utils';
 import { unwrap } from '@fixora/web-core';
 import { api } from './api';
 
@@ -92,7 +99,8 @@ export const catalogApi = {
     unwrap<ServiceSummaryDto[]>(api.get('/services', { params })),
   service: (idOrSlug: string) => unwrap<ServiceDetailDto>(api.get(`/services/${encodeURIComponent(idOrSlug)}`)),
   locations: () => unwrap<LocationDto[]>(api.get('/locations')),
-  nearby: (lat: number, lng: number) => unwrap<NearbyTechnicianDto[]>(api.get('/technicians/nearby', { params: { lat, lng } })),
+  nearby: (lat: number, lng: number, opts: { radiusKm?: number; limit?: number } = {}) =>
+    unwrap<NearbyTechnicianDto[]>(api.get('/technicians/nearby', { params: { lat, lng, ...opts } })),
   offers: (category?: string) => unwrap<OfferDto[]>(api.get('/offers', { params: { category } })),
   offer: (code: string) => unwrap<OfferDto>(api.get(`/offers/${encodeURIComponent(code)}`)),
   estimate: (serviceId: string, couponCode?: string) =>
@@ -102,7 +110,7 @@ export const catalogApi = {
 export const trustApi = {
   stats: () => unwrap<PublicStatsDto>(api.get('/stats/public')),
   reviews: () => unwrap<FeaturedReviewDto[]>(api.get('/reviews/featured')),
-  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string; otpProvider: 'server' | 'firebase'; onlinePayments?: boolean; bookingAdvance?: number }>(api.get('/app-config')),
+  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string; otpProvider: 'server' | 'firebase'; onlinePayments?: boolean; bookingAdvance?: number; assistant?: boolean; autoCancelMinutes?: number }>(api.get('/app-config')),
 };
 
 // ─── Geocoding (server-side proxy) ───────────────────────────────────────
@@ -118,7 +126,18 @@ export const serviceAreaApi = {
     unwrap<{ saved: boolean }>(api.post('/service-area/interest', body)),
 };
 
+/** District / state for a pincode (India Post directory). */
+export interface PincodeInfoDto {
+  pincode: string;
+  district: string;
+  state: string;
+  places: string[];
+  block: string;
+}
+
 export const geoApi = {
+  pincode: (pin: string) => unwrap<PincodeInfoDto>(api.get(`/geo/pincode/${pin}`)),
+  ifsc: (code: string) => unwrap<{ ifsc: string; bank: string; branch: string; city: string; state: string }>(api.get(`/geo/ifsc/${code}`)),
   reverse: (lat: number, lng: number) => unwrap<GeoAddressDto>(api.get('/geo/reverse', { params: { lat, lng } })),
   search: (q: string, near?: { lat: number; lng: number }) =>
     unwrap<GeoPlaceDto[]>(api.get('/geo/search', { params: { q, ...(near && { lat: near.lat, lng: near.lng }) } })),
@@ -172,6 +191,7 @@ export const customerApi = {
   deleteAddress: (id: string) => unwrap<{ deleted: boolean }>(api.delete(`/customer/addresses/${id}`)),
   syncPayment: (id: string) => unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/payment/sync`)),
   payLater: (id: string) => unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/payment/pay-later`)),
+  upiLink: (id: string) => unwrap<PaymentLinkDto>(api.post(`/customer/bookings/${id}/payment/upi-link`)),
   razorpayOrder: (id: string) => unwrap<RazorpayOrderDto>(api.post(`/customer/bookings/${id}/payment/razorpay-order`)),
   razorpayVerify: (id: string, body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
     unwrap<BookingDetailDto>(api.post(`/customer/bookings/${id}/payment/razorpay-verify`, body)),
@@ -186,6 +206,9 @@ export const bookingApi = {
   messages: (id: string, before?: string) => unwrap<MessageDto[]>(api.get(`/bookings/${id}/messages`, { params: { before } })),
   send: (id: string, body: { body?: string; imageUrl?: string }) => unwrap<MessageDto>(api.post(`/bookings/${id}/messages`, body)),
   markRead: (id: string) => unwrap<{ read: number }>(api.post(`/bookings/${id}/messages/read`)),
+  reportChat: (id: string, body: { reason: string; details?: string; block: boolean }) => unwrap<ChatInfoDto>(api.post(`/bookings/${id}/chat/report`, body)),
+  blockChat: (id: string) => unwrap<ChatInfoDto>(api.post(`/bookings/${id}/chat/block`)),
+  unblockChat: (id: string) => unwrap<ChatInfoDto>(api.delete(`/bookings/${id}/chat/block`)),
   invoice: (id: string) => unwrap<InvoiceDto>(api.get(`/bookings/${id}/invoice`)),
 };
 
@@ -196,6 +219,7 @@ export const COMPLAINT_CATEGORIES = [
   'Payment',
   'Delay / no-show',
   'App issue',
+  'Chat message',
   'Other',
 ] as const;
 
@@ -225,6 +249,13 @@ export interface PartnerRegistration {
   hasOwnTools?: boolean;
   hasVehicle?: boolean;
   skills: string[];
+  serviceIds?: string[];
+  bankAccountHolder?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
+  payoutUpiId?: string | null;
+  aadhaarNumber?: string;
+  panNumber?: string | null;
 }
 
 export const partnerApi = {
@@ -268,6 +299,8 @@ const ACTION_PATH: Record<TechnicianJobAction, string> = {
 export const technicianApi = {
   dashboard: () => unwrap<TechnicianDashboardDto>(api.get('/technician/dashboard')),
   profile: () => unwrap<TechnicianProfileSummary>(api.get('/technician/profile')),
+  services: () => unwrap<TechnicianServicesDto>(api.get('/technician/services')),
+  setServices: (serviceIds: string[]) => unwrap<TechnicianServicesDto>(api.put('/technician/services', { serviceIds })),
   setOnline: (online: boolean, coords?: { lat: number; lng: number }) =>
     unwrap<TechnicianProfileSummary>(api.post(online ? '/technician/online' : '/technician/offline', coords ?? {})),
   jobs: (tab: TechnicianTabParam) =>
@@ -385,9 +418,47 @@ export const adminModulesApi = {
   system: () => unwrap<SystemStatusDto>(api.get('/admin/system')),
   serviceArea: () => unwrap<AdminServiceAreaDto>(api.get('/admin/service-area')),
   updateServiceArea: (id: string, body: { isActive?: boolean; radiusKm?: number }) => unwrap<unknown>(api.patch(`/admin/service-area/${id}`, body)),
+  createLocality: (body: LocationInput) => unwrap<{ id: string }>(api.post('/admin/service-area', body)),
+  setLocalityFranchise: (id: string, franchiseId: string | null) => unwrap<unknown>(api.put(`/admin/service-area/${id}/franchise`, { franchiseId })),
 };
 
+export const franchiseApi = {
+  list: () => unwrap<FranchiseRowDto[]>(api.get('/admin/franchises')),
+  detail: (id: string) => unwrap<FranchiseDetailDto>(api.get(`/admin/franchises/${id}`)),
+  create: (body: FranchiseFormInput) => unwrap<FranchiseDetailDto>(api.post('/admin/franchises', body)),
+  update: (id: string, body: FranchiseFormInput) => unwrap<FranchiseDetailDto>(api.put(`/admin/franchises/${id}`, body)),
+  setStatus: (id: string, status: FranchiseStatus, reason?: string) => unwrap<FranchiseDetailDto>(api.post(`/admin/franchises/${id}/status`, { status, reason })),
+  revealAadhaar: (id: string) => unwrap<{ aadhaar: string }>(api.post(`/admin/franchises/${id}/aadhaar`)),
+  report: (from: string, to: string) => unwrap<FranchiseReportDto>(api.get('/admin/franchises/report', { params: { from, to } })),
+  mine: () => unwrap<MyFranchiseDto>(api.get('/admin/franchise/me')),
+  setTechnicianFranchise: (technicianId: string, franchiseId: string | null) => unwrap<unknown>(api.put(`/admin/technicians/${technicianId}/franchise`, { franchiseId })),
+};
+
+export type ExportKind = 'franchises' | 'technicians' | 'customers' | 'addresses' | 'bookings';
+/** Downloads a CSV (opens in Excel / Google Sheets) through the signed-in session. */
+export async function downloadExport(kind: ExportKind, range: { from?: string; to?: string } = {}) {
+  const res = await api.get<Blob>(`/admin/exports/${kind}`, { params: range, responseType: 'blob', timeout: 120_000 });
+  const name = /filename="([^"]+)"/.exec(String(res.headers['content-disposition'] ?? ''))?.[1] ?? `rapidfix-${kind}.csv`;
+  const url = URL.createObjectURL(res.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export interface AdminServiceAreaDto {
-  locations: { id: string; name: string; district: string; state: string; latitude: number; longitude: number; radiusKm: number; isActive: boolean }[];
+  locations: { id: string; name: string; district: string; state: string; latitude: number; longitude: number; radiusKm: number; isActive: boolean; franchiseId: string | null; franchise: string | null }[];
   interest: { id: string; name: string | null; phone: string | null; label: string; latitude: number | null; longitude: number | null; createdAt: string }[];
 }
+
+export interface AssistantMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export const assistantApi = {
+  chat: (messages: AssistantMessage[]) => unwrap<{ reply: string }>(api.post('/assistant/chat', { messages }, { timeout: 60_000 })),
+};

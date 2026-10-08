@@ -84,6 +84,31 @@ describe('TechnicianAssignmentService', () => {
     expect(requests.body.data[0]).toMatchObject({ bookingId: id, locality: 'Tanuku, AP', estimatedEarning: 33_915 }); // (299+100) × 85%
   });
 
+  it('a technician who picked specific services gets only those jobs; no picks = the whole category', async () => {
+    const install = await prisma.service.create({
+      data: { categoryId, name: 'AC Installation', slug: 'ac-installation', description: 'x', basePrice: 119_900, durationMinMinutes: 60, durationMaxMinutes: 120, inclusions: [], exclusions: [] },
+    });
+    const near = await tech('+919000000111', { dLat: 0.01 });
+    const far = await tech('+919000000112', { dLat: 0.05 });
+    await prisma.technicianService.create({ data: { technicianId: near.techId, serviceId: install.id } }); // installs only
+
+    const repair = await newBooking();
+    expect(await dispatchBooking(repair)).toBe('offered');
+    expect((await bookingOf(repair)).technicianId).toBe(far.techId); // near doesn't do repairs
+
+    // The category's "Technician Visit" goes to everyone in the category: near is nearest.
+    const visit = await prisma.service.create({
+      data: { categoryId, name: 'AC Technician Visit', slug: 'ac-cooling-technician-visit', description: 'x', basePrice: 19_900, durationMinMinutes: 30, durationMaxMinutes: 45, inclusions: [], exclusions: [] },
+    });
+    const v = await request()
+      .post(`${API}/customer/bookings`)
+      .set(bearer(customerToken))
+      .send({ serviceId: visit.id, scheduleType: 'NOW', address: sampleAddress })
+      .expect(201);
+    expect(await dispatchBooking(v.body.data.id)).toBe('offered');
+    expect((await bookingOf(v.body.data.id)).technicianId).toBe(near.techId);
+  });
+
   it('ranking weighs rating and workload, not only distance', () => {
     const w = { skill: 1, distance: 0.5, rating: 0.3, workload: 0.2 };
     const closeButBusy = scoreCandidate(w, { distanceKm: 1, radiusKm: 15, ratingAvg: 3.5, activeJobs: 3 });

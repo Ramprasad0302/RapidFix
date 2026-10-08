@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { haptic } from '../lib/haptics';
 
 interface ToastState {
   message: string | null;
@@ -14,6 +15,7 @@ export const useToast = create<ToastState>()((set) => ({
   tone: 'default',
   show: (message, tone = 'default') => {
     clearTimeout(timer);
+    haptic(tone === 'error' ? 'error' : 'success');
     set({ message, tone });
     timer = setTimeout(() => set({ message: null }), 2600);
   },

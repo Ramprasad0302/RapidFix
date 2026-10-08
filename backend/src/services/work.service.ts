@@ -185,7 +185,13 @@ export async function raiseComplaint(auth: { userId: string; role: Role }, input
     include: complaintInclude,
   });
   // Tell staff (support queue) through the outbox.
-  const staff = await prisma.user.findMany({ where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'] }, status: 'ACTIVE' }, select: { id: true } });
+  const manager = input.bookingId
+    ? await prisma.franchise.findFirst({ where: { status: 'ACTIVE', bookings: { some: { id: input.bookingId } } }, select: { userId: true } })
+    : null;
+  const staff = [
+    ...(await prisma.user.findMany({ where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'] }, status: 'ACTIVE' }, select: { id: true } })),
+    ...(manager ? [{ id: manager.userId }] : []),
+  ];
   if (staff.length) {
     await prisma.notification.createMany({
       data: staff.map((s) => ({ userId: s.id, type: 'COMPLAINT', title: 'New complaint', body: `${input.category}: ${input.subject}`, data: { complaintId: c.id } })),

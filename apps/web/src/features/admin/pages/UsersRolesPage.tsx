@@ -25,6 +25,7 @@ const ROLE_TONE: Record<Role, 'blue' | 'green' | 'purple' | 'amber' | 'gray'> = 
   OPERATIONS: 'blue',
   SUPPORT: 'blue',
   FINANCE: 'amber',
+  FRANCHISE_ADMIN: 'amber',
 };
 const ROLE_HELP: Record<Role, string> = {
   CUSTOMER: 'Books services in the customer app.',
@@ -33,6 +34,7 @@ const ROLE_HELP: Record<Role, string> = {
   ADMIN: 'General administration; can switch customers ↔ technicians.',
   OPERATIONS: 'Bookings and technicians.',
   SUPPORT: 'Customers and complaints.',
+  FRANCHISE_ADMIN: 'Runs one franchise town. Appointed from Franchises.',
   FINANCE: 'Payments and payouts.',
 };
 
@@ -73,7 +75,7 @@ export function UsersRolesPage() {
     <div className="mx-auto max-w-[1440px]">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-[30px] font-bold tracking-tight text-slate-900">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-[30px] text-slate-900">
             <UserCog className="size-7 text-fixora-blue" aria-hidden /> Users &amp; Roles
           </h1>
           <p className="text-[15px] text-slate-500">Everyone signs in on the same login page — their role decides which app they see.</p>
@@ -113,7 +115,7 @@ export function UsersRolesPage() {
         {users.data && users.data.items.length === 0 && <EmptyState title="No users found" body="Try a different name, number or role." />}
 
         {users.data && users.data.items.length > 0 && (
-          <div className="-mx-5 mt-4 overflow-x-auto">
+          <div className="-mx-4 sm:-mx-5 mt-4 overflow-x-auto">
             <table className={cx('w-full min-w-[880px] text-left text-sm', users.isFetching && 'opacity-70')}>
               <thead>
                 <tr className="border-y border-slate-100 bg-slate-50/70 text-[13px] text-slate-500">

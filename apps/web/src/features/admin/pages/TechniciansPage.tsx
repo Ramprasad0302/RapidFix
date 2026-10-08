@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck, CircleX, List, Map as MapIcon, Star, UsersRound } from 'lucide-react';
-import { SocketEvent, type AdminTechnicianDetailDto, type AdminTechnicianRowDto, type TechnicianVerificationStatus, type UserStatus } from '@fixora/shared-types';
+import { hasPermission, Permission, SocketEvent, type AdminTechnicianDetailDto, type AdminTechnicianRowDto, type TechnicianVerificationStatus, type UserStatus } from '@fixora/shared-types';
 import { formatINR, formatIndianPhone } from '@fixora/shared-utils';
 import { Alert, Button, cx } from '@fixora/ui';
 import { Avatar } from '../../../components/Avatar';
@@ -10,14 +10,15 @@ import { Dialog } from '../../../components/Dialog';
 import { FixoraMap, type MapMarker } from '../../../components/map/FixoraMap';
 import { ErrorState, Skeleton } from '../../../components/States';
 import { Pill, StatusBadge } from '../../../components/StatusBadge';
-import { adminModulesApi } from '../../../lib/endpoints';
+import { adminModulesApi, franchiseApi } from '../../../lib/endpoints';
+import { useAuth } from '../../../store/auth';
 import { formatDate, timeAgo } from '../../../lib/format';
 import { useSocketEvent } from '../../../lib/socket';
 import { toast } from '../../../store/toast';
 import { useCategories } from '../../customer/queries';
 import { PrivateThumb } from '../../technician/pages/AccountPages';
 import { Card } from '../components/Card';
-import { DataTable, Facts, FilterSelect, humanize, PageTitle, Pager, ReasonDialog, SearchBox, Section, useUrlParams, type Column } from '../components/kit';
+import { DataTable, Facts, FilterSelect, humanize, PageTitle, Pager, ReasonDialog, SearchBox, Section, useUrlParams, type Column, useFranchiseColumn } from '../components/kit';
 import { userStatusPill } from './CustomersPage';
 
 const PAGE_SIZE = 20;
@@ -70,6 +71,7 @@ const COLUMNS: Column<AdminTechnicianRowDto>[] = [
 ];
 
 export function TechniciansPage() {
+  const columns = useFranchiseColumn(COLUMNS, 'Area');
   const { get, set, page } = useUrlParams();
   const q = get('q');
   const verification = get('verification') as TechnicianVerificationStatus | undefined;
@@ -129,7 +131,7 @@ export function TechniciansPage() {
             />
           </div>
           <DataTable
-            columns={COLUMNS}
+            columns={columns}
             rows={list.data?.items}
             rowKey={(t) => t.id}
             onRowClick={(t) => set({ id: t.id, page: String(page) })}
@@ -306,6 +308,8 @@ function TechnicianDrawer({ id }: { id: string }) {
         />
       </Section>
 
+      <FranchiseSection t={t} onChanged={refresh} />
+
       <Section
         title="Skills"
         action={
@@ -466,5 +470,42 @@ function SkillsDialog({ t, open, onClose, onSaved }: { t: AdminTechnicianDetailD
       </div>
       {save.isError && <Alert className="mt-3">{save.error.message}</Alert>}
     </Dialog>
+  );
+}
+
+/** Which franchise the technician works under. Head office can move them; franchise managers see it read-only. */
+function FranchiseSection({ t, onChanged }: { t: AdminTechnicianDetailDto; onChanged(): void }) {
+  const role = useAuth((s) => s.user?.role);
+  const canMove = !!role && hasPermission(role, Permission.FRANCHISES_MANAGE);
+  const franchises = useQuery({ queryKey: ['admin', 'franchises'], queryFn: franchiseApi.list, enabled: canMove });
+  const qc = useQueryClient();
+  const move = useMutation({
+    mutationFn: (franchiseId: string | null) => franchiseApi.setTechnicianFranchise(t.id, franchiseId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'technician', t.id] });
+      onChanged();
+      toast('Technician moved');
+    },
+    onError: (e) => toast((e as Error).message, 'error'),
+  });
+  if (!canMove) return t.franchise ? <Section title="Franchise"><p className="text-sm text-slate-700">{t.franchise}</p></Section> : null;
+  return (
+    <Section title="Franchise">
+      <select
+        value={t.franchiseId ?? ''}
+        disabled={move.isPending || franchises.isPending}
+        onChange={(e) => move.mutate(e.target.value || null)}
+        aria-label="Franchise"
+        className="h-10 w-full max-w-sm rounded-xl border border-slate-300 bg-white px-3 text-sm"
+      >
+        <option value="">RapidFix head office (no franchise)</option>
+        {franchises.data?.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.name}
+          </option>
+        ))}
+      </select>
+      <p className="mt-1 text-xs text-slate-500">A franchise technician gets that franchise's bookings, and its manager can verify and manage them.</p>
+    </Section>
   );
 }

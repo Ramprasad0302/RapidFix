@@ -179,14 +179,14 @@ rmSync(path.join(webOut, 'public', '.htaccess'), { force: true });
 // (frame-ancestors can't be set by meta; X-Frame-Options: DENY from server.js covers that.)
 const META_CSP = [
   "default-src 'self'",
-  "script-src 'self' https://checkout.razorpay.com https://www.google.com https://www.gstatic.com https://apis.google.com https://maps.googleapis.com",
+  "script-src 'self' https://checkout.razorpay.com https://www.google.com https://www.gstatic.com https://apis.google.com https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob:",
   "connect-src 'self' https: wss:" + (process.env.CSP_CONNECT_EXTRA ? ' ' + process.env.CSP_CONNECT_EXTRA : ''),
   "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com",
-  "worker-src 'self'",
+  "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -229,14 +229,14 @@ const dir = path.join(__dirname, 'public');
 // CSP_CONNECT_EXTRA adds API origins for local testing (e.g. http://localhost:4000); not needed live.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://checkout.razorpay.com https://www.google.com https://www.gstatic.com https://apis.google.com https://maps.googleapis.com",
+  "script-src 'self' https://checkout.razorpay.com https://www.google.com https://www.gstatic.com https://apis.google.com https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob:",
   "connect-src 'self' https: wss: " + (process.env.CSP_CONNECT_EXTRA || ''),
   "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com",
-  "worker-src 'self'",
+  "worker-src 'self' blob:",
   "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",

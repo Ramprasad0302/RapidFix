@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Banknote, CalendarDays, CreditCard, FileText, Info, MapPin, ShieldCheck, TicketPercent, X } from 'lucide-react';
+import { ArrowRight, Banknote, CalendarDays, CreditCard, FileText, Info, MapPin, ShieldCheck, Smartphone, TicketPercent, X } from 'lucide-react';
 import { formatINR } from '@fixora/shared-utils';
 import { Alert, Button, cx } from '@fixora/ui';
 import { ServiceArt } from '../../../components/ServiceArt';
 import { Skeleton } from '../../../components/States';
 import { catalogApi, customerApi, trustApi, uploadApi, type ServiceAreaCheckDto } from '../../../lib/endpoints';
-import { markPaymentAttempt, PAYMENT_CHECKING, payWithRazorpay } from '../../../lib/razorpay';
+import { markPaymentAttempt, openUpiPayment, PAYMENT_CHECKING, payWithRazorpay } from '../../../lib/razorpay';
 import { toast } from '../../../store/toast';
 import { addressLines, durationRange, formatDate, slotRange } from '../../../lib/format';
 import { useAuth } from '../../../store/auth';
@@ -15,6 +15,7 @@ import { useBookingDraft } from '../../../store/bookingDraft';
 import { NotServedSheet } from '../../../components/NotServedSheet';
 import { BookingShell, StepTitle } from './BookingShell';
 
+const UPI_OPENED = 'upi';
 
 /** Step 5 — review, coupon, payment preference, server-side estimate; login happens here if needed. */
 export function ReviewStepPage() {
@@ -24,6 +25,7 @@ export function ReviewStepPage() {
   const draft = useBookingDraft();
   const [couponInput, setCouponInput] = useState(draft.couponCode ?? '');
   const [progress, setProgress] = useState<string | null>(null);
+  const [payVia, setPayVia] = useState<'upi' | 'card'>('upi');
 
   const service = useQuery({ queryKey: ['service', draft.serviceSlug], queryFn: () => catalogApi.service(draft.serviceSlug!), enabled: !!draft.serviceSlug });
   const saved = useQuery({ queryKey: ['customer', 'addresses'], queryFn: customerApi.addresses, enabled: authed && !!draft.addressId });
@@ -88,6 +90,10 @@ export function ReviewStepPage() {
       // Pay online: Razorpay opens right away; the booking is sent to technicians once it's paid.
       try {
         setProgress('Opening secure payment…');
+        if (payVia === 'upi') {
+          openUpiPayment(booking.id, await customerApi.upiLink(booking.id));
+          return { booking, paid: false as const, reason: UPI_OPENED };
+        }
         markPaymentAttempt(booking.id);
         const signed = await payWithRazorpay(await customerApi.razorpayOrder(booking.id));
         setProgress('Confirming payment…');
@@ -105,7 +111,8 @@ export function ReviewStepPage() {
         return;
       }
       // Not paid (closed / failed): the booking page offers "Pay now" or "Pay after service".
-      if (r.reason === PAYMENT_CHECKING) toast('Confirming your payment with the bank…');
+      if (r.reason === UPI_OPENED) toast('Pay in PhonePe / Google Pay, then come back here — we confirm it automatically.');
+      else if (r.reason === PAYMENT_CHECKING) toast('Confirming your payment with the bank…');
       else toast(r.reason === 'Payment cancelled' ? 'Payment not completed — tap Pay now to try again.' : r.reason, r.reason === 'Payment cancelled' ? 'default' : 'error');
       navigate(`/bookings/${booking.id}`, { replace: true });
     },
@@ -237,6 +244,33 @@ export function ReviewStepPage() {
             </button>
           ))}
         </div>
+        {payNow > 0 && (
+          <div className="mt-3">
+            <p className="text-sm font-medium text-slate-700">Pay {formatINR(payNow)} using</p>
+            <div className="mt-1.5 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Pay using">
+              {(
+                [
+                  { value: 'upi', title: 'UPI app', sub: 'PhonePe · Google Pay · Paytm · BHIM', icon: Smartphone },
+                  { value: 'card', title: 'Card / net banking', sub: 'Debit · ATM · credit card · wallet', icon: CreditCard },
+                ] as const
+              ).map(({ value, title, sub, icon: Icon }) => (
+                <button
+                  key={value}
+                  role="radio"
+                  aria-checked={payVia === value}
+                  onClick={() => setPayVia(value)}
+                  className={cx('flex items-start gap-2.5 rounded-xl border p-3 text-left', payVia === value ? 'border-fixora-blue bg-fixora-blue-soft' : 'border-slate-200')}
+                >
+                  <Icon className={cx('mt-0.5 size-5 shrink-0', payVia === value ? 'text-fixora-blue' : 'text-slate-500')} aria-hidden />
+                  <span className="min-w-0">
+                    <span className={cx('block text-sm font-semibold', payVia === value ? 'text-fixora-blue' : 'text-slate-900')}>{title}</span>
+                    <span className="block text-xs text-slate-500">{sub}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {payNow > 0 && (
           <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
             <ShieldCheck className="size-4 shrink-0 text-success" aria-hidden />

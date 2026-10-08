@@ -96,6 +96,15 @@ function startDispatch(bookingId: string) {
 
 // ─── Razorpay Checkout (customer: at booking, or the balance after the job) ─
 
+/** What the customer pays now: the advance (or full bill) for a waiting booking, or whatever is left after the job. */
+async function customerDue(b: { id: string; status: string; paymentMethod: PaymentMethod; totalAmount: number }) {
+  const prepay = b.status === B.PENDING;
+  if (!prepay && b.status !== B.PAYMENT_PENDING) throw AppError.conflict('This booking is not awaiting payment.', 'NOT_PAYABLE');
+  const due = (prepay ? await prepayTarget(b) : b.totalAmount) - (await paidOnline(prisma, b.id));
+  if (due <= 0) throw AppError.conflict('This booking is already paid.', 'ALREADY_PAID');
+  return due;
+}
+
 export async function createRazorpayOrder(customerId: string, bookingId: string): Promise<RazorpayOrderDto> {
   if (!razorpayConfigured()) throw unavailable();
   const b = await prisma.booking.findFirst({
@@ -103,11 +112,7 @@ export async function createRazorpayOrder(customerId: string, bookingId: string)
     include: { payment: true, customer: { include: { user: true } } },
   });
   if (!b) throw AppError.notFound('Booking not found', 'BOOKING_NOT_FOUND');
-  const prepay = b.status === B.PENDING;
-  if (!prepay && b.status !== B.PAYMENT_PENDING) throw AppError.conflict('This booking is not awaiting payment.', 'NOT_PAYABLE');
-  // Waiting booking: the advance (or the full bill); after the job: whatever is left.
-  const due = (prepay ? await prepayTarget(b) : b.totalAmount) - (await paidOnline(prisma, b.id));
-  if (due <= 0) throw AppError.conflict('This booking is already paid.', 'ALREADY_PAID');
+  const due = await customerDue(b);
 
   // Re-use the open order for the same amount (a retried checkout).
   let orderId = b.payment?.status === 'PROCESSING' && b.payment.amount === due ? b.payment.razorpayOrderId : null;
@@ -250,6 +255,64 @@ export async function checkCollectLink(technicianUserId: string, bookingId: stri
   return { paid: true };
 }
 
+// ─── Customer: pay with PhonePe / Google Pay / any UPI app ───────────────
+
+const customerLinkRef = (b: { id: string; code: string | null }, due: number) => `${b.code ?? b.id.slice(0, 12)}-${due}-app`;
+
+/**
+ * Razorpay's in-app sheet hides UPI when it can't see the phone's UPI apps, so
+ * the app also offers a Razorpay payment link for the amount due. It opens in
+ * the phone's browser, which lists PhonePe, Google Pay, Paytm, BHIM… (and a QR
+ * on a computer). Paid → webhook / the booking screen's sync confirms it.
+ */
+export async function createCustomerPayLink(customerId: string, bookingId: string): Promise<PaymentLinkDto> {
+  if (!razorpayConfigured()) throw unavailable();
+  const b = await prisma.booking.findFirst({
+    where: { id: bookingId, customerId },
+    include: { customer: { include: { user: true } }, service: { select: { name: true } } },
+  });
+  if (!b) throw AppError.notFound('Booking not found', 'BOOKING_NOT_FOUND');
+  const due = await customerDue(b);
+
+  const reference = customerLinkRef(b, due);
+  const existing = await razorpay<{ payment_links?: RazorpayLink[] }>('GET', `/payment_links?reference_id=${encodeURIComponent(reference)}`).catch(() => ({ payment_links: [] }));
+  const open = existing.payment_links?.find((l) => l.status === 'created' && l.amount === due);
+  if (open) return toLinkDto(open);
+
+  const user = b.customer.user;
+  const link = await razorpay<RazorpayLink>('POST', '/payment_links', {
+    amount: due,
+    currency: 'INR',
+    accept_partial: false,
+    reference_id: existing.payment_links?.length ? `${reference}-${Date.now().toString(36)}` : reference,
+    description: `RapidFix ${b.code ?? ''} · ${b.service.name}`.slice(0, 2048),
+    customer: { name: user.name ?? 'RapidFix customer', ...(user.phone && { contact: user.phone }), ...(user.email && { email: user.email }) },
+    notify: { sms: false, email: false },
+    reminder_enable: false,
+    expire_by: Math.floor(Date.now() / 1000) + 2 * 24 * 3600,
+    notes: { bookingId: b.id },
+    callback_url: `${env.WEB_APP_URL.replace(/\/$/, '')}/bookings/${b.id}?paid=1`,
+    callback_method: 'get',
+  });
+  return toLinkDto(link);
+}
+
+/** Record whatever the customer paid through their UPI links for this booking. */
+async function syncCustomerLinks(b: { id: string; code: string | null; status: string; paymentMethod: PaymentMethod; totalAmount: number }) {
+  if (b.status !== B.PENDING && b.status !== B.PAYMENT_PENDING) return;
+  const due = await customerDue(b).catch(() => 0);
+  if (!due) return;
+  const reference = customerLinkRef(b, due);
+  const { payment_links = [] } = await razorpay<{ payment_links?: RazorpayLink[] }>('GET', `/payment_links?reference_id=${encodeURIComponent(reference)}`);
+  for (const l of payment_links) {
+    if (l.status !== 'paid' || l.notes?.bookingId !== b.id) continue;
+    const full = await razorpay<RazorpayLink>('GET', `/payment_links/${encodeURIComponent(l.id)}`);
+    for (const p of full.payments ?? []) {
+      if (p.status === 'captured') await recordOnlinePayment(b.id, { paymentId: p.payment_id, amount: p.amount, raw: full });
+    }
+  }
+}
+
 // ─── Confirm straight from Razorpay (no waiting for the app or the webhook) ─
 
 interface OrderPayment {
@@ -293,9 +356,10 @@ export async function syncOrderPayments(bookingId: string): Promise<boolean> {
 
 /** Customer's screen: "did my payment go through?" (owned bookings only). */
 export async function syncCustomerPayment(customerId: string, bookingId: string) {
-  const b = await prisma.booking.findFirst({ where: { id: bookingId, customerId }, select: { id: true } });
+  const b = await prisma.booking.findFirst({ where: { id: bookingId, customerId }, select: { id: true, code: true, status: true, paymentMethod: true, totalAmount: true } });
   if (!b) throw AppError.notFound('Booking not found', 'BOOKING_NOT_FOUND');
   await syncOrderPayments(b.id).catch((err) => logger.warn({ err, bookingId }, 'payment sync failed'));
+  if (razorpayConfigured()) await syncCustomerLinks(b).catch((err) => logger.warn({ err, bookingId }, 'payment link sync failed'));
 }
 
 /** Background: every open order touched in the last 30 minutes. */

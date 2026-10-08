@@ -13,7 +13,7 @@ import { formatDate, timeAgo } from '../../../lib/format';
 import { toast } from '../../../store/toast';
 import { Card } from '../components/Card';
 import { BookingDrawer } from './BookingsPage';
-import { DataTable, Facts, FilterSelect, humanize, PageTitle, Pager, ReasonDialog, SearchBox, Section, useUrlParams, type Column } from '../components/kit';
+import { DataTable, Facts, FilterSelect, humanize, PageTitle, Pager, ReasonDialog, SearchBox, Section, useUrlParams, type Column, useFranchiseColumn } from '../components/kit';
 
 const PAGE_SIZE = 20;
 const STATUS_OPTIONS: { value: UserStatus; label: string }[] = [
@@ -47,6 +47,7 @@ const COLUMNS: Column<AdminCustomerRowDto>[] = [
 ];
 
 export function CustomersPage() {
+  const columns = useFranchiseColumn(COLUMNS, 'Email');
   const { get, set, page } = useUrlParams();
   const q = get('q');
   const status = get('status') as UserStatus | undefined;
@@ -66,7 +67,7 @@ export function CustomersPage() {
           <FilterSelect label="All statuses" value={status} options={STATUS_OPTIONS} onChange={(v) => set({ status: v })} />
         </div>
         <DataTable
-          columns={COLUMNS}
+          columns={columns}
           rows={list.data?.items}
           rowKey={(c) => c.id}
           onRowClick={(c) => set({ id: c.id, page: String(page) })}

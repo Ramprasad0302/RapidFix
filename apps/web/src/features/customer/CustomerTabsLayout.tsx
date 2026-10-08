@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Outlet } from 'react-router';
 import { CalendarDays, House, TicketPercent, UserRound } from 'lucide-react';
 import { cx } from '@fixora/ui';
+import { AssistantButton } from '../../components/AssistantButton';
 import { BottomNav } from '../../components/BottomNav';
 
 const TABS = [
@@ -19,6 +20,7 @@ export function CustomerTabsLayout() {
         <div className="pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] lg:pb-0">
           <Outlet />
         </div>
+        <AssistantButton />
         <BottomNav items={TABS} />
       </MobileShell>
     </div>

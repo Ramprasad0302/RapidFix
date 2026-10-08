@@ -28,6 +28,7 @@ import { logger } from '../config/logger';
 import { env } from '../config/env';
 import { bookingAdvance, ONLINE_CHARGE, razorpayConfigured, refundOnlineCharges } from './payment.service';
 import { emitBookingEvent } from './realtime.service';
+import { acceptForReview, isReviewDemoCustomer } from './reviewDemo';
 import { isOwnUploadPath } from './storage.service';
 
 const IST_OFFSET_MS = 330 * 60_000;
@@ -222,16 +223,20 @@ export interface CreateBookingInput extends ScheduleInput {
   paymentMethod: 'CASH' | 'UPI' | 'RAZORPAY';
 }
 
-async function resolveLocationId(lat: number | null | undefined, lng: number | null | undefined, town: string) {
-  const locations = await prisma.location.findMany({ where: { isActive: true } });
+/** The served locality a point falls in (nearest within its radius, else by town name) and its franchise. */
+export async function resolveLocality(lat: number | null | undefined, lng: number | null | undefined, town: string) {
+  const locations = await prisma.location.findMany({ where: { isActive: true }, select: { id: true, name: true, latitude: true, longitude: true, radiusKm: true, franchiseId: true } });
+  let hit: (typeof locations)[number] | undefined;
   if (lat != null && lng != null) {
-    const near = locations
+    hit = locations
       .map((l) => ({ l, d: haversineKm(lat, lng, l.latitude, l.longitude) }))
       .filter(({ l, d }) => d <= l.radiusKm)
-      .sort((a, b) => a.d - b.d)[0];
-    if (near) return near.l.id;
+      .sort((a, b) => a.d - b.d)[0]?.l;
   }
-  return locations.find((l) => l.name.toLowerCase() === town.trim().toLowerCase())?.id ?? null;
+  hit ??= locations.find((l) => l.name.toLowerCase() === town.trim().toLowerCase());
+  // A suspended or ended franchise no longer owns new bookings (head office takes them).
+  const franchiseActive = hit?.franchiseId ? (await prisma.franchise.count({ where: { id: hit.franchiseId, status: 'ACTIVE' } })) > 0 : false;
+  return { locationId: hit?.id ?? null, franchiseId: franchiseActive ? hit!.franchiseId : null };
 }
 
 export async function createBooking(customerId: string, userId: string, input: CreateBookingInput): Promise<BookingDetailDto> {
@@ -269,8 +274,13 @@ export async function createBooking(customerId: string, userId: string, input: C
     }
   }
 
+  // App Store / Play review account: no payment, no area check, demo technician (see reviewDemo.ts).
+  const reviewDemo = await isReviewDemoCustomer(customerId);
+
   // Only inside the area we serve (e.g. Tanuku within 10 km).
-  if (input.address) await assertServed(input.address);
+  if (reviewDemo) {
+    /* reviewers book from anywhere */
+  } else if (input.address) await assertServed(input.address);
   else if (input.addressId) {
     const saved = await prisma.address.findFirst({ where: { id: input.addressId, customerId, deletedAt: null }, select: { latitude: true, longitude: true, villageTown: true } });
     if (saved) await assertServed(saved);
@@ -282,8 +292,8 @@ export async function createBooking(customerId: string, userId: string, input: C
   if (payFull && !razorpayConfigured()) {
     throw new AppError(503, 'ONLINE_PAYMENT_UNAVAILABLE', 'Online payment is not available right now. Please choose cash or UPI.');
   }
-  const advance = await bookingAdvance();
-  const payNow = payFull || advance > 0;
+  const advance = reviewDemo ? 0 : await bookingAdvance();
+  const payNow = !reviewDemo && (payFull || advance > 0);
 
   const { service, breakdown, coupon } = await estimatePrice(input.serviceId, input.couponCode, customerId);
   if (breakdown.coupon && !breakdown.coupon.valid) {
@@ -349,12 +359,16 @@ export async function createBooking(customerId: string, userId: string, input: C
       if (count === 0) throw AppError.badRequest('This offer is fully redeemed', 'COUPON_INVALID');
     }
 
+    const locality = await resolveLocality(address.latitude, address.longitude, address.villageTown);
+    // First booking in a franchise town makes it the customer's home franchise.
+    if (locality.franchiseId) await tx.customer.updateMany({ where: { id: customerId, franchiseId: null }, data: { franchiseId: locality.franchiseId } });
     const created = await tx.booking.create({
       data: {
         customerId,
         serviceId: service.id,
         addressId: address.id,
-        locationId: await resolveLocationId(address.latitude, address.longitude, address.villageTown),
+        locationId: locality.locationId,
+        franchiseId: locality.franchiseId,
         couponId: coupon?.id ?? null,
         status: B.PENDING,
         description: input.description,
@@ -414,8 +428,9 @@ export async function createBooking(customerId: string, userId: string, input: C
     return created.id;
   });
 
+  if (reviewDemo) await acceptForReview(bookingId);
   // Start finding a technician right away (tests drive dispatch explicitly).
-  if (!payNow && env.NODE_ENV !== 'test') {
+  else if (!payNow && env.NODE_ENV !== 'test') {
     void dispatchBooking(bookingId).catch((err) => logger.error({ err, bookingId }, 'initial dispatch failed'));
   }
   const full = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId }, include: bookingInclude });

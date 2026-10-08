@@ -1,5 +1,5 @@
-import type { RazorpayOrderDto } from '@fixora/shared-types';
-import { isNativeApp, nativeCall, onNativeEvent } from './nativeApp';
+import type { PaymentLinkDto, RazorpayOrderDto } from '@fixora/shared-types';
+import { nativeCall, nativePlatform, onNativeEvent } from './nativeApp';
 
 interface RazorpaySuccess {
   razorpay_order_id: string;
@@ -38,25 +38,18 @@ function loadCheckout() {
 }
 
 /**
- * Opens Razorpay Checkout for a server-created order. Resolves with the
- * signed response (which the server then verifies) or rejects when the
- * customer closes the window or the payment fails.
- */
-/**
- * How the payment sheet is laid out: UPI apps first (PhonePe, Google Pay, Paytm
- * open directly on the phone), then debit/ATM & credit cards, net banking, wallets.
+ * How the payment sheet is laid out: UPI first (Razorpay shows the UPI apps it
+ * finds on the phone, or a QR on a computer), then debit/ATM & credit cards,
+ * then net banking, wallets and the rest.
  */
 const DISPLAY = {
   display: {
     blocks: {
-      upi_apps: {
-        name: 'Pay with UPI app — PhonePe, Google Pay, Paytm',
-        instruments: [{ method: 'upi', flows: ['intent', 'collect', 'qr'], apps: ['phonepe', 'google_pay', 'paytm', 'bhim'] }],
-      },
+      upi: { name: 'UPI — PhonePe, Google Pay, Paytm', instruments: [{ method: 'upi' }] },
       cards: { name: 'Debit / ATM or credit card', instruments: [{ method: 'card' }] },
     },
-    sequence: ['block.upi_apps', 'block.cards'],
-    preferences: { show_default_blocks: true }, // net banking, wallets, pay later still listed below
+    sequence: ['block.upi', 'block.cards'],
+    preferences: { show_default_blocks: true },
   },
 };
 
@@ -96,8 +89,14 @@ async function payInApp(order: RazorpayOrderDto): Promise<RazorpaySuccess> {
   return r as RazorpaySuccess;
 }
 
+/**
+ * Opens Razorpay Checkout for a server-created order. Resolves with the
+ * signed response (which the server then verifies) or rejects when the
+ * customer closes the window or the payment fails.
+ */
 export async function payWithRazorpay(order: RazorpayOrderDto): Promise<RazorpaySuccess> {
-  if (isNativeApp()) return payInApp(order);
+  if (nativePlatform() === 'android') return payInApp(order);
+  // Browser and iPhone app: Razorpay's web checkout (the iPhone app opens PhonePe / Google Pay / Paytm from it).
   await loadCheckout();
   return new Promise((resolve, reject) => {
     const rzp = new window.Razorpay!({
@@ -108,6 +107,23 @@ export async function payWithRazorpay(order: RazorpayOrderDto): Promise<Razorpay
     rzp.on('payment.failed', (r) => reject(new Error(r.error?.description ?? 'Payment failed. Please try again.')));
     rzp.open();
   });
+}
+
+/**
+ * PhonePe / Google Pay / any UPI app: Razorpay's payment page for the amount due.
+ * In the apps it opens in the phone's browser, which lists the installed UPI
+ * apps (Razorpay's in-app sheet often can't see them); on a computer it shows a
+ * UPI QR. The booking page confirms the payment as soon as the customer is back.
+ */
+export function openUpiPayment(bookingId: string, link: PaymentLinkDto) {
+  markPaymentAttempt(bookingId);
+  // A tapped link: the Android and iPhone apps hand other websites to the browser.
+  const a = document.createElement('a');
+  a.href = link.shortUrl;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 /** Remember that a payment was started for a booking (so its page keeps checking for ~15 min). */

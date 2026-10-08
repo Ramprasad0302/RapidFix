@@ -14,6 +14,8 @@ export interface AuthUser {
   };
   /** Customers only: false until name, email, date of birth and an address are saved. */
   profileComplete?: boolean;
+  /** Franchise managers only: the franchise they run. */
+  franchise?: { id: string; code: string; name: string; town: string };
 }
 
 /**

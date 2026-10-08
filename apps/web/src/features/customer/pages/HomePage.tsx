@@ -248,7 +248,7 @@ function NearbyProfessionals() {
         subtitle={selected ? `Verified & online near ${selected.label}` : undefined}
         action={
           nearby.data?.length ? (
-            <Link to="/book" className="flex items-center gap-0.5 text-[15px] font-medium text-fixora-blue">
+            <Link to="/nearby" className="flex items-center gap-0.5 text-[15px] font-medium text-fixora-blue">
               See All <ChevronRight className="size-4" aria-hidden />
             </Link>
           ) : undefined

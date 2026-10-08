@@ -31,6 +31,7 @@ import { copyText } from '../../../store/toast';
 import { AssignDialog } from '../components/AssignDialog';
 import { BOOKING_SERIES, Card, CATEGORY_COLORS, OTHERS_COLOR } from '../components/Card';
 import { axis, ChartTooltip, compactINR, Legend } from '../components/charts';
+import { ExportButtons, MyFranchiseBanner } from './FranchisesPage';
 
 const RANGES: { value: DashboardRange; label: string; days: number }[] = [
   { value: 'today', label: 'Today', days: 1 },
@@ -40,6 +41,7 @@ const RANGES: { value: DashboardRange; label: string; days: number }[] = [
 
 export function DashboardPage() {
   const name = useAuth((s) => s.user?.name);
+  const isFranchise = useAuth((s) => s.user?.role === 'FRANCHISE_ADMIN');
   const [range, setRange] = useState<DashboardRange>('7d');
   const dash = useQuery({ queryKey: ['admin', 'dashboard', range], queryFn: () => adminApi.dashboard(range), refetchInterval: 60_000, placeholderData: (p) => p });
   const [now] = useState(() => Date.now());
@@ -50,8 +52,8 @@ export function DashboardPage() {
     <div className="mx-auto max-w-[1440px]">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[30px] font-bold tracking-tight text-slate-900">Dashboard</h1>
-          <p className="text-[15px] text-slate-500">Welcome back{name ? `, ${firstName(name)}` : ''}! Here’s what’s happening with RapidFix.</p>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-[30px] text-slate-900">Dashboard</h1>
+          <p className="text-[15px] text-slate-500">Welcome back{name ? `, ${firstName(name)}` : ''}! Here’s what’s happening with {isFranchise ? 'your franchise' : 'RapidFix'}.</p>
         </div>
         <label className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-card">
           <CalendarDays className="size-4.5 text-slate-600" aria-hidden />
@@ -76,6 +78,12 @@ export function DashboardPage() {
           ))}
         </div>
       )}
+      {isFranchise && (
+        <MyFranchiseBanner>
+          <p className="mb-2 text-sm font-medium text-slate-700">Download your franchise data</p>
+          <ExportButtons kinds={['bookings', 'technicians', 'customers', 'addresses']} />
+        </MyFranchiseBanner>
+      )}
       {dash.data && <Dashboard d={dash.data} rangeLabel={r.label} />}
     </div>
   );
@@ -83,7 +91,7 @@ export function DashboardPage() {
 
 function Dashboard({ d, rangeLabel }: { d: AdminDashboardDto; rangeLabel: string }) {
   return (
-    <div className="mt-6 flex flex-col gap-5">
+    <div className="mt-6 flex min-w-0 flex-col gap-5 [&_.grid>*]:min-w-0">
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi label="Total Customers" kpi={d.kpis.customers} icon={<UsersRound className="size-7" />} tone="bg-blue-50 text-fixora-blue" />
         <Kpi label="Total Technicians" kpi={d.kpis.technicians} icon={<HardHat className="size-7" />} tone="bg-emerald-50 text-emerald-600" />
@@ -246,7 +254,7 @@ function RecentBookings({ d }: { d: AdminDashboardDto }) {
   const [assigning, setAssigning] = useState<{ id: string; code: string; service: string } | null>(null);
   return (
     <Card title="Recent Bookings" className="overflow-hidden">
-      <div className="-mx-5 overflow-x-auto">
+      <div className="-mx-4 sm:-mx-5 overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead>
             <tr className="border-y border-slate-100 bg-slate-50/70 text-[13px] text-slate-500">

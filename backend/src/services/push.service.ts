@@ -62,6 +62,33 @@ export function fcmMessage(token: string, platform: string, msg: PushMessage) {
       android: { priority: 'high', ttl: urgent ? '300s' : '86400s' },
     };
   }
+  if (platform === 'IOS') {
+    // iPhone app: Apple shows the alert itself, even when the app is closed. Job requests break
+    // through Focus (time-sensitive), play the technician's chosen tone (the app keeps it at
+    // Library/Sounds/rapidfix_alert.caf) and are dropped by Apple once the offer has expired.
+    const urgent = data.type === 'NEW_JOB';
+    const expires = urgent && data.expiresAt ? Math.floor(Date.parse(data.expiresAt) / 1000) : 0;
+    return {
+      token,
+      notification: { title: msg.title, body: msg.body },
+      data,
+      apns: {
+        headers: {
+          'apns-priority': '10',
+          'apns-push-type': 'alert',
+          ...(expires > 0 && { 'apns-expiration': String(expires) }),
+          ...(urgent && data.bookingId && { 'apns-collapse-id': `job-${data.bookingId}`.slice(0, 64) }),
+        },
+        payload: {
+          aps: {
+            sound: urgent ? 'rapidfix_alert.caf' : 'default',
+            'interruption-level': urgent ? 'time-sensitive' : 'active',
+            'thread-id': urgent ? 'jobs' : 'updates',
+          },
+        },
+      },
+    };
+  }
   return {
     token,
     notification: { title: msg.title, body: msg.body },

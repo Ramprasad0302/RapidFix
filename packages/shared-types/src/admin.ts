@@ -6,7 +6,7 @@ import type {
   TechnicianDocumentDto,
   TimelineStepDto,
 } from './dto';
-import type { BookingStatus, Role, TechnicianVerificationStatus, UserStatus } from './enums';
+import type { BookingStatus, FranchiseStatus, Role, TechnicianVerificationStatus, UserStatus } from './enums';
 
 /** Admin module contracts. Money in paise, dates ISO. */
 
@@ -32,6 +32,8 @@ export interface AdminBookingRowDto {
   timeSlot: string;
   scheduleType: 'NOW' | 'SCHEDULED';
   locality: string;
+  /** Franchise that owns the booking (null = RapidFix head office). */
+  franchise: string | null;
   totalAmount: number;
   paymentStatus: string;
   paymentMethod: string;
@@ -72,6 +74,7 @@ export interface AdminCustomerRowDto {
   phone: string | null;
   email: string | null;
   city: string | null;
+  franchise: string | null;
   status: UserStatus;
   bookings: number;
   spent: number;
@@ -97,6 +100,8 @@ export interface AdminTechnicianRowDto {
   skills: string[];
   villageTown: string;
   district: string;
+  franchise: string | null;
+  franchiseId: string | null;
   verificationStatus: TechnicianVerificationStatus;
   userStatus: UserStatus;
   isOnline: boolean;
@@ -323,4 +328,137 @@ export interface SystemStatusDto {
   database: { ok: boolean; latencyMs: number };
   integrations: { name: string; configured: boolean; detail: string }[];
   workers: { name: string; detail: string }[];
+}
+
+// ─── Franchises ──────────────────────────────────────────────────────────
+
+export interface FranchiseLocalityDto {
+  id: string;
+  name: string;
+  district: string;
+  state: string;
+  radiusKm: number;
+  isActive: boolean;
+}
+
+/** Money in paise. `share` = franchise's cut of RapidFix's commission at the agreed %. */
+export interface FranchiseStatsDto {
+  bookings: number;
+  completed: number;
+  cancelled: number;
+  revenue: number;
+  commission: number;
+  share: number;
+  technicians: number;
+  customers: number;
+}
+
+export interface FranchiseRowDto {
+  id: string;
+  code: string;
+  name: string;
+  town: string;
+  district: string;
+  state: string;
+  status: FranchiseStatus;
+  ownerName: string;
+  ownerPhone: string;
+  commissionPercent: number;
+  agreementStart: string;
+  agreementEnd: string | null;
+  localities: FranchiseLocalityDto[];
+  /** This calendar month (IST). */
+  month: FranchiseStatsDto;
+  /** All time. */
+  total: FranchiseStatsDto;
+  createdAt: string;
+}
+
+export interface FranchiseDetailDto extends FranchiseRowDto {
+  userId: string;
+  ownerEmail: string | null;
+  ownerDateOfBirth: string | null;
+  ownerAddress: string;
+  ownerPincode: string;
+  /** "XXXX XXXX 1234" — the full number is shown only on request (audited). */
+  aadhaarMasked: string;
+  aadhaarFrontUrl: string;
+  aadhaarBackUrl: string | null;
+  panNumber: string | null;
+  panPhotoUrl: string | null;
+  gstin: string | null;
+  businessName: string | null;
+  agreementUrl: string | null;
+  depositAmount: number;
+  bankAccountHolder: string | null;
+  bankIfsc: string | null;
+  bankAccountLast4: string | null;
+  upiId: string | null;
+  emergencyContact: string | null;
+  notes: string | null;
+}
+
+export interface FranchiseInput {
+  name: string;
+  town: string;
+  district: string;
+  state: string;
+  ownerName: string;
+  /** 10-digit Indian mobile; the manager signs in with it (OTP). Fixed after creation. */
+  ownerPhone: string;
+  ownerEmail?: string | null;
+  ownerDateOfBirth?: string | null;
+  ownerAddress: string;
+  ownerPincode: string;
+  /** 12 digits. Optional on edit (blank keeps the saved one). */
+  aadhaarNumber?: string;
+  aadhaarFrontUrl: string;
+  aadhaarBackUrl?: string | null;
+  panNumber?: string | null;
+  panPhotoUrl?: string | null;
+  gstin?: string | null;
+  businessName?: string | null;
+  commissionPercent: number;
+  agreementStart: string;
+  agreementEnd?: string | null;
+  agreementUrl?: string | null;
+  depositAmount?: number;
+  bankAccountHolder?: string | null;
+  bankIfsc?: string | null;
+  /** Optional on edit (blank keeps the saved one). */
+  bankAccountNumber?: string | null;
+  upiId?: string | null;
+  emergencyContact?: string | null;
+  notes?: string | null;
+  localityIds: string[];
+}
+
+export interface FranchiseReportDto {
+  from: string;
+  to: string;
+  rows: (FranchiseStatsDto & { franchiseId: string | null; code: string; name: string; status: FranchiseStatus | null; commissionPercent: number })[];
+  totals: FranchiseStatsDto;
+}
+
+/** The signed-in franchise manager's own summary (dashboard banner). */
+export interface MyFranchiseDto {
+  id: string;
+  code: string;
+  name: string;
+  town: string;
+  commissionPercent: number;
+  localities: FranchiseLocalityDto[];
+  month: FranchiseStatsDto;
+  total: FranchiseStatsDto;
+}
+
+export interface LocationInput {
+  name: string;
+  district: string;
+  state: string;
+  latitude: number;
+  longitude: number;
+  radiusKm: number;
+  isActive?: boolean;
+  franchiseId?: string | null;
 }

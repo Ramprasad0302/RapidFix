@@ -1,3 +1,4 @@
+import { resolveLocality } from './booking.service';
 import {
   BookingStatus as B,
   Role,
@@ -6,6 +7,7 @@ import {
   type PayoutDetailsDto,
   type TechnicianDocumentDto,
   type TechnicianPerformanceDto,
+  type TechnicianServicesDto,
   type WalletDto,
 } from '@fixora/shared-types';
 import { haversineKm } from '@fixora/shared-utils';
@@ -259,6 +261,14 @@ export async function performance(userId: string): Promise<TechnicianPerformance
 
 export interface PartnerRegistration extends ProfileInput {
   skills: string[];
+  serviceIds?: string[];
+  /** Payout + ID (required at sign-up; account and Aadhaar are stored encrypted). */
+  bankAccountHolder: string;
+  bankAccountNumber: string;
+  bankIfsc: string;
+  payoutUpiId?: string | null;
+  aadhaarNumber: string;
+  panNumber?: string | null;
 }
 
 /**
@@ -278,6 +288,7 @@ export async function registerPartner(userId: string, input: PartnerRegistration
   }
   const categories = await prisma.serviceCategory.findMany({ where: { id: { in: input.skills }, isActive: true }, select: { id: true } });
   if (!categories.length) throw AppError.badRequest('Choose at least one service you provide', 'SKILLS_REQUIRED');
+  const services = await pickableServices(categories.map((c) => c.id), input.serviceIds);
 
   const profile = {
     experienceYears: input.experienceYears,
@@ -296,6 +307,16 @@ export async function registerPartner(userId: string, input: PartnerRegistration
     ...extraProfile(input),
     verificationStatus: 'PENDING' as const,
     isOnline: false,
+    bankAccountHolder: input.bankAccountHolder,
+    bankIfsc: input.bankIfsc.toUpperCase(),
+    bankAccountEnc: encryptField(input.bankAccountNumber),
+    bankAccountLast4: input.bankAccountNumber.slice(-4),
+    payoutUpiId: input.payoutUpiId || null,
+    aadhaarEnc: encryptField(input.aadhaarNumber),
+    aadhaarLast4: input.aadhaarNumber.slice(-4),
+    panNumber: input.panNumber ? input.panNumber.toUpperCase() : null,
+    // Joins the franchise that runs the partner's town (verified by that franchise's manager).
+    franchiseId: (await resolveLocality(input.baseLatitude, input.baseLongitude, input.villageTown)).franchiseId,
   };
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
@@ -307,7 +328,13 @@ export async function registerPartner(userId: string, input: PartnerRegistration
       : await tx.technician.create({ data: { userId, ...profile, wallet: { create: {} } } });
     await tx.technicianSkill.deleteMany({ where: { technicianId: tech.id } });
     await tx.technicianSkill.createMany({ data: categories.map((c) => ({ technicianId: tech.id, categoryId: c.id })) });
-    const staff = await tx.user.findMany({ where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'OPERATIONS'] }, status: 'ACTIVE' }, select: { id: true } });
+    await tx.technicianService.deleteMany({ where: { technicianId: tech.id } });
+    if (services.length) await tx.technicianService.createMany({ data: services.map((serviceId) => ({ technicianId: tech.id, serviceId })) });
+    const manager = profile.franchiseId ? await tx.franchise.findUnique({ where: { id: profile.franchiseId }, select: { userId: true } }) : null;
+    const staff = [
+      ...(await tx.user.findMany({ where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'OPERATIONS'] }, status: 'ACTIVE' }, select: { id: true } })),
+      ...(manager ? [{ id: manager.userId }] : []),
+    ];
     if (staff.length) {
       await tx.notification.createMany({
         data: staff.map((s) => ({ userId: s.id, type: 'NEW_TECHNICIAN', title: 'New partner registration', body: `${input.name} (${input.villageTown}) is waiting for verification.`, data: { technicianId: tech.id } })),
@@ -321,4 +348,63 @@ export async function registerPartner(userId: string, input: PartnerRegistration
   const { token: accessToken, expiresIn } = signAccessToken(fresh.id, fresh.role);
   const refresh = await issueRefreshToken(fresh.id, meta);
   return { session: { user: toAuthUser(fresh), accessToken, expiresIn }, refreshToken: refresh.token };
+}
+
+/**
+ * The specific services a technician picked, kept only when they belong to the technician's
+ * categories (the "Technician Visit" of a category isn't pickable: every technician in it does visits).
+ */
+export async function pickableServices(categoryIds: string[], serviceIds: string[] | undefined): Promise<string[]> {
+  if (!serviceIds?.length) return [];
+  const rows = await prisma.service.findMany({
+    where: { id: { in: serviceIds }, isActive: true, categoryId: { in: categoryIds }, NOT: { slug: { endsWith: '-technician-visit' } } },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
+/** The technician's categories with their services; none picked in a category = all ticked (does all of it). */
+export async function myServices(userId: string): Promise<TechnicianServicesDto> {
+  const tech = await prisma.technician.findUniqueOrThrow({
+    where: { userId },
+    select: { skills: { select: { category: { select: { id: true, name: true, sortOrder: true, isActive: true } } } }, services: { select: { serviceId: true } } },
+  });
+  const picked = new Set(tech.services.map((s) => s.serviceId));
+  const categories = tech.skills.map((s) => s.category).filter((c) => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+  const services = await prisma.service.findMany({
+    where: { categoryId: { in: categories.map((c) => c.id) }, isActive: true, NOT: { slug: { endsWith: '-technician-visit' } } },
+    select: { id: true, name: true, categoryId: true },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+  });
+  return {
+    categories: categories.map((c) => {
+      const list = services.filter((s) => s.categoryId === c.id);
+      const any = list.some((s) => picked.has(s.id));
+      return { id: c.id, name: c.name, services: list.map((s) => ({ id: s.id, name: s.name, selected: !any || picked.has(s.id) })) };
+    }),
+  };
+}
+
+/** Replace the technician's picks. A category where everything is ticked is stored as "no picks" (= all). */
+export async function setMyServices(userId: string, serviceIds: string[]): Promise<TechnicianServicesDto> {
+  const tech = await prisma.technician.findUniqueOrThrow({ where: { userId }, select: { id: true, skills: { select: { categoryId: true } } } });
+  const categoryIds = tech.skills.map((s) => s.categoryId);
+  const keep = await pickableServices(categoryIds, serviceIds);
+  const all = await prisma.service.findMany({
+    where: { categoryId: { in: categoryIds }, isActive: true, NOT: { slug: { endsWith: '-technician-visit' } } },
+    select: { id: true, categoryId: true },
+  });
+  const chosen = new Set(keep);
+  for (const categoryId of categoryIds) {
+    const inCat = all.filter((s) => s.categoryId === categoryId);
+    if (inCat.length && !inCat.some((s) => chosen.has(s.id))) {
+      throw AppError.badRequest('Choose at least one service in each type of work you do.', 'SERVICES_REQUIRED');
+    }
+    if (inCat.every((s) => chosen.has(s.id))) inCat.forEach((s) => chosen.delete(s.id));
+  }
+  await prisma.$transaction([
+    prisma.technicianService.deleteMany({ where: { technicianId: tech.id } }),
+    prisma.technicianService.createMany({ data: [...chosen].map((serviceId) => ({ technicianId: tech.id, serviceId })) }),
+  ]);
+  return myServices(userId);
 }

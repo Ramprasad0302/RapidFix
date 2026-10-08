@@ -6,7 +6,7 @@ import { BookingStatus as B, type BookingStatus } from '@fixora/shared-types';
 import { cx } from '@fixora/ui';
 import { PageHeader } from '../../../components/PageHeader';
 import { CenteredSpinner, ErrorState } from '../../../components/States';
-import { customerApi } from '../../../lib/endpoints';
+import { customerApi, trustApi } from '../../../lib/endpoints';
 import { useBookingDraft } from '../../../store/bookingDraft';
 import { copyText } from '../../../store/toast';
 import { MobileShell } from '../CustomerTabsLayout';
@@ -23,6 +23,7 @@ const STEPS: { label: string; hint?: string; reached: BookingStatus[] }[] = [
 export function BookingConfirmedPage() {
   const { id = '' } = useParams();
   const booking = useQuery({ queryKey: ['customer', 'booking', id], queryFn: () => customerApi.booking(id), refetchInterval: 10_000 });
+  const autoCancel = useQuery({ queryKey: ['app-config'], queryFn: trustApi.appConfig, staleTime: 10 * 60_000 }).data?.autoCancelMinutes;
   const clearDraft = useBookingDraft((s) => s.clear);
   // The booking exists now — start the next one fresh.
   useEffect(() => clearDraft(), [clearDraft]);
@@ -83,7 +84,10 @@ export function BookingConfirmedPage() {
 
           <p className="mt-7 flex w-full items-center gap-3 rounded-2xl bg-fixora-blue-soft p-4 text-left text-sm text-slate-700">
             <BellRing className="size-6 shrink-0 fill-fixora-blue text-fixora-blue" aria-hidden />
-            You will be notified once a technician accepts your request.
+            <span>
+              You will be notified once a technician accepts your request.
+              {!!autoCancel && ` If no technician is free within ${autoCancel} minutes, we cancel the booking and refund anything you paid — automatically.`}
+            </span>
           </p>
 
           <div className="mt-6 grid w-full grid-cols-2 gap-3">

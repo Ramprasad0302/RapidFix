@@ -491,6 +491,8 @@ export interface ChatInfoDto {
   service: string;
   counterpart: { name: string; phone: string | null; avatarUrl: string | null; role: 'CUSTOMER' | 'TECHNICIAN' };
   canSend: boolean;
+  /** Chat blocked by this user ('me') or by the other person ('them'). */
+  blockedBy: 'me' | 'them' | null;
 }
 
 // ─── Work & money ────────────────────────────────────────────────────────
@@ -646,4 +648,13 @@ export interface TechnicianReviewDto {
   service: string;
   bookingCode: string | null;
   createdAt: string;
+}
+
+/** "Services I do": the technician's categories with every service in them, ticked = does it. */
+export interface TechnicianServicesDto {
+  categories: {
+    id: string;
+    name: string;
+    services: { id: string; name: string; selected: boolean }[];
+  }[];
 }

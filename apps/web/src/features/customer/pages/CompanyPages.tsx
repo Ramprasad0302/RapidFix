@@ -292,7 +292,7 @@ function terms(email: string, phone: string): Clause[] {
       id: 'platform',
       title: '2. What RapidFix does',
       body: [
-        'RapidFix is a technology platform that connects customers with independent, verified service professionals ("Partners" or "Technicians") for home services such as AC, electrical, plumbing, carpentry, painting, cleaning, appliance, pest control, computer, vehicle care and salon-at-home services.',
+        'RapidFix is a technology platform that connects customers with independent, verified service professionals ("Partners" or "Technicians") for home services such as AC, electrical, plumbing, carpentry, painting, cleaning, appliance repair, CCTV, RO purifier, pest control and computer services.',
         'Partners are independent professionals, not employees of RapidFix. RapidFix verifies partners, facilitates bookings, payments and support, and works to resolve issues, but the service itself is performed by the partner.',
       ],
     },

@@ -15,4 +15,19 @@ describe('FCM message per device', () => {
     expect(m).toMatchObject({ notification: { title: msg.title }, webpush: { headers: { Urgency: 'high' } } });
     expect((m as { webpush: { fcm_options: { link: string } } }).webpush.fcm_options.link).toMatch(/\/technician$/);
   });
+
+  it('iPhone app gets an Apple alert that rings the chosen tone and expires with the offer', () => {
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+    const m = fcmMessage('tok', 'IOS', { ...msg, data: { ...msg.data, expiresAt } }) as unknown as {
+      apns: { headers: Record<string, string>; payload: { aps: Record<string, unknown> } };
+    };
+    expect(m).toMatchObject({ notification: { title: msg.title, body: msg.body } });
+    expect(m.apns.payload.aps).toMatchObject({ sound: 'rapidfix_alert.caf', 'interruption-level': 'time-sensitive' });
+    expect(m.apns.headers['apns-expiration']).toBe(String(Math.floor(Date.parse(expiresAt) / 1000)));
+    expect(m.apns.headers['apns-collapse-id']).toBe('job-b1');
+
+    const update = fcmMessage('tok', 'IOS', { title: 'Booking confirmed', body: 'x', data: { type: 'BOOKING' } }) as unknown as typeof m;
+    expect(update.apns.payload.aps).toMatchObject({ sound: 'default', 'interruption-level': 'active' });
+    expect(update.apns.headers).not.toHaveProperty('apns-expiration');
+  });
 });

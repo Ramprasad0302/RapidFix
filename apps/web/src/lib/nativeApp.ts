@@ -1,6 +1,6 @@
 /**
- * Bridge to the RapidFix Android app (android-app/). Inside the app the page
- * runs in the app's own WebView, which has no web push or Notification API —
+ * Bridge to the RapidFix apps (android-app/, ios-app/). Inside an app the page
+ * runs in the app's own web view, which has no web push or Notification API —
  * the app provides those natively through `window.RapidFixNative`.
  *
  *   page → app  {id, cmd, value}
@@ -10,7 +10,7 @@
 export type NativePermission = 'granted' | 'denied' | 'default';
 
 export interface NativeState {
-  platform: 'android';
+  platform: 'android' | 'ios';
   version: string;
   permission: NativePermission;
   token: string | null;
@@ -22,6 +22,8 @@ export interface NativeState {
 }
 
 interface NativeChannel {
+  /** Set by the iPhone app's bridge; the Android bridge has none. */
+  platform?: 'ios';
   postMessage(message: string): void;
   addEventListener(type: 'message', listener: (e: MessageEvent<string>) => void): void;
 }
@@ -34,8 +36,11 @@ const pending = new Map<string, (result: unknown) => void>();
 const listeners = new Set<(e: NativeEvent) => void>();
 let seq = 0;
 
-/** True inside the RapidFix Android app. */
+/** True inside the RapidFix Android or iPhone app. */
 export const isNativeApp = () => !!channel;
+
+/** Which app the page runs in (null in a browser). */
+export const nativePlatform = (): NativeState['platform'] | null => (channel ? (channel.platform === 'ios' ? 'ios' : 'android') : null);
 
 function readCache(): NativeState | null {
   try {
@@ -49,7 +54,7 @@ function readCache(): NativeState | null {
 let state: NativeState | null = channel ? readCache() : null;
 
 function setState(next: Partial<NativeState>) {
-  state = { platform: 'android', version: '', permission: 'default', token: null, batteryRestricted: false, ...state, ...next };
+  state = { platform: nativePlatform() ?? 'android', version: '', permission: 'default', token: null, batteryRestricted: false, ...state, ...next };
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(state));
   } catch {

@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
 import { addressSchema, type AddressInput } from '@fixora/shared-utils';
 import { cx } from '@fixora/ui';
+import { usePincodeFill } from '../../../lib/usePincodeFill';
 
 type FormIn = z.input<typeof addressSchema>;
 
@@ -81,6 +82,14 @@ export function AddressForm({
   });
   const e = form.formState.errors;
   const label = useWatch({ control: form.control, name: 'label' });
+  const pincode = useWatch({ control: form.control, name: 'pincode' });
+  // District and state come from the pincode — no need to type them.
+  const pin = usePincodeFill(pincode, (info, changed) => {
+    const opts = { shouldValidate: form.formState.isSubmitted };
+    if (info.district && (changed || !form.getValues('district'))) form.setValue('district', info.district, opts);
+    if (STATES.includes(info.state) && (changed || !form.getValues('state'))) form.setValue('state', info.state, opts);
+    if (info.block && !form.getValues('villageTown')) form.setValue('villageTown', info.block, opts);
+  });
 
   return (
     <form
@@ -98,21 +107,21 @@ export function AddressForm({
       <Field label="Village / Town" required error={e.villageTown?.message}>
         <input className={input(e.villageTown)} placeholder="e.g. Tanuku" autoComplete="address-level2" {...form.register('villageTown')} />
       </Field>
-      <Field label="District" required error={e.district?.message}>
-        <input className={input(e.district)} placeholder="e.g. West Godavari" {...form.register('district')} />
-      </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="State" required error={e.state?.message}>
-          <select className={input(e.state)} autoComplete="address-level1" {...form.register('state')}>
-            {STATES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Pincode" required error={e.pincode?.message}>
+        <Field label="Pincode" required error={e.pincode?.message ?? (pin.notFound ? 'Pincode not found — please check it' : undefined)}>
           <input className={input(e.pincode)} placeholder="e.g. 534211" inputMode="numeric" maxLength={6} autoComplete="postal-code" {...form.register('pincode')} />
         </Field>
+        <Field label="District" required error={e.district?.message} hint={pin.looking ? 'Finding district…' : 'Filled from your pincode'}>
+          <input className={input(e.district)} placeholder="Auto-filled" {...form.register('district')} />
+        </Field>
       </div>
+      <Field label="State" required error={e.state?.message}>
+        <select className={input(e.state)} autoComplete="address-level1" {...form.register('state')}>
+          {STATES.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+      </Field>
       <Field label="Landmark (Optional)" error={e.landmark?.message}>
         <input className={input(e.landmark)} placeholder="e.g. Near Bus Stand" {...form.register('landmark')} />
       </Field>

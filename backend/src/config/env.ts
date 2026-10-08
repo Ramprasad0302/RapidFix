@@ -27,6 +27,8 @@ const schema = z.object({
   // `console` prints codes to the log (development only — production refuses it); `msg91` sends SMS
   // from the server; `firebase` = Firebase phone auth in the app, verified here (needs FIREBASE_PROJECT_ID).
   OTP_PROVIDER: z.enum(['console', 'msg91', 'firebase']).default('console'),
+  /** App Store / Play review accounts (comma-separated +91… numbers): bookings skip payment and go to a demo technician. */
+  REVIEW_DEMO_PHONES: z.string().default('+919000012345'),
   OTP_API_KEY: z.string().optional().default(''),
   OTP_TEMPLATE_ID: z.string().optional().default(''),
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
@@ -35,6 +37,14 @@ const schema = z.object({
   OTP_MAX_PER_HOUR: z.coerce.number().int().positive().default(5),
 
   GOOGLE_MAPS_API_KEY: z.string().optional().default(''),
+  /** AI assistant. Gemini (free tier, Google AI Studio key) is used first, then Claude; with neither, the free built-in helper answers. */
+  GEMINI_API_KEY: z.string().optional().default(''),
+  GEMINI_MODEL: z.string().optional().default('gemini-flash-latest'),
+  GEMINI_API_URL: z.url().optional().default('https://generativelanguage.googleapis.com/v1beta'),
+  ANTHROPIC_API_KEY: z.string().optional().default(''),
+  ASSISTANT_MODEL: z.string().optional().default('claude-sonnet-5-5'),
+  /** Messages API endpoint (override only for a proxy or local testing). */
+  ASSISTANT_API_URL: z.url().optional().default('https://api.anthropic.com/v1/messages'),
 
   RAZORPAY_KEY_ID: z.string().optional().default(''),
   RAZORPAY_KEY_SECRET: z.string().optional().default(''),

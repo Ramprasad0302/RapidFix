@@ -23,6 +23,14 @@ enum Role {
   OPERATIONS
   SUPPORT
   FINANCE
+  /// Franchise manager ("sub-admin") for one town: sees only that franchise's bookings, technicians and customers.
+  FRANCHISE_ADMIN
+}
+
+enum FranchiseStatus {
+  ACTIVE
+  SUSPENDED
+  TERMINATED
 }
 
 enum UserStatus {
@@ -190,9 +198,12 @@ model User {
   notifications      Notification[]
   notificationTokens NotificationToken[]
   messages           Message[]
+  chatBlocks         ChatBlock[]
+  franchise          Franchise?             @relation("FranchiseManager")
+  franchisesCreated  Franchise[]            @relation("FranchiseCreatedBy")
   auditLogs          AuditLog[]
-  complaintsRaised   Complaint[]       @relation("ComplaintRaisedBy")
-  complaintsAssigned Complaint[]       @relation("ComplaintAssignedTo")
+  complaintsRaised   Complaint[]            @relation("ComplaintRaisedBy")
+  complaintsAssigned Complaint[]            @relation("ComplaintAssignedTo")
   statusChanges      BookingStatusHistory[]
 
   // One account per phone; admins change the role, never duplicate the person.
@@ -251,23 +262,27 @@ model AdminUser {
 // ─── Customers ───────────────────────────────────────────────────────────
 
 model Customer {
-  id           String   @id @default(uuid()) @db.Char(36)
-  userId       String   @unique @db.Char(36)
-  referralCode String   @unique @db.VarChar(16)
-  referredById String?  @db.Char(36)
+  id                   String   @id @default(uuid()) @db.Char(36)
+  userId               String   @unique @db.Char(36)
+  referralCode         String   @unique @db.VarChar(16)
+  referredById         String?  @db.Char(36)
   city                 String?  @db.VarChar(120)
   language             String   @default("en") @db.VarChar(8)
   notificationsEnabled Boolean  @default(true)
   marketingOptIn       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  /// Home franchise: the one that served this customer's first booking.
+  franchiseId          String?  @db.Char(36)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
+  franchise   Franchise?    @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   addresses   Address[]
   bookings    Booking[]
   reviews     Review[]
   couponUsage CouponUsage[]
 
+  @@index([franchiseId])
   @@map("customers")
 }
 
@@ -300,44 +315,48 @@ model Address {
 // ─── Service areas ───────────────────────────────────────────────────────
 
 model Location {
-  id        String   @id @default(uuid()) @db.Char(36)
-  name      String   @db.VarChar(120)
-  district  String   @db.VarChar(120)
-  state     String   @db.VarChar(80)
-  latitude  Float
-  longitude Float
-  radiusKm  Int      @default(15)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid()) @db.Char(36)
+  name        String   @db.VarChar(120)
+  district    String   @db.VarChar(120)
+  state       String   @db.VarChar(80)
+  latitude    Float
+  longitude   Float
+  radiusKm    Int      @default(15)
+  isActive    Boolean  @default(true)
+  /// The franchise that runs this locality (null = run directly by RapidFix).
+  franchiseId String?  @db.Char(36)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  franchise   Franchise?   @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
   bookings    Booking[]
   coupons     Coupon[]
   commissions Commission[]
 
   @@unique([name, district, state])
   @@index([isActive])
+  @@index([franchiseId])
   @@map("locations")
 }
 
 // ─── Catalogue ───────────────────────────────────────────────────────────
 
 model ServiceCategory {
-  id          String   @id @default(uuid()) @db.Char(36)
-  parentId    String?  @db.Char(36)
-  name        String   @db.VarChar(80)
-  slug        String   @unique @db.VarChar(80)
-  description String?  @db.VarChar(500)
-  iconKey     String   @db.VarChar(40)
+  id                String   @id @default(uuid()) @db.Char(36)
+  parentId          String?  @db.Char(36)
+  name              String   @db.VarChar(80)
+  slug              String   @unique @db.VarChar(80)
+  description       String?  @db.VarChar(500)
+  iconKey           String   @db.VarChar(40)
   /// e.g. "Service, Repair, Installation"
-  tagline     String   @default("") @db.VarChar(120)
+  tagline           String   @default("") @db.VarChar(120)
   /// e.g. "AC Technician" — how a skilled technician in this category is titled.
-  professionalTitle String @default("Technician") @db.VarChar(60)
-  imageUrl    String?  @db.VarChar(512)
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  professionalTitle String   @default("Technician") @db.VarChar(60)
+  imageUrl          String?  @db.VarChar(512)
+  sortOrder         Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   parent      ServiceCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children    ServiceCategory[] @relation("CategoryTree")
@@ -372,10 +391,11 @@ model Service {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  category    ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category    ServiceCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   bookings    Booking[]
   coupons     Coupon[]
   commissions Commission[]
+  technicians TechnicianService[]
 
   @@index([categoryId, isActive, sortOrder])
   @@index([isPopular, isActive])
@@ -420,12 +440,21 @@ model Technician {
   bankIfsc           String?            @db.VarChar(11)
   bankAccountEnc     String?            @db.VarChar(512)
   bankAccountLast4   String?            @db.VarChar(4)
+  /// Aadhaar: AES-256-GCM encrypted; only the last 4 digits are readable.
+  aadhaarEnc         String?            @db.VarChar(512)
+  aadhaarLast4       String?            @db.VarChar(4)
+  panNumber          String?            @db.VarChar(10)
+  /// The franchise this technician works under (null = RapidFix directly).
+  franchiseId        String?            @db.Char(36)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
+  franchise      Franchise?                @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
   user           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents      TechnicianDocument[]
   skills         TechnicianSkill[]
+  /// Specific services the technician does within their categories (none picked in a category = all of it).
+  services       TechnicianService[]
   bookings       Booking[]
   assignments    BookingAssignment[]
   additionalReqs BookingAdditionalCharge[]
@@ -436,6 +465,7 @@ model Technician {
 
   @@index([verificationStatus, isOnline])
   @@index([district, state])
+  @@index([franchiseId])
   @@map("technicians")
 }
 
@@ -468,26 +498,43 @@ model TechnicianSkill {
   @@map("technician_skills")
 }
 
+/// The services a technician picked within their skill categories, e.g. Appliance Repair → TV and
+/// washing machine only. A category with no picks means the technician does every service in it.
+model TechnicianService {
+  technicianId String   @db.Char(36)
+  serviceId    String   @db.Char(36)
+  createdAt    DateTime @default(now())
+
+  technician Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  service    Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([technicianId, serviceId])
+  @@index([serviceId])
+  @@map("technician_services")
+}
+
 // ─── Bookings ────────────────────────────────────────────────────────────
 
 model Booking {
-  id           String        @id @default(uuid()) @db.Char(36)
-  seq          Int           @unique @default(autoincrement())
-  code         String?       @unique @db.VarChar(20)
-  customerId   String        @db.Char(36)
-  serviceId    String        @db.Char(36)
-  addressId    String        @db.Char(36)
-  technicianId String?       @db.Char(36)
-  locationId   String?       @db.Char(36)
-  couponId     String?       @db.Char(36)
-  status       BookingStatus @default(PENDING)
-  description  String        @db.Text
-  photos       Json
-  videoUrl     String?       @db.VarChar(512)
-  technicianNotes String?    @db.VarChar(500)
-  scheduleType ScheduleType  @default(SCHEDULED)
-  scheduledFor DateTime
-  timeSlot     String        @db.VarChar(8)
+  id              String        @id @default(uuid()) @db.Char(36)
+  seq             Int           @unique @default(autoincrement())
+  code            String?       @unique @db.VarChar(20)
+  customerId      String        @db.Char(36)
+  serviceId       String        @db.Char(36)
+  addressId       String        @db.Char(36)
+  technicianId    String?       @db.Char(36)
+  locationId      String?       @db.Char(36)
+  /// Franchise that owns this booking (from its locality, fixed at booking time).
+  franchiseId     String?       @db.Char(36)
+  couponId        String?       @db.Char(36)
+  status          BookingStatus @default(PENDING)
+  description     String        @db.Text
+  photos          Json
+  videoUrl        String?       @db.VarChar(512)
+  technicianNotes String?       @db.VarChar(500)
+  scheduleType    ScheduleType  @default(SCHEDULED)
+  scheduledFor    DateTime
+  timeSlot        String        @db.VarChar(8)
   /// Address frozen at booking time so later edits don't rewrite history.
   addressSnapshot Json
   latitude        Float?
@@ -520,6 +567,7 @@ model Booking {
   address           Address                   @relation(fields: [addressId], references: [id], onDelete: Restrict)
   technician        Technician?               @relation(fields: [technicianId], references: [id], onDelete: SetNull)
   location          Location?                 @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  franchise         Franchise?                @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
   coupon            Coupon?                   @relation(fields: [couponId], references: [id], onDelete: SetNull)
   statusHistory     BookingStatusHistory[]
   assignments       BookingAssignment[]
@@ -528,6 +576,7 @@ model Booking {
   payment           Payment?
   review            Review?
   messages          Message[]
+  chatBlocks        ChatBlock[]
   complaints        Complaint[]
   couponUsage       CouponUsage?
   walletTxns        WalletTransaction[]
@@ -536,6 +585,7 @@ model Booking {
   @@index([technicianId, status])
   @@index([status, scheduledFor])
   @@index([createdAt])
+  @@index([franchiseId, createdAt])
   @@map("bookings")
 }
 
@@ -615,19 +665,19 @@ model BookingAdditionalCharge {
 // ─── Payments & money ────────────────────────────────────────────────────
 
 model Payment {
-  id              String        @id @default(uuid()) @db.Char(36)
-  bookingId       String        @unique @db.Char(36)
-  method          PaymentMethod
-  status          PaymentStatus @default(PENDING)
-  amount          Int
-  currency        String        @default("INR") @db.Char(3)
-  razorpayOrderId String?       @unique @db.VarChar(64)
-  razorpayPaymentId String?     @db.VarChar(64)
-  refundedAmount  Int           @default(0)
-  invoiceNumber   String?       @unique @db.VarChar(32)
-  paidAt          DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                String        @id @default(uuid()) @db.Char(36)
+  bookingId         String        @unique @db.Char(36)
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  amount            Int
+  currency          String        @default("INR") @db.Char(3)
+  razorpayOrderId   String?       @unique @db.VarChar(64)
+  razorpayPaymentId String?       @db.VarChar(64)
+  refundedAmount    Int           @default(0)
+  invoiceNumber     String?       @unique @db.VarChar(32)
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   booking      Booking              @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   transactions PaymentTransaction[]
@@ -847,6 +897,21 @@ model Message {
   @@map("messages")
 }
 
+/// One side of a booking's chat blocked the other (App Store guideline 1.2): the chat closes for
+/// both, and the blocker no longer sees the other person's messages or phone number.
+model ChatBlock {
+  bookingId String   @db.Char(36)
+  blockerId String   @db.Char(36)
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  blocker User    @relation(fields: [blockerId], references: [id], onDelete: Cascade)
+
+  @@id([bookingId, blockerId])
+  @@index([blockerId])
+  @@map("chat_blocks")
+}
+
 model Notification {
   id        String    @id @default(uuid()) @db.Char(36)
   userId    String    @db.Char(36)
@@ -926,4 +991,60 @@ model ServiceAreaInterest {
 
   @@index([createdAt])
   @@map("service_area_interest")
+}
+
+/// A franchise: one town (or several localities) run by a franchise manager under an agreement.
+model Franchise {
+  id                String          @id @default(uuid()) @db.Char(36)
+  code              String          @unique @db.VarChar(16)
+  name              String          @db.VarChar(120)
+  /// Main town / city the franchise was granted for.
+  town              String          @db.VarChar(120)
+  district          String          @db.VarChar(120)
+  state             String          @db.VarChar(80)
+  status            FranchiseStatus @default(ACTIVE)
+  /// The franchise manager's login (role FRANCHISE_ADMIN).
+  userId            String          @unique @db.Char(36)
+  ownerName         String          @db.VarChar(120)
+  ownerPhone        String          @db.VarChar(16)
+  ownerEmail        String?         @db.VarChar(191)
+  ownerDateOfBirth  DateTime?       @db.Date
+  ownerAddress      String          @db.VarChar(500)
+  ownerPincode      String          @db.VarChar(6)
+  /// Aadhaar: AES-256-GCM encrypted; only the last 4 digits are readable.
+  aadhaarEnc        String          @db.VarChar(512)
+  aadhaarLast4      String          @db.VarChar(4)
+  aadhaarFrontUrl   String          @db.VarChar(512)
+  aadhaarBackUrl    String?         @db.VarChar(512)
+  panNumber         String?         @db.VarChar(10)
+  panPhotoUrl       String?         @db.VarChar(512)
+  gstin             String?         @db.VarChar(15)
+  businessName      String?         @db.VarChar(160)
+  /// Franchise share of RapidFix's commission on bookings in its localities, per the agreement.
+  commissionPercent Decimal         @db.Decimal(5, 2)
+  agreementStart    DateTime        @db.Date
+  agreementEnd      DateTime?       @db.Date
+  agreementUrl      String?         @db.VarChar(512)
+  /// Security deposit in paise.
+  depositAmount     Int             @default(0)
+  bankAccountHolder String?         @db.VarChar(120)
+  bankIfsc          String?         @db.VarChar(11)
+  bankAccountEnc    String?         @db.VarChar(512)
+  bankAccountLast4  String?         @db.VarChar(4)
+  upiId             String?         @db.VarChar(80)
+  emergencyContact  String?         @db.VarChar(16)
+  notes             String?         @db.Text
+  createdById       String?         @db.Char(36)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  user        User         @relation("FranchiseManager", fields: [userId], references: [id], onDelete: Restrict)
+  createdBy   User?        @relation("FranchiseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  locations   Location[]
+  bookings    Booking[]
+  technicians Technician[]
+  customers   Customer[]
+
+  @@index([status])
+  @@map("franchises")
 }

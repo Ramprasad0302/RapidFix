@@ -1,0 +1,41 @@
+Hello App Review team,
+
+Thank you for reviewing RapidFix. The screen recording is attached (recorded in the iPhone simulator, see point 1), and all the requested information is below. We have also added it to the Notes field of App Review Information.
+
+RapidFix – Home Services: information for App Review (Guideline 2.1)
+
+1. SCREEN RECORDING
+Attached to our reply (RapidFix-App-Review-Recording.mp4, about 4.5 minutes). We do not currently have a physical iPhone available, so it was recorded in the iPhone 18 Pro simulator running iOS 27, using the same build submitted for review. It starts at app launch and shows sign-in with the demo account (the wait while the one-time code was entered is cut), booking AC Repair, the booking assigned to the demo technician, chat with Report and Block, the AI assistant ("Ask AI"), and the account deletion page (Profile > Delete my account). We did not confirm deletion in the video so the demo account keeps working for you.
+
+2. PURPOSE AND AUDIENCE
+RapidFix is a home-services marketplace for households in Andhra Pradesh, India (starting with Tanuku and nearby towns). Customers book verified local technicians for AC repair and servicing, electrical, plumbing, appliance repair, carpentry, cleaning, pest control and similar jobs. It helps people find a trustworthy technician quickly, with a clear price before booking and live job tracking. Verified technicians ("partners") use the same app to receive job alerts and manage their work.
+
+3. HOW TO TEST
+Sign in: tap Login, enter phone number 9000012345 (country code +91), tap Continue, then enter OTP 742913. This is a Firebase test number; no SMS is sent.
+- Home: choose a category, e.g. "AC & Cooling", then "AC Service".
+- Book: add a problem description, enter an address (any address works for this demo account; the district fills in from the pincode, e.g. 534211), choose "Book Now" or "Schedule for Later", review, and confirm. The demo account is never charged and needs no payment.
+- The demo account's bookings go straight to a demo technician ("Ravi (Demo Technician)"), never to real technicians, so you can see the assigned booking and the chat.
+- Bookings tab: open the booking to see status, price, timeline, and Chat. In the chat, the ⋮ menu has "Report" and "Block".
+- Help: the "Ask AI" button opens the AI assistant, which answers questions about services and bookings.
+- Account deletion: Profile tab > scroll down > "Delete my account" (type DELETE to confirm).
+- Technicians apply via "Become a RapidFix partner"; partner accounts are activated only after staff verify their ID, so the demo account is a customer account.
+
+4. EXTERNAL SERVICES
+- Firebase Authentication (phone-number OTP sign-in) and Firebase Cloud Messaging (job and booking notifications), by Google
+- Razorpay (payment processor for paying for real-world home services; no digital goods are sold, so In-App Purchase does not apply under guideline 3.1.3(e))
+- Google Maps Platform (maps, address lookup and technician location)
+- India Post public pincode directory (district and state from a pincode)
+- Google Gemini API (the in-app AI help assistant)
+- Hostinger (hosting for our API, website and database)
+
+5. REGIONAL DIFFERENCES
+The app is available in India only and works the same across India. Bookings can be placed only where RapidFix currently operates (Andhra Pradesh). Elsewhere the app says the area is not served yet and lets the user register interest.
+
+6. REGULATED INDUSTRY / THIRD-PARTY MATERIAL
+Home repair services are not a licensed or regulated industry in India, and the app contains no protected third-party content. Payments go through Razorpay, an RBI-authorised payment aggregator. RapidFix verifies every technician's government ID before they can receive jobs.
+
+USER-GENERATED CONTENT
+The only user content is the chat between a customer and the technician assigned to their booking, plus ratings after a job. Every chat has Report and Block (⋮ menu). Reports go to the RapidFix support team, who review them within 24 hours. Blocking closes the chat and hides the blocked person's messages and phone number. Support contact: support@rapidfix.in.
+
+Thank you,
+Dola Ram Prasad, Nirmaan Digital

@@ -2,6 +2,7 @@ import { BookingStatus } from '@fixora/shared-types';
 import { logger } from '../config/logger';
 import { prisma } from '../config/prisma';
 import { dispatchBooking, expireOffers } from '../services/assignment.service';
+import { cancelUnassignedBookings } from '../services/autoCancel.service';
 import { expireUnpaidBookings, syncOpenOrders } from '../services/payment.service';
 
 /** A booking with no candidates is retried at most this often. */
@@ -32,6 +33,8 @@ export function startDispatchWorker(intervalMs = 5000) {
       if (Date.now() - lastExpiry > 60_000) {
         lastExpiry = Date.now();
         await expireUnpaidBookings();
+        // No technician accepted within 30 minutes: cancel and refund.
+        await cancelUnassignedBookings();
       }
       const searching = await prisma.booking.findMany({
         where: { status: BookingStatus.SEARCHING },

@@ -1,3 +1,5 @@
+import { useAuth } from '../../../store/auth';
+import { ExportButtons } from './FranchisesPage';
 import { Fragment, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -359,6 +361,7 @@ export function ReportsPage() {
     placeholderData: keepPreviousData,
   });
   const r = report.data;
+  const isFranchise = useAuth((s) => s.user?.role === 'FRANCHISE_ADMIN');
 
   return (
     <div className="mx-auto max-w-[1440px]">
@@ -380,6 +383,10 @@ export function ReportsPage() {
           </>
         }
       />
+      <Card title={isFranchise ? 'Download your franchise data' : 'Download complete data'} className="mt-5">
+        <p className="mb-3 text-sm text-slate-500">Spreadsheets (CSV, opens in Excel). Bookings use the dates above; the others are everyone{isFranchise ? ' in your franchise' : ''}.</p>
+        <ExportButtons kinds={isFranchise ? ['bookings', 'technicians', 'customers', 'addresses'] : ['bookings', 'technicians', 'customers', 'addresses', 'franchises']} range={{ from: `${from}T00:00:00+05:30`, to: `${to}T23:59:59+05:30` }} />
+      </Card>
       {report.isError && !report.data && <ErrorState error={report.error} onRetry={() => void report.refetch()} />}
       {report.isPending && <Skeleton className="mt-6 h-96" />}
       {r && (
@@ -604,7 +611,7 @@ export function AuditLogsPage() {
         {logs.isError && !logs.data && <ErrorState error={logs.error} onRetry={() => void logs.refetch()} />}
         {logs.isPending && <Skeleton className="mt-4 h-72" />}
         {logs.data && (
-          <div className="-mx-5 mt-4 overflow-x-auto">
+          <div className="-mx-4 sm:-mx-5 mt-4 overflow-x-auto">
             <table className={cx('w-full min-w-[900px] text-left text-sm', logs.isFetching && 'opacity-70')}>
               <thead>
                 <tr className="border-y border-slate-100 bg-slate-50/70 text-[13px] text-slate-500">

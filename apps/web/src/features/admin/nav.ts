@@ -12,6 +12,7 @@ import {
   Settings2,
   Shapes,
   Star,
+  Store,
   UserCog,
   UserRound,
   UsersRound,
@@ -31,6 +32,7 @@ export interface AdminNavItem {
 
 export const MAIN_NAV: AdminNavItem[] = [
   { slug: '', label: 'Dashboard', icon: LayoutDashboard, permission: Permission.DASHBOARD_VIEW, description: 'Business overview' },
+  { slug: 'franchises', label: 'Franchises', icon: Store, permission: Permission.FRANCHISES_MANAGE, description: 'Franchise towns, managers, agreements, commission share and reports.' },
   { slug: 'bookings', label: 'Bookings', icon: CalendarCheck2, permission: Permission.BOOKINGS_MANAGE, description: 'Search bookings, assign or reassign technicians, cancel and resolve disputes.' },
   { slug: 'customers', label: 'Customers', icon: UserRound, permission: Permission.CUSTOMERS_MANAGE, description: 'Customer profiles, bookings, payments, suspend and reactivate.' },
   { slug: 'technicians', label: 'Technicians', icon: UsersRound, permission: Permission.TECHNICIANS_MANAGE, description: 'Approve documents, verify, suspend or block partners.' },
