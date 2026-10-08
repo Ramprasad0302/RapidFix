@@ -1,5 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { rm } from 'node:fs/promises';
 import { prisma } from '../src/config/prisma';
+import { privateFilePath } from '../src/services/storage.service';
 import { API, bearer, createStaff, otpLogin, partnerPayout, request, resetDb, seedCatalog } from './helpers';
 
 const png = Buffer.from(
@@ -70,7 +72,7 @@ describe('technician ID proofs', () => {
     await request().get(`${API}/files${front}`).set(bearer(ops.token)).expect(200);
 
     const revealed = await request().post(`${API}/admin/technicians/${tech.id}/aadhaar`).set(bearer(ops.token)).expect(200);
-    expect(revealed.body.data).toEqual({ aadhaar: '2345 6789 0124' });
+    expect(revealed.body.data).toEqual({ aadhaar: '2345 6789 0124', bankAccount: '123456789012' });
     expect(await prisma.auditLog.count({ where: { action: 'TECHNICIAN_AADHAAR_VIEWED', entityId: tech.id, actorId: ops.user.id } })).toBe(1);
     // Customers and support can't.
     const support = await createStaff('SUPPORT');
@@ -85,6 +87,25 @@ describe('technician ID proofs', () => {
     expect(notes[1]!.body).toContain('Photo is blurred');
     const after = await request().get(`${API}/admin/technicians?verification=PENDING`).set(bearer(ops.token)).expect(200);
     expect(after.body.data.items[0].pendingDocuments).toBe(0);
+  });
+
+  it('ID photos are kept in the database: they still open after the server disk copy is gone (redeploy)', async () => {
+    const fresh = await otpLogin('9000000063');
+    const front = await uploadPrivate(fresh.token);
+    const reg = await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner(), kycDocuments: [{ type: 'AADHAAR', fileUrl: front }] }).expect(201);
+    expect(await prisma.privateFile.count({ where: { path: front } })).toBe(1);
+    await rm(privateFilePath(front), { force: true });
+
+    const ops = await createStaff('OPERATIONS');
+    const res = await request().get(`${API}/files${front}`).set(bearer(ops.token)).expect(200);
+    expect(res.headers['content-type']).toMatch(/^image\/png/);
+    expect(Buffer.compare(res.body as Buffer, png)).toBe(0);
+    await request().get(`${API}/files${front}`).set(bearer(reg.body.data.accessToken)).expect(200);
+
+    // A file that's on neither (lost before this change) says so instead of failing silently.
+    await prisma.privateFile.delete({ where: { path: front } });
+    const gone = await request().get(`${API}/files${front}`).set(bearer(ops.token)).expect(404);
+    expect(gone.body.code).toBe('FILE_MISSING');
   });
 
   it("can't attach a file that already belongs to someone", async () => {

@@ -1074,3 +1074,16 @@ model Franchise {
   @@index([status])
   @@map("franchises")
 }
+
+/// Private uploads (Aadhaar, PAN, licences, franchise agreements) kept in the database, so they
+/// survive redeploys and every server instance can serve them. The disk copy is only a fallback.
+model PrivateFile {
+  /// Same "/private/YYYY/MM/<uuid>.<ext>" path the rest of the app stores.
+  path      String   @id @db.VarChar(191)
+  mime      String   @db.VarChar(60)
+  size      Int
+  data      Bytes    @db.LongBlob
+  createdAt DateTime @default(now())
+
+  @@map("private_files")
+}

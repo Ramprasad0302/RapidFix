@@ -12,7 +12,7 @@ import { Dialog } from './Dialog';
  */
 function usePrivateFileUrl(path: string) {
   const [url, setUrl] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
     let revoked = false;
     let objectUrl: string | null = null;
@@ -22,7 +22,11 @@ function usePrivateFileUrl(path: string) {
         if (revoked) URL.revokeObjectURL(u);
         else setUrl(u);
       })
-      .catch(() => !revoked && setFailed(true));
+      .catch((e: { code?: string; status?: number | null }) => {
+        if (revoked) return;
+        // Blob requests get no JSON error body, so a 404 is read from the status.
+        setFailed(e?.code === 'FILE_MISSING' || e?.status === 404 ? 'missing' : 'error');
+      });
     return () => {
       revoked = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -39,7 +43,12 @@ export function PrivateThumb({ path, className, label = 'Document' }: { path: st
   const [open, setOpen] = useState(false);
   const pdf = isPdf(path);
   const box = cx('flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-xs font-semibold text-slate-500', className);
-  if (failed) return <span className={box} title="Could not load this file">—</span>;
+  if (failed)
+    return (
+      <span className={cx(box, 'flex-col px-1 text-center text-[10px] leading-tight text-danger')} title={failed === 'missing' ? 'This file is no longer on the server — ask for it to be uploaded again.' : 'Could not load this file. Check your connection and reopen.'}>
+        {failed === 'missing' ? 'File missing — re-upload' : 'Couldn’t load'}
+      </span>
+    );
   if (!url) return <span className={box}><Spinner className="size-4" /></span>;
   return (
     <>

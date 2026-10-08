@@ -211,10 +211,11 @@ function TechnicianDrawer({ id }: { id: string }) {
   const [statusTo, setStatusTo] = useState<UserStatus | null>(null);
   const [editSkills, setEditSkills] = useState(false);
   const [rejectDoc, setRejectDoc] = useState<string | null>(null);
-  const [aadhaar, setAadhaar] = useState<string | null>(null);
+  const [full, setFull] = useState<{ aadhaar: string | null; bankAccount: string | null } | null>(null);
+  const aadhaar = full?.aadhaar ?? null;
   const reveal = useMutation({
     mutationFn: () => adminModulesApi.revealTechnicianAadhaar(id),
-    onSuccess: (r) => setAadhaar(r.aadhaar),
+    onSuccess: (r) => setFull(r),
     onError: (e) => toast(e.message, 'error'),
   });
 
@@ -344,9 +345,9 @@ function TechnicianDrawer({ id }: { id: string }) {
             <dt className="text-slate-500">Aadhaar number (given at sign-up)</dt>
             <dd className="flex flex-wrap items-center gap-2 font-semibold tracking-wide text-slate-900">
               {aadhaar ?? (t.kyc.aadhaarLast4 ? `XXXX XXXX ${t.kyc.aadhaarLast4}` : '—')}
-              {t.kyc.aadhaarLast4 && !aadhaar && (
+              {(t.kyc.aadhaarLast4 || t.payout.bankAccountLast4) && !full && (
                 <button onClick={() => reveal.mutate()} disabled={reveal.isPending} className="text-xs font-medium tracking-normal text-fixora-blue">
-                  {reveal.isPending ? 'Loading…' : 'Show full number'}
+                  {reveal.isPending ? 'Loading…' : 'Show full numbers'}
                 </button>
               )}
             </dd>
@@ -355,7 +356,7 @@ function TechnicianDrawer({ id }: { id: string }) {
             <dt className="text-slate-500">PAN</dt>
             <dd className="font-semibold tracking-wide text-slate-900">{t.kyc.panNumber ?? '—'}</dd>
           </div>
-          <p className="text-xs text-slate-500 sm:col-span-2">Match these numbers and the name with the card photos below before verifying. Viewing the full Aadhaar number is recorded in the audit log.</p>
+          <p className="text-xs text-slate-500 sm:col-span-2">Match these numbers and the name with the card photos below before verifying. Viewing the full Aadhaar and bank account numbers is recorded in the audit log.</p>
         </dl>
         {t.documents.length === 0 && <p className="text-sm text-slate-500">No ID proofs uploaded yet. The partner can upload them in the app under Profile → My Documents.</p>}
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -390,8 +391,24 @@ function TechnicianDrawer({ id }: { id: string }) {
             ['All time', formatINR(t.earnings.total)],
             ['Paid out', formatINR(t.earnings.totalPaidOut)],
             ['Wallet balance', <span key="b" className={t.earnings.balance < 0 ? 'text-danger' : ''}>{formatINR(t.earnings.balance)}</span>],
-            ['UPI', t.payout.upiId ?? '—'],
-            ['Bank', t.payout.bankAccountLast4 ? `•••• ${t.payout.bankAccountLast4} · ${t.payout.bankIfsc ?? ''}` : '—'],
+            ['UPI ID', t.payout.upiId ?? 'Not given'],
+            ['Account holder', t.payout.bankAccountHolder ?? '—'],
+            [
+              'Bank account',
+              t.payout.bankAccountLast4 ? (
+                <span key="acc" className="inline-flex flex-wrap items-center justify-end gap-2">
+                  <span className="font-semibold tracking-wide">{full?.bankAccount ?? `•••• ${t.payout.bankAccountLast4}`}</span>
+                  {!full && (
+                    <button onClick={() => reveal.mutate()} disabled={reveal.isPending} className="text-xs font-medium text-fixora-blue">
+                      {reveal.isPending ? 'Loading…' : 'Show full'}
+                    </button>
+                  )}
+                </span>
+              ) : (
+                '—'
+              ),
+            ],
+            ['IFSC', t.payout.bankIfsc ?? '—'],
           ]}
         />
       </Section>

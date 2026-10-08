@@ -147,6 +147,20 @@ ALTER TABLE \`booking_spare_parts\` ADD CONSTRAINT \`booking_spare_parts_booking
 ALTER TABLE \`booking_spare_parts\` ADD CONSTRAINT \`booking_spare_parts_technicianId_fkey\` FOREIGN KEY (\`technicianId\`) REFERENCES \`technicians\`(\`id\`) ON DELETE CASCADE ON UPDATE CASCADE;
 `;
 
+/** Same SQL as prisma/migrations/20261008140000_private_files. */
+const PRIVATE_FILES_SQL = `-- ID proofs and other private uploads stored in the database (they used to live only on the server disk, which a redeploy can wipe).
+-- CreateTable
+CREATE TABLE \`private_files\` (
+    \`path\` VARCHAR(191) NOT NULL,
+    \`mime\` VARCHAR(60) NOT NULL,
+    \`size\` INTEGER NOT NULL,
+    \`data\` LONGBLOB NOT NULL,
+    \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (\`path\`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+`;
+
 /** MySQL errors that mean "this part is already there": duplicate column / key / table / foreign key. */
 const ALREADY_APPLIED = new Set([1050, 1060, 1061, 1826, 1022]);
 
@@ -220,6 +234,7 @@ export async function runStartupTasks() {
     ['franchises schema', () => applyIdempotent(FRANCHISES_SQL)],
     ['technician KYC columns', () => applyIdempotent(TECHNICIAN_KYC_SQL)],
     ['spare parts schema', () => applyIdempotent(SPARE_PARTS_SQL)],
+    ['private files table', () => applyIdempotent(PRIVATE_FILES_SQL)],
     ['home address is not a live position', clearNonGpsPositions],
     ['discontinued categories', removeDiscontinuedCategories],
     ['Technician Visit services', ensureVisitServices],
@@ -234,4 +249,4 @@ export async function runStartupTasks() {
 }
 
 /** For tests: the start-up SQL must match the migration files. */
-export const startupSql = { technicianServices: TECHNICIAN_SERVICES_TABLE, chatBlocks: CHAT_BLOCKS_TABLE, franchises: FRANCHISES_SQL, technicianKyc: TECHNICIAN_KYC_SQL, spareParts: SPARE_PARTS_SQL };
+export const startupSql = { technicianServices: TECHNICIAN_SERVICES_TABLE, chatBlocks: CHAT_BLOCKS_TABLE, franchises: FRANCHISES_SQL, technicianKyc: TECHNICIAN_KYC_SQL, spareParts: SPARE_PARTS_SQL, privateFiles: PRIVATE_FILES_SQL };

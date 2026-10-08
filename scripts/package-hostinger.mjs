@@ -32,6 +32,14 @@ const zipDir = (file, cwd) => {
 
 console.log('▸ Building website and API…');
 run('npm run build -w @fixora/web');
+// Phone sign-in (Firebase OTP) needs the VITE_FIREBASE_* values from apps/web/.env at build time (or
+// filled in public/config.js). A build without them can't send OTPs — stop instead of shipping it.
+{
+  const assets = path.join(root, 'apps/web/dist/assets');
+  const built = readdirSync(assets).some((f) => f.endsWith('.js') && /\.firebaseapp\.com/.test(readFileSync(path.join(assets, f), 'utf8')));
+  const runtime = /apiKey:\s*'[^']+'/.test(readFileSync(path.join(root, 'apps/web/dist/config.js'), 'utf8'));
+  if (!built && !runtime) throw new Error('Website built without Firebase settings — phone sign-in would fail. Add VITE_FIREBASE_* to apps/web/.env (see .env.example) and run again.');
+}
 run('npm run db:generate -w @fixora/backend');
 run('npm run build -w @fixora/backend');
 

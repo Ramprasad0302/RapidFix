@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { hasPermission, isAdminRole, Permission, Role } from '@fixora/shared-types';
 import { prisma } from '../config/prisma';
 import { authenticate, authOf } from '../middleware/auth';
-import { isOwnPrivatePath, privateFilePath } from '../services/storage.service';
+import { isOwnPrivatePath, readPrivateFile } from '../services/storage.service';
 import { AppError } from '../utils/AppError';
 
 /** Private KYC files: staff, or the technician who uploaded them. Never cached by shared caches. */
@@ -25,7 +25,9 @@ filesRouter.get('/private/{*rest}', authenticate(), async (req, res, next) => {
   } else if (!hasPermission(auth.role, Permission.FRANCHISES_MANAGE) && (await prisma.franchise.count({ where: franchiseDoc }))) {
     return next(AppError.notFound());
   }
+  const file = await readPrivateFile(p);
+  if (!file) return next(AppError.notFound('This file is no longer on the server. Please ask for it to be uploaded again.', 'FILE_MISSING'));
   res.set('Cache-Control', 'private, no-store');
   res.set('X-Content-Type-Options', 'nosniff');
-  res.sendFile(privateFilePath(p), (err) => err && next(AppError.notFound()));
+  res.type(file.mime).send(file.data);
 });

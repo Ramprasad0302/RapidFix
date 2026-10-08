@@ -384,7 +384,7 @@ export const adminModulesApi = {
     unwrap<Paged<AdminTechnicianRowDto>>(api.get('/admin/technicians', { params })),
   liveTechnicians: () => unwrap<AdminTechnicianRowDto[]>(api.get('/admin/technicians/live')),
   technician: (id: string) => unwrap<AdminTechnicianDetailDto>(api.get(`/admin/technicians/${id}`)),
-  revealTechnicianAadhaar: (id: string) => unwrap<{ aadhaar: string }>(api.post(`/admin/technicians/${id}/aadhaar`)),
+  revealTechnicianAadhaar: (id: string) => unwrap<{ aadhaar: string | null; bankAccount: string | null }>(api.post(`/admin/technicians/${id}/aadhaar`)),
   setVerification: (id: string, status: TechnicianVerificationStatus, reason?: string) =>
     unwrap<AdminTechnicianDetailDto>(api.post(`/admin/technicians/${id}/verification`, { status, reason })),
   setSkills: (id: string, categoryIds: string[]) => unwrap<AdminTechnicianDetailDto>(api.put(`/admin/technicians/${id}/skills`, { categoryIds })),

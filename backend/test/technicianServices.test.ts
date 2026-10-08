@@ -111,6 +111,7 @@ describe('Start-up catalogue upkeep', () => {
     expect(norm(migration('20261007120000_franchises'))).toBe(norm(startupSql.franchises));
     expect(norm(migration('20261007150000_technician_kyc'))).toBe(norm(startupSql.technicianKyc));
     expect(norm(migration('20261008090000_spare_parts'))).toBe(norm(startupSql.spareParts));
+    expect(norm(migration('20261008140000_private_files'))).toBe(norm(startupSql.privateFiles));
   });
 
   it('adds the franchise schema to a database that does not have it yet (like production)', async () => {

@@ -80,7 +80,9 @@ export async function deleteAccount(userId: string, ip?: string) {
   await revokeAllForUser(userId);
   // KYC files are removed from disk after the database change is safely committed.
   for (const d of documents) {
-    if (isOwnPrivatePath(d.fileUrl)) await unlink(privateFilePath(d.fileUrl)).catch(() => undefined);
+    if (!isOwnPrivatePath(d.fileUrl)) continue;
+    await prisma.privateFile.deleteMany({ where: { path: d.fileUrl } });
+    await unlink(privateFilePath(d.fileUrl)).catch(() => undefined);
   }
   await recordAudit({ actorId: userId, actorRole: user.role as Role, action: 'ACCOUNT_DELETED', entity: 'User', entityId: userId, ip }).catch((err) =>
     logger.warn({ err }, 'account deletion audit failed'),

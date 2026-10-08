@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { UploadResultDto } from '@fixora/shared-types';
 import { env } from '../config/env';
+import { prisma } from '../config/prisma';
 import { AppError } from '../utils/AppError';
 
 /**
@@ -48,9 +49,31 @@ export async function saveUpload(buf: Buffer, allowed: 'image' | 'any' | 'docume
   const now = new Date();
   const rel = path.posix.join(String(now.getFullYear()), String(now.getMonth() + 1).padStart(2, '0'), `${randomUUID()}.${type.ext}`);
   const abs = path.join(opts.private ? PRIVATE_UPLOAD_DIR : UPLOAD_DIR, rel);
+  if (opts.private) {
+    // ID proofs live in the database (a redeploy or a second server can't lose them); the disk copy is a spare.
+    await prisma.privateFile.create({ data: { path: PRIVATE_URL_PREFIX + rel, mime: MIME[type.ext] ?? 'application/octet-stream', size: buf.length, data: new Uint8Array(buf) } });
+    await mkdir(path.dirname(abs), { recursive: true })
+      .then(() => writeFile(abs, buf, { flag: 'wx' }))
+      .catch(() => undefined);
+    return { path: PRIVATE_URL_PREFIX + rel, kind: type.kind, size: buf.length };
+  }
   await mkdir(path.dirname(abs), { recursive: true });
   await writeFile(abs, buf, { flag: 'wx' });
   return { path: (opts.private ? PRIVATE_URL_PREFIX : UPLOAD_URL_PREFIX) + rel, kind: type.kind, size: buf.length };
+}
+
+const MIME: Record<string, string> = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp', pdf: 'application/pdf' };
+
+/** A private file's bytes: from the database, else the disk copy (files uploaded before they were kept in the database). */
+export async function readPrivateFile(p: string): Promise<{ mime: string; data: Buffer } | null> {
+  const row = await prisma.privateFile.findUnique({ where: { path: p }, select: { mime: true, data: true } });
+  if (row) return { mime: row.mime, data: Buffer.from(row.data) };
+  try {
+    const ext = p.split('.').pop() ?? '';
+    return { mime: MIME[ext] ?? 'application/octet-stream', data: await readFile(privateFilePath(p)) };
+  } catch {
+    return null;
+  }
 }
 
 export const isOwnPrivatePath = (p: string) => /^\/private\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp|pdf)$/.test(p);

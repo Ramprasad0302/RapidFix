@@ -280,12 +280,18 @@ export async function reviewDocument(actor: Actor, documentId: string, status: '
   await audit(actor, 'DOCUMENT_REVIEWED', 'TechnicianDocument', documentId, undefined, { status, remarks }, ip);
 }
 
-/** Full Aadhaar number given at sign-up, to match against the uploaded card. Every view is audited. */
+/**
+ * Full Aadhaar and bank account numbers given at sign-up — to match against the uploaded card and
+ * to pay the partner. Every view is audited.
+ */
 export async function revealTechnicianAadhaar(actor: Actor, technicianId: string, ip?: string) {
-  const t = await prisma.technician.findUnique({ where: { id: technicianId }, select: { aadhaarEnc: true } });
+  const t = await prisma.technician.findUnique({ where: { id: technicianId }, select: { aadhaarEnc: true, bankAccountEnc: true } });
   if (!t) throw AppError.notFound('Technician not found', 'TECHNICIAN_NOT_FOUND');
-  if (!t.aadhaarEnc) throw AppError.notFound('No Aadhaar number on file', 'NO_AADHAAR');
-  await audit(actor, 'TECHNICIAN_AADHAAR_VIEWED', 'Technician', technicianId, undefined, undefined, ip);
-  const n = decryptField(t.aadhaarEnc);
-  return { aadhaar: `${n.slice(0, 4)} ${n.slice(4, 8)} ${n.slice(8)}` };
+  if (!t.aadhaarEnc && !t.bankAccountEnc) throw AppError.notFound('No Aadhaar or bank account number on file', 'NO_AADHAAR');
+  await audit(actor, 'TECHNICIAN_AADHAAR_VIEWED', 'Technician', technicianId, undefined, { bankAccount: !!t.bankAccountEnc }, ip);
+  const n = t.aadhaarEnc ? decryptField(t.aadhaarEnc) : null;
+  return {
+    aadhaar: n ? `${n.slice(0, 4)} ${n.slice(4, 8)} ${n.slice(8)}` : null,
+    bankAccount: t.bankAccountEnc ? decryptField(t.bankAccountEnc) : null,
+  };
 }
