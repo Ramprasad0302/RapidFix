@@ -258,6 +258,44 @@ def tone_piano(m):
     repeat(3.2, phrase)
 
 
+def flute(freq, dur):
+    """Bansuri-style flute: soft sine body, gentle vibrato and a breathy edge."""
+    n = int(dur * RATE)
+    rnd = random.Random(int(freq * 7))
+    out = []
+    phase = 0.0
+    lp = 0.0
+    for i in range(n):
+        t = i / RATE
+        env = min(1.0, t / 0.08) * min(1.0, (dur - t) / 0.15)
+        vib = 1 + 0.006 * math.sin(2 * math.pi * 5.2 * t) * min(1.0, t / 0.3)
+        phase += 2 * math.pi * freq * vib / RATE
+        lp += 0.12 * (rnd.uniform(-1, 1) - lp)
+        out.append(env * (math.sin(phase) + 0.18 * math.sin(2 * phase) + 0.05 * math.sin(3 * phase) + 0.22 * lp))
+    return out
+
+
+def tone_sitar(m):
+    seq = ['D4', 'F#4', 'A4', 'D5', 'C#5', 'A4', 'B4', 'A4']
+    def phrase(t0):
+        m.add(t0, pluck(note('D3'), 3.0, 0.998, bright=0.7), pan=0.0, gain=0.35)  # drone string
+        for i, n in enumerate(seq):
+            f = note(n)
+            m.add(t0 + i * 0.2, pluck(f, 1.6, 0.997, bright=0.8), pan=-0.35 + 0.1 * i, gain=0.5)
+            m.add(t0 + i * 0.2 + 0.004, pluck(f * 2.003, 1.2, 0.995, bright=0.8), pan=0.35 - 0.1 * i, gain=0.18)  # jawari buzz
+    repeat(3.0, phrase)
+
+
+def tone_flute(m):
+    seq = [('A4', 0.35), ('C#5', 0.35), ('E5', 0.6), ('F#5', 0.35), ('E5', 0.9)]
+    def phrase(t0):
+        t = t0
+        for i, (n, d) in enumerate(seq):
+            m.add(t, flute(note(n), d + 0.1), pan=(-0.2, 0.2)[i % 2], gain=0.6)
+            t += d
+    repeat(3.4, phrase)
+
+
 TONES = [
     ('marimba', tone_marimba),
     ('bells', tone_bells),
@@ -269,6 +307,8 @@ TONES = [
     ('urgent', tone_urgent),
     ('kalimba', tone_kalimba),
     ('piano', tone_piano),
+    ('sitar', tone_sitar),
+    ('flute', tone_flute),
 ]
 
 if __name__ == '__main__':

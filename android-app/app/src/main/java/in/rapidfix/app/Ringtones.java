@@ -43,6 +43,8 @@ final class Ringtones {
             {"urgent", "Urgent Alarm", R.raw.alert_urgent},
             {"kalimba", "Kalimba Drops", R.raw.alert_kalimba},
             {"piano", "Soft Piano", R.raw.alert_piano},
+            {"sitar", "Sitar Raga", R.raw.alert_sitar},
+            {"flute", "Bansuri Flute", R.raw.alert_flute},
     };
 
     private static MediaPlayer player;
