@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prisma } from '../src/config/prisma';
 import { dispatchBooking } from '../src/services/assignment.service';
 import { signAccessToken } from '../src/services/token.service';
-import { API, bearer, createStaff, otpLogin, partnerPayout, request, resetDb, sampleAddress, seedCatalog } from './helpers';
+import { aadhaarPhoto, API, bearer, createStaff, otpLogin, partnerPayout, request, resetDb, sampleAddress, seedCatalog } from './helpers';
 
 let serviceId: string;
 let categoryId: string;
@@ -322,10 +322,12 @@ describe('technician account', () => {
     await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner, dateOfBirth: '2015-01-01' }).expect(400);
     await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner, email: '' }).expect(400);
     // The alternate number is optional (the app sends null when it's left blank).
+    // The Aadhaar photo is mandatory.
+    await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send(partner).expect(400);
     const other = await otpLogin('9000000052');
-    await request().post(`${API}/partner/register`).set(bearer(other.token)).send({ ...partner, email: 'other@example.com', alternatePhone: null }).expect(201);
+    await request().post(`${API}/partner/register`).set(bearer(other.token)).send({ ...partner, email: 'other@example.com', alternatePhone: null, kycDocuments: await aadhaarPhoto(other.token) }).expect(201);
 
-    const res = await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send(partner).expect(201);
+    const res = await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner, kycDocuments: await aadhaarPhoto(fresh.token) }).expect(201);
     expect(res.body.data.user).toMatchObject({ role: 'TECHNICIAN', technician: { verificationStatus: 'PENDING' } });
     const details = await request().get(`${API}/technician/profile/details`).set(bearer(res.body.data.accessToken)).expect(200);
     expect(details.body.data).toMatchObject({ dateOfBirth: '1992-04-10', alternatePhone: '+919000000051', hasOwnTools: true, hasVehicle: false });

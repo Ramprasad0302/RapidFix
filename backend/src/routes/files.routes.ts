@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import { hasPermission, isAdminRole, Permission, Role } from '@fixora/shared-types';
 import { prisma } from '../config/prisma';
 import { authenticate, authOf } from '../middleware/auth';
@@ -8,8 +8,7 @@ import { AppError } from '../utils/AppError';
 /** Private KYC files: staff, or the technician who uploaded them. Never cached by shared caches. */
 export const filesRouter = Router();
 
-filesRouter.get('/private/{*rest}', authenticate(), async (req, res, next) => {
-  const p = `/private/${[req.params.rest].flat().join('/')}`;
+async function sendPrivateFile(p: string, req: Request, res: Response, next: NextFunction) {
   if (!isOwnPrivatePath(p)) return next(AppError.notFound());
   const auth = authOf(req);
   // Franchise KYC (Aadhaar, PAN, agreement): head office, or the franchise's own manager.
@@ -30,4 +29,18 @@ filesRouter.get('/private/{*rest}', authenticate(), async (req, res, next) => {
   res.set('Cache-Control', 'private, no-store');
   res.set('X-Content-Type-Options', 'nosniff');
   res.type(file.mime).send(file.data);
+}
+
+/**
+ * GET /files/private-file?path=/private/2026/10/<uuid>.jpg — what the apps use. The address doesn't
+ * end in .jpg/.png/.pdf: Hostinger's CDN treats such addresses as static files and answers the
+ * browser's CORS check itself (without allowing the Authorization header), so the photo never loads.
+ */
+filesRouter.get('/private-file', authenticate(), async (req, res, next) => {
+  await sendPrivateFile(typeof req.query.path === 'string' ? req.query.path : '', req, res, next);
+});
+
+/** Older address (kept for clients that still use it). */
+filesRouter.get('/private/{*rest}', authenticate(), async (req, res, next) => {
+  await sendPrivateFile(`/private/${[req.params.rest].flat().join('/')}`, req, res, next);
 });

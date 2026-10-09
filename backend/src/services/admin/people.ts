@@ -238,6 +238,9 @@ export async function setVerification(actor: Actor, technicianId: string, status
   if (status === 'VERIFIED') {
     const skills = await prisma.technicianSkill.count({ where: { technicianId } });
     if (!skills) throw AppError.badRequest('Add at least one skill before approving.', 'SKILLS_REQUIRED');
+    // ID proof is mandatory: an Aadhaar photo must have been seen and approved first.
+    const idProof = await prisma.technicianDocument.count({ where: { technicianId, type: 'AADHAAR', status: 'APPROVED' } });
+    if (!idProof) throw AppError.badRequest('Approve the partner’s Aadhaar photo before verifying them.', 'ID_PROOF_REQUIRED');
   }
   await prisma.$transaction(async (tx) => {
     await tx.technician.update({

@@ -29,6 +29,7 @@ import { firstName, formatDate, formatShortDate, formatTime, timeAgo } from '../
 import { useAuth } from '../../../store/auth';
 import { copyText } from '../../../store/toast';
 import { AssignDialog } from '../components/AssignDialog';
+import { LaunchControl } from '../components/LaunchControl';
 import { BOOKING_SERIES, Card, CATEGORY_COLORS, OTHERS_COLOR } from '../components/Card';
 import { axis, ChartTooltip, compactINR, Legend } from '../components/charts';
 import { ExportButtons, MyFranchiseBanner } from './FranchisesPage';
@@ -42,6 +43,7 @@ const RANGES: { value: DashboardRange; label: string; days: number }[] = [
 export function DashboardPage() {
   const name = useAuth((s) => s.user?.name);
   const isFranchise = useAuth((s) => s.user?.role === 'FRANCHISE_ADMIN');
+  const isSuperAdmin = useAuth((s) => s.user?.role === 'SUPER_ADMIN');
   const [range, setRange] = useState<DashboardRange>('7d');
   const dash = useQuery({ queryKey: ['admin', 'dashboard', range], queryFn: () => adminApi.dashboard(range), refetchInterval: 60_000, placeholderData: (p) => p });
   const [now] = useState(() => Date.now());
@@ -69,6 +71,8 @@ export function DashboardPage() {
           </select>
         </label>
       </div>
+
+      {isSuperAdmin && <LaunchControl />}
 
       {dash.isError && !dash.data && <ErrorState error={dash.error} onRetry={() => void dash.refetch()} />}
       {dash.isPending && (

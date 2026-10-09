@@ -66,6 +66,7 @@ export const ROUTES: RouteDoc[] = [
 
   // Uploads & files
   R('post', '/uploads', 'Files', 'Upload an image/video (multipart `file`). `?kind=image` restricts to images; `?private=1` stores a KYC document privately.', 'user'),
+  R('get', '/files/private-file', 'Files', 'A private KYC file (owner, their franchise manager or staff); ?path=/private/…', 'user', { query: ['path'] }),
   R('get', '/files/private/{path}', 'Files', 'Download a private KYC document (staff, or the technician who owns it)', 'user'),
 
   // Customer
@@ -166,6 +167,8 @@ export const ROUTES: RouteDoc[] = [
 
   // Admin
   R('get', '/admin/dashboard', 'Admin', 'KPIs and charts', 'staff:dashboard:view', { query: ['range'] }),
+  R('get', '/admin/launch', 'Admin · Platform', 'Launch event mode (opening screen) — Super Admin', 'staff:*'),
+  R('put', '/admin/launch', 'Admin · Platform', 'Switch the launch opening screen on/off for every visitor — Super Admin', 'staff:*', { body: obj({ enabled: { type: 'boolean' }, headline: str, subline: str }, ['enabled']) }),
   R('get', '/admin/users', 'Admin · Users', 'All users with roles', 'staff:users:manage', { query: ['q', 'role', 'page', 'pageSize'] }),
   R('patch', '/admin/users/{id}/role', 'Admin · Users', 'Change role (staff roles need Super Admin)', 'staff:users:manage', { body: obj({ role: str }) }),
   R('post', '/admin/users/{id}/status', 'Admin · Users', 'Suspend / block / reactivate (permission follows the target: customers → support, technicians → operations, staff → super admin)', 'staff:*', {

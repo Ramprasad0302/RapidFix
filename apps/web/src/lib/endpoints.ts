@@ -78,6 +78,14 @@ import type { AddressInput, FranchiseFormInput } from '@fixora/shared-utils';
 import { unwrap } from '@fixora/web-core';
 import { api } from './api';
 
+/** Launch event opening screen (Super Admin switch). */
+export interface LaunchStateDto {
+  enabled: boolean;
+  headline: string;
+  subline: string;
+  id: string;
+}
+
 /** Every API call the app makes, typed end to end. */
 
 // ─── Auth ────────────────────────────────────────────────────────────────
@@ -110,7 +118,7 @@ export const catalogApi = {
 export const trustApi = {
   stats: () => unwrap<PublicStatsDto>(api.get('/stats/public')),
   reviews: () => unwrap<FeaturedReviewDto[]>(api.get('/reviews/featured')),
-  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string; otpProvider: 'server' | 'firebase'; onlinePayments?: boolean; bookingAdvance?: number; assistant?: boolean; autoCancelMinutes?: number }>(api.get('/app-config')),
+  appConfig: () => unwrap<{ supportPhone: string; supportEmail: string; otpProvider: 'server' | 'firebase'; onlinePayments?: boolean; bookingAdvance?: number; assistant?: boolean; autoCancelMinutes?: number; launch?: LaunchStateDto }>(api.get('/app-config')),
 };
 
 // ─── Geocoding (server-side proxy) ───────────────────────────────────────
@@ -264,7 +272,9 @@ export const partnerApi = {
 
 /** Private KYC file → object URL (the request carries the access token; files are never public). */
 export async function fetchPrivateFile(path: string) {
-  const res = await api.get<Blob>(`/files${path}`, { responseType: 'blob' });
+  // A query string, not /files/private/…/x.jpg: Hostinger's CDN treats addresses ending in .jpg as
+  // static files and blocks the signed-in request for them.
+  const res = await api.get<Blob>('/files/private-file', { params: { path }, responseType: 'blob' });
   return URL.createObjectURL(res.data);
 }
 
@@ -384,6 +394,8 @@ export const adminModulesApi = {
     unwrap<Paged<AdminTechnicianRowDto>>(api.get('/admin/technicians', { params })),
   liveTechnicians: () => unwrap<AdminTechnicianRowDto[]>(api.get('/admin/technicians/live')),
   technician: (id: string) => unwrap<AdminTechnicianDetailDto>(api.get(`/admin/technicians/${id}`)),
+  launch: () => unwrap<LaunchStateDto>(api.get('/admin/launch')),
+  setLaunch: (body: { enabled: boolean; headline?: string; subline?: string }) => unwrap<LaunchStateDto>(api.put('/admin/launch', body)),
   revealTechnicianAadhaar: (id: string) => unwrap<{ aadhaar: string | null; bankAccount: string | null }>(api.post(`/admin/technicians/${id}/aadhaar`)),
   setVerification: (id: string, status: TechnicianVerificationStatus, reason?: string) =>
     unwrap<AdminTechnicianDetailDto>(api.post(`/admin/technicians/${id}/verification`, { status, reason })),

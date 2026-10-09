@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '../src/config/prisma';
 import { clearNonGpsPositions } from '../src/services/startupTasks';
-import { API, bearer, createTechnician, otpLogin, partnerPayout, request, resetDb, seedCatalog } from './helpers';
+import { aadhaarPhoto, API, bearer, createTechnician, otpLogin, partnerPayout, request, resetDb, seedCatalog } from './helpers';
 import { signAccessToken } from '../src/services/token.service';
 
 let categoryId: string;
@@ -18,6 +18,7 @@ describe('technician live location', () => {
       .post(`${API}/partner/register`)
       .set(bearer(fresh.token))
       .send({
+        kycDocuments: await aadhaarPhoto(fresh.token),
         name: 'Ramesh',
         email: 'ramesh@example.com',
         dateOfBirth: '1991-03-03',

@@ -4,6 +4,7 @@ import { ADMIN_ROLES, Role } from '@fixora/shared-types';
 import { CenteredSpinner } from '../components/States';
 import { AreaFrame, CustomerArea, RequireRole, StripCustomerPrefix } from './guards';
 import { RouteError } from './RouteError';
+import { LaunchGate } from '../components/LaunchGate';
 
 /** Code-split route: each page loads only when first visited. */
 function page<M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M): Pick<RouteObject, 'lazy'> {
@@ -24,7 +25,9 @@ export const router = createBrowserRouter([
     element: (
       <>
         <ScrollRestoration />
-        <Outlet />
+        <LaunchGate>
+          <Outlet />
+        </LaunchGate>
       </>
     ),
     errorElement: <RouteError />,

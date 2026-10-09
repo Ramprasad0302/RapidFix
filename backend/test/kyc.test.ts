@@ -80,13 +80,25 @@ describe('technician ID proofs', () => {
 
     // Approve one, reject the other with a reason: the technician is told either way.
     const [a, p] = [detail.body.data.documents.find((d: { type: string }) => d.type === 'AADHAAR'), detail.body.data.documents.find((d: { type: string }) => d.type === 'PAN')];
+    await request().post(`${API}/admin/technicians/${tech.id}/verification`).set(bearer(ops.token)).send({ status: 'VERIFIED' }).expect(400);
     await request().post(`${API}/admin/technicians/documents/${a.id}`).set(bearer(ops.token)).send({ status: 'APPROVED' }).expect(200);
     await request().post(`${API}/admin/technicians/documents/${p.id}`).set(bearer(ops.token)).send({ status: 'REJECTED', remarks: 'Photo is blurred' }).expect(200);
+    // The apps fetch through ?path= (Hostinger's CDN blocks signed-in requests to addresses ending in .jpg).
+    const viaQuery = await request().get(`${API}/files/private-file`).query({ path: front }).set(bearer(ops.token)).expect(200);
+    expect(Buffer.compare(viaQuery.body as Buffer, png)).toBe(0);
+    expect(viaQuery.headers['cache-control']).toBe('private, no-store');
+    await request().get(`${API}/files/private-file`).query({ path: front }).expect(401);
+    await request().get(`${API}/files/private-file`).query({ path: '/etc/passwd' }).set(bearer(ops.token)).expect(404);
+
+    // Verified only once an Aadhaar photo has been approved (PAN alone isn't enough).
+    const verify = () => request().post(`${API}/admin/technicians/${tech.id}/verification`).set(bearer(ops.token)).send({ status: 'VERIFIED' });
     const notes = await prisma.notification.findMany({ where: { userId: tech.userId, type: 'VERIFICATION' }, orderBy: { createdAt: 'asc' } });
     expect(notes.map((n) => n.title)).toEqual(['Document approved', 'Document needs attention']);
     expect(notes[1]!.body).toContain('Photo is blurred');
     const after = await request().get(`${API}/admin/technicians?verification=PENDING`).set(bearer(ops.token)).expect(200);
     expect(after.body.data.items[0].pendingDocuments).toBe(0);
+    await verify().expect(200);
+    expect((await prisma.technician.findUniqueOrThrow({ where: { id: tech.id } })).verificationStatus).toBe('VERIFIED');
   });
 
   it('ID photos are kept in the database: they still open after the server disk copy is gone (redeploy)', async () => {
@@ -106,6 +118,14 @@ describe('technician ID proofs', () => {
     await prisma.privateFile.delete({ where: { path: front } });
     const gone = await request().get(`${API}/files${front}`).set(bearer(ops.token)).expect(404);
     expect(gone.body.code).toBe('FILE_MISSING');
+  });
+
+  it('registration needs an Aadhaar photo', async () => {
+    const fresh = await otpLogin('9000000064');
+    await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send(partner()).expect(400);
+    const pan = await uploadPrivate(fresh.token);
+    const res = await request().post(`${API}/partner/register`).set(bearer(fresh.token)).send({ ...partner(), kycDocuments: [{ type: 'PAN', fileUrl: pan }] }).expect(400);
+    expect(res.body.code).toBe('AADHAAR_PHOTO_REQUIRED');
   });
 
   it("can't attach a file that already belongs to someone", async () => {

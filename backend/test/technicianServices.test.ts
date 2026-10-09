@@ -4,7 +4,7 @@ import { prisma } from '../src/config/prisma';
 import { clearSettingsCache } from '../src/services/settings.service';
 import { applyIdempotent, removeDiscontinuedCategories, runStartupTasks, startupSql } from '../src/services/startupTasks';
 import { signAccessToken } from '../src/services/token.service';
-import { API, bearer, createTechnician, otpLogin, partnerPayout, request, resetDb, seedCatalog } from './helpers';
+import { aadhaarPhoto, API, bearer, createTechnician, otpLogin, partnerPayout, request, resetDb, seedCatalog } from './helpers';
 
 const svc = (categoryId: string, name: string, slug: string) =>
   prisma.service.create({ data: { categoryId, name, slug, description: 'x', basePrice: 29_900, durationMinMinutes: 30, durationMaxMinutes: 60, inclusions: [], exclusions: [] } });
@@ -32,6 +32,7 @@ describe('Services a technician does', () => {
       .post(`${API}/partner/register`)
       .set(bearer(fresh.token))
       .send({
+        kycDocuments: await aadhaarPhoto(fresh.token),
         name: 'Appliance Partner',
         email: 'appliance@example.com',
         dateOfBirth: '1990-01-01',

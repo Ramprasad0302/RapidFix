@@ -8,6 +8,7 @@ import { requestCurrentPosition, useLocationStore } from '../store/location';
 import { LocationPicker } from '../features/customer/components/LocationPicker';
 import { Dialog } from './Dialog';
 import { NotificationAskDialog } from './NotificationAskDialog';
+import { usePopupsAllowed } from '../lib/popupHold';
 
 type State = 'granted' | 'denied' | 'prompt' | 'unsupported';
 const GEO_KEY = 'rapidfix.permissionsAsked';
@@ -104,8 +105,9 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
   const needNotif = notif === 'prompt' && notificationsSupported();
   const askGeo = needGeo && !geoDismissed;
   const askNotif = needNotif && !notifDismissed;
-  const open = geo !== null && askGeo;
-  const notifOpen = geo !== null && !askGeo && askNotif;
+  const popupsAllowed = usePopupsAllowed();
+  const open = popupsAllowed && geo !== null && askGeo;
+  const notifOpen = popupsAllowed && geo !== null && !askGeo && askNotif;
 
   const close = () => {
     askedOnce(GEO_KEY, true);

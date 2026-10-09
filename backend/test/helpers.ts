@@ -149,3 +149,13 @@ export const partnerPayout = {
   aadhaarNumber: '234567890124', // synthetic, passes the Verhoeff check
   panNumber: '',
 };
+
+/** A tiny PNG, uploaded privately as the sign-up Aadhaar photo (mandatory for partner registration). */
+const ID_PHOTO = Buffer.from(
+  '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4a60000000049454e44ae426082',
+  'hex',
+);
+export async function aadhaarPhoto(token: string) {
+  const res = await request().post(`${API}/uploads?private=1`).set(bearer(token)).attach('file', ID_PHOTO, 'aadhaar.png');
+  return [{ type: 'AADHAAR' as const, fileUrl: res.body.data.path as string }];
+}

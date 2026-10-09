@@ -301,6 +301,10 @@ export async function registerPartner(userId: string, input: PartnerRegistration
   const categories = await prisma.serviceCategory.findMany({ where: { id: { in: input.skills }, isActive: true }, select: { id: true } });
   if (!categories.length) throw AppError.badRequest('Choose at least one service you provide', 'SKILLS_REQUIRED');
   const kycDocuments = input.kycDocuments ?? [];
+  // A photo of the Aadhaar card is mandatory: the verification team must see it.
+  if (!kycDocuments.some((d) => d.type === 'AADHAAR')) {
+    throw AppError.badRequest('Add a photo of your Aadhaar card (front) to register.', 'AADHAAR_PHOTO_REQUIRED');
+  }
   for (const d of kycDocuments) await assertFreshPrivateFile(d.fileUrl);
   const services = await pickableServices(categories.map((c) => c.id), input.serviceIds);
 

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import * as serviceArea from '../services/serviceArea.service';
 import { prisma } from '../config/prisma';
 import { recordAudit } from '../services/audit.service';
@@ -14,6 +14,7 @@ import * as platform from '../services/admin/platform';
 import { refundPayment } from '../services/payment.service';
 import * as scoped from '../services/franchiseScope';
 import * as franchises from '../services/franchise.service';
+import * as launch from '../services/launch.service';
 import { EXPORT_KINDS, exportCsv } from '../services/exports.service';
 import { franchiseSchema } from '@fixora/shared-utils';
 import { AppError } from '../utils/AppError';
@@ -262,6 +263,16 @@ r.get('/reports', requirePermission(Permission.REPORTS_VIEW), validate(z.object(
   ok(res, await platform.report(from, to, sc(res)));
 });
 
+/** Launch event mode (opening screen for every visitor) — Super Admin only. */
+const superAdminOnly: RequestHandler = (req, _res, next) =>
+  next(authOf(req).role === 'SUPER_ADMIN' ? undefined : AppError.forbidden('Only the Super Admin can change launch mode.', 'SUPER_ADMIN_ONLY'));
+r.get('/launch', superAdminOnly, async (_req, res) => ok(res, await launch.launchState()));
+r.put(
+  '/launch',
+  superAdminOnly,
+  validate(z.object({ enabled: z.boolean(), headline: z.string().trim().max(80).optional(), subline: z.string().trim().max(200).optional() })),
+  async (req, res) => ok(res, await launch.setLaunch(authOf(req), req.body, req.ip)),
+);
 r.get('/settings', requirePermission(Permission.SETTINGS_MANAGE), async (_req, res) => ok(res, await platform.getSettings()));
 
 // ─── Franchises (head office) and the franchise manager's own view ──────
