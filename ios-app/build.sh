@@ -19,7 +19,7 @@ rm -rf "${WEB:?}"; mkdir -p "$WEB"
 rsync -a --exclude '.htaccess' --exclude '*.map' ../build/hostinger-frontend/public/ "$WEB/"
 node ../scripts/catalog-snapshot.mjs > "$WEB/catalog-snapshot.json"
 
-# 2. Job-alert tones: the Android pack, cut to 29 s (Apple plays notification sounds up to 30 s) as IMA4 .caf.
+# 2. Job-alert tones: the Android pack, cut to 29 s (Apple plays notification sounds up to 30 s) as 48 kHz stereo 16-bit PCM .caf (full studio quality).
 python3 ../android-app/tools/make_ringtones.py >/dev/null
 mkdir -p Resources/Sounds
 TMP=$(mktemp -d)
@@ -35,7 +35,7 @@ with wave.open(src) as r, wave.open(dst, 'wb') as w:
     n = min(r.getnframes(), int(r.getframerate() * 29))
     w.writeframes(r.readframes(n))
 PY
-  afconvert -f caff -d ima4 "$TMP/$name.wav" "$caf"
+  afconvert -f caff -d LEI16@48000 "$TMP/$name.wav" "$caf"
 done
 rm -rf "$TMP"
 

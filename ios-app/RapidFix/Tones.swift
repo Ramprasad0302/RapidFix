@@ -27,6 +27,8 @@ enum Tones {
         ("urgent", "Urgent Alarm", "alert_urgent"),
         ("kalimba", "Kalimba Drops", "alert_kalimba"),
         ("piano", "Soft Piano", "alert_piano"),
+        ("sitar", "Sitar Raga", "alert_sitar"),
+        ("flute", "Bansuri Flute", "alert_flute"),
     ]
 
     private static var player: AVAudioPlayer?

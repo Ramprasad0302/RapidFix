@@ -12,8 +12,8 @@ packages:
     from: 12.19.0
 settings:
   base:
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.5.13"
+    CURRENT_PROJECT_VERSION: "26"
 targets:
   RapidFix:
     type: application
