@@ -9,6 +9,7 @@ import { LocationPicker } from '../features/customer/components/LocationPicker';
 import { Dialog } from './Dialog';
 import { NotificationAskDialog } from './NotificationAskDialog';
 import { usePopupsAllowed } from '../lib/popupHold';
+import { isPublicView } from '../lib/publicView';
 
 type State = 'granted' | 'denied' | 'prompt' | 'unsupported';
 const GEO_KEY = 'rapidfix.permissionsAsked';
@@ -105,7 +106,8 @@ export function PermissionsSheet({ location }: { location: 'customer' | 'technic
   const needNotif = notif === 'prompt' && notificationsSupported();
   const askGeo = needGeo && !geoDismissed;
   const askNotif = needNotif && !notifDismissed;
-  const popupsAllowed = usePopupsAllowed();
+  // The launch-event laptop (staff viewing the public site) never gets these questions on the big screen.
+  const popupsAllowed = usePopupsAllowed() && !isPublicView();
   const open = popupsAllowed && geo !== null && askGeo;
   const notifOpen = popupsAllowed && geo !== null && !askGeo && askNotif;
 

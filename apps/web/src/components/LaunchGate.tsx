@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
+import { isAdminRole } from '@fixora/shared-types';
 import { useQuery } from '@tanstack/react-query';
 import { trustApi } from '../lib/endpoints';
 import { holdPopups } from '../lib/popupHold';
+import { setPublicView } from '../lib/publicView';
+import { useAuth } from '../store/auth';
 
 /**
  * Launch event mode. When the Super Admin switches it on (Admin → Dashboard → Launch event),
@@ -14,7 +17,10 @@ import { holdPopups } from '../lib/popupHold';
  * the login page, terms, privacy and account deletion.
  */
 const OPENED_KEY = 'rapidfix.launchOpened';
-const EXEMPT = [/^\/admin/, /^\/login/, /^\/delete-account/, /^\/terms/, /^\/privacy/];
+/** Legal pages stay public (app stores check them); admin pages and the staff sign-in stay reachable. */
+const EXEMPT = [/^\/admin/, /^\/delete-account/, /^\/terms/, /^\/privacy/];
+const isExempt = (pathname: string, search: string) =>
+  EXEMPT.some((r) => r.test(pathname)) || (pathname === '/login' && (new URLSearchParams(search).get('redirect') ?? '').startsWith('/admin'));
 
 function readOpened() {
   try {
@@ -25,7 +31,9 @@ function readOpened() {
 }
 
 export function LaunchGate({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const navigate = useNavigate();
+  const isStaff = useAuth((s) => s.status === 'authenticated' && !!s.user?.role && isAdminRole(s.user.role));
   const config = useQuery({ queryKey: ['app-config'], queryFn: trustApi.appConfig, staleTime: 10_000, refetchOnWindowFocus: true, refetchInterval: (q) => (q.state.data?.launch?.enabled ? 10_000 : 60_000) });
   const launch = config.data?.launch;
   const [opened, setOpened] = useState(readOpened);
@@ -34,7 +42,7 @@ export function LaunchGate({ children }: { children: ReactNode }) {
   // above everything else, so they mustn't appear over the launch screen.
   const [siteReady, setSiteReady] = useState(false);
 
-  const exempt = EXEMPT.some((r) => r.test(pathname));
+  const exempt = isExempt(pathname, search);
   const active = !!launch?.enabled && opened !== launch.id && phase !== 'done' && !exempt;
   // First visit with nothing saved yet: wait briefly for the setting, so the site doesn't flash
   // before the launch screen (never longer than 2.5 s, e.g. offline).
@@ -61,7 +69,15 @@ export function LaunchGate({ children }: { children: ReactNode }) {
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     // The site mounts behind the fading curtain; its own pop-ups wait until the reveal is over.
     holdPopups(reduce ? 800 : 3800);
-    window.setTimeout(() => setSiteReady(true), reduce ? 0 : 1200);
+    // Everyone lands on the public home page — signed-in staff too (not the admin area).
+    if (isStaff) setPublicView();
+    window.setTimeout(
+      () => {
+        if (pathname !== '/') navigate('/', { replace: true });
+        setSiteReady(true);
+      },
+      reduce ? 0 : 1200,
+    );
     window.setTimeout(
       () => {
         try {

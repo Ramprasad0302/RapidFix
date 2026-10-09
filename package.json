@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "RapidFix \u2014 Get it fixed. On-demand local services marketplace by Nirmaan Digital.",
+  "description": "RapidFix — Get it fixed. On-demand local services marketplace by Nirmaan Digital.",
   "workspaces": [
     "packages/*",
     "backend",
@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
+    "esbuild": "^0.28.2",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.0.0",
     "globals": "^16.0.0",
@@ -42,6 +43,10 @@
     "prisma@7.10.0": true
   },
   "overrides": {
-    "mariadb": "3.4.7"
+    "mariadb": "3.5.4",
+    "mysql2": "^3.24.5",
+    "deepmerge-ts": "^8.0.2",
+    "@grpc/grpc-js": "^1.14.6",
+    "esbuild": "^0.28.2"
   }
 }
